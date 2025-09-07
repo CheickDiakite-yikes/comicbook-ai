@@ -76,9 +76,9 @@ export default function Editor() {
       const result = await aiService.generateFullPage(
         {
           title: project.title,
-          genre: project.genre,
-          description: project.description,
-          artStyle: project.artStyle,
+          genre: project.genre || undefined,
+          description: project.description || undefined,
+          artStyle: project.artStyle || undefined,
         },
         project.description || "",
         panelDescriptions
