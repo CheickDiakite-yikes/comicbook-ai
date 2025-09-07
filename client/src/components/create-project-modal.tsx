@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { X, Plus, Upload, Wand2, Palette } from "lucide-react";
+import { X, Plus, Upload, Wand2, Palette, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
+import { aiService } from "@/lib/ai-service";
 import type { Project } from "@shared/schema";
 
 interface CreateProjectModalProps {
@@ -54,6 +55,7 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedArtStyle, setSelectedArtStyle] = useState<string>("");
+  const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [characters, setCharacters] = useState([
     { name: "Captain Thunder", role: "Main Hero", bio: "A powerful superhero with lightning abilities, tall with silver hair and a blue cape. Always confident and protective of civilians." }
   ]);
@@ -108,6 +110,49 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
     const updated = [...characters];
     updated[index] = { ...updated[index], [field]: value };
     setCharacters(updated);
+  };
+
+  const handleGenerateScript = async () => {
+    try {
+      setIsGeneratingScript(true);
+      const formValues = form.getValues();
+      
+      if (!formValues.title || !formValues.description) {
+        toast({
+          title: "Missing Information",
+          description: "Please fill in title and description before generating a script.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const scriptResult = await aiService.generateScript({
+        title: formValues.title,
+        genre: formValues.genre || "Adventure",
+        description: formValues.description,
+        characters: characters.filter(char => char.name && char.role),
+        settings: [{ name: "Metro City", description: "A bustling metropolis with towering skyscrapers and busy streets." }],
+        pageCount: 5,
+        tone: formValues.genre || "Adventure",
+      });
+
+      // Update the script field with the generated content
+      form.setValue("script", scriptResult.script);
+      
+      toast({
+        title: "Script Generated!",
+        description: "A story script has been generated for your comic project.",
+      });
+    } catch (error) {
+      console.error("Error generating script:", error);
+      toast({
+        title: "Generation Failed",
+        description: "Failed to generate script. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingScript(false);
+    }
   };
 
   if (!open) return null;
@@ -285,9 +330,24 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
                   <Upload className="mr-2 h-4 w-4" />
                   Upload Script
                 </Button>
-                <Button type="button" variant="outline" data-testid="button-generate-script">
-                  <Wand2 className="mr-2 h-4 w-4" />
-                  Generate with AI
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={handleGenerateScript}
+                  disabled={isGeneratingScript}
+                  data-testid="button-generate-script"
+                >
+                  {isGeneratingScript ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="mr-2 h-4 w-4" />
+                      Generate with AI
+                    </>
+                  )}
                 </Button>
               </div>
               <FormField
