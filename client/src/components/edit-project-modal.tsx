@@ -89,10 +89,6 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
   // Fetch characters for this project
   const { data: characters = [] } = useQuery<Character[]>({
     queryKey: ["/api/projects", project.id, "characters"],
-    queryFn: async () => {
-      const response = await fetch(`/api/projects/${project.id}/characters`);
-      return response.json();
-    },
     enabled: open && !!project.id,
   });
 
