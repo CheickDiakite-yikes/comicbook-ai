@@ -643,25 +643,44 @@ export class GeminiService {
       }
     }
     
-    // CRITICAL TEXT SAFETY INSTRUCTIONS - MUST COME FIRST!
-    prompt += `🎯 TEXT SAFE ZONE RULE: ALL speech bubbles and text MUST be positioned at least 15% away from ALL edges (top, bottom, left, right). Keep text in the CENTER 70% of the panel. Never place speech bubbles near panel boundaries! `;
+    // ADAPTIVE TEXT SAFETY INSTRUCTIONS BASED ON PANEL SIZE!
+    if (request.panelContext?.dimensions) {
+      const dimensions = {
+        widthPx: request.panelContext.dimensions.width,
+        heightPx: request.panelContext.dimensions.height,
+        aspectRatio: request.panelContext.aspectRatio || 1,
+        areaPixels: request.panelContext.dimensions.width * request.panelContext.dimensions.height
+      };
+      
+      // Import functions for adaptive speech bubble optimization
+      const { generateSpeechBubbleInstructions } = require("../client/src/lib/speech-bubble-optimizer");
+      const adaptiveInstructions = generateSpeechBubbleInstructions(dimensions);
+      prompt += adaptiveInstructions;
+    } else {
+      // Fallback to conservative safe zone for unknown dimensions  
+      prompt += `🎯 TEXT SAFE ZONE RULE: ALL speech bubbles and text MUST be positioned at least 15% away from ALL edges (top, bottom, left, right). Keep text in the CENTER 75% of the panel. Never place speech bubbles near panel boundaries! `;
+    }
     
     prompt += `FULL-BLEED comic panel artwork with NO white borders, NO padding, NO frames. `;
     prompt += `The artwork must completely fill the ${request.panelContext?.aspectRatio ? `${request.panelContext.aspectRatio.toFixed(1)}:1` : ''} format from edge to edge. `;
     
     prompt += `Create a high-quality comic panel illustration: ${request.prompt}`;
 
-    // Add specific composition guidance based on panel shape with enhanced text placement
-    if (request.panelContext) {
-      const { aspectRatio, panelType } = request.panelContext;
+    // Add adaptive composition guidance based on panel dimensions and aspect ratio
+    if (request.panelContext?.dimensions && request.panelContext?.aspectRatio) {
+      const dimensions = {
+        widthPx: request.panelContext.dimensions.width,
+        heightPx: request.panelContext.dimensions.height,
+        aspectRatio: request.panelContext.aspectRatio,
+        areaPixels: request.panelContext.dimensions.width * request.panelContext.dimensions.height
+      };
       
-      if (aspectRatio && aspectRatio > 1.5) {
-        prompt += ". WIDE PANEL: Use horizontal composition. 🔴 CRITICAL: Position ALL speech bubbles in the CENTER horizontal strip (avoid left/right edges). Place text in the MIDDLE 60% of the panel width.";
-      } else if (aspectRatio && aspectRatio < 0.8) {
-        prompt += ". TALL PANEL: Use vertical composition. 🔴 CRITICAL: Position ALL speech bubbles in the CENTER vertical area (avoid top/bottom edges). Keep text in the MIDDLE 60% of the panel height.";
-      } else {
-        prompt += ". SQUARE PANEL: Use balanced composition. 🔴 CRITICAL: Position ALL speech bubbles in the CENTER SAFE ZONE - at least 20% away from all four edges.";
-      }
+      // Import functions for aspect ratio guidance
+      const { getAspectRatioGuidance, calculateOptimalSafeZone } = require("../client/src/lib/speech-bubble-optimizer");
+      const safeZone = calculateOptimalSafeZone(dimensions);
+      const aspectGuidance = getAspectRatioGuidance(request.panelContext.aspectRatio, safeZone);
+      
+      prompt += `. ${aspectGuidance}`;
     }
 
     // Add art style context
