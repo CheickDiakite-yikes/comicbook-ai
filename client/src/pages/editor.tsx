@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { aiService } from "@/lib/ai-service";
 import { comicLayouts } from "@/lib/comic-layouts";
-import { getPageAspectRatio, PAGE_ASPECT_RATIOS, calculateOptimalDimensions, getOptimalImageCSS } from "@/lib/aspect-ratio-utils";
+import { getPageAspectRatio, PAGE_ASPECT_RATIOS, calculateOptimalDimensions, getOptimalImageCSS, generateEnhancedPanelContext } from "@/lib/aspect-ratio-utils";
 import type { Project, Page, Panel } from "@shared/schema";
 
 export default function Editor() {
