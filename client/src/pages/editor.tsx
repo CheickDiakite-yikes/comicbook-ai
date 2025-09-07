@@ -41,6 +41,37 @@ export default function Editor() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Load existing panel data when page changes
+  useEffect(() => {
+    if (currentPage?.id) {
+      const loadPanelData = async () => {
+        try {
+          const panelsData = await apiRequest("GET", `/api/pages/${currentPage.id}/panels`);
+          const imageMap: {[key: number]: string} = {};
+          const backgroundMap: {[key: number]: string} = {};
+          
+          panelsData.forEach((panel: any) => {
+            if (panel.imageUrl) {
+              imageMap[panel.panelNumber] = panel.imageUrl;
+            }
+            // Note: backgroundUrl would be added here when we extend the schema
+          });
+          
+          setGeneratedImages(imageMap);
+          setGeneratedBackgrounds(backgroundMap);
+        } catch (error) {
+          console.error("Failed to load panel data:", error);
+        }
+      };
+      
+      loadPanelData();
+    } else {
+      // Clear images when no page is selected
+      setGeneratedImages({});
+      setGeneratedBackgrounds({});
+    }
+  }, [currentPage?.id]);
   
   // Close sidebar/panel editor on mobile when screen size changes
   useEffect(() => {
