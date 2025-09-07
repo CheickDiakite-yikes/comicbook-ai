@@ -92,7 +92,8 @@ export default function PanelEditor({
         // Save image to database
         try {
           // First check if panel exists, if not create it
-          const panels = await apiRequest("GET", `/api/pages/${currentPage.id}/panels`);
+          const panelsResponse = await fetch(`/api/pages/${currentPage.id}/panels`);
+          const panels = await panelsResponse.json();
           const existingPanel = panels.find((p: any) => p.panelNumber === selectedPanel);
           
           if (existingPanel) {
@@ -222,7 +223,8 @@ export default function PanelEditor({
       if (result.status === "completed" && result.imageUrl && selectedPanel && currentPage) {
         // Save regenerated image to database
         try {
-          const panels = await apiRequest("GET", `/api/pages/${currentPage.id}/panels`);
+          const panelsResponse = await fetch(`/api/pages/${currentPage.id}/panels`);
+          const panels = await panelsResponse.json();
           const existingPanel = panels.find((p: any) => p.panelNumber === selectedPanel);
           
           if (existingPanel) {
@@ -332,34 +334,47 @@ export default function PanelEditor({
                 data-testid="textarea-panel-prompt"
               />
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Button 
-                onClick={() => generatePanelMutation.mutate()}
-                disabled={!selectedPanel || generatePanelMutation.isPending}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
-                data-testid="button-generate-panel"
-              >
-                <Wand2 className="mr-1 h-4 w-4" />
-                {generatePanelMutation.isPending ? "Generating..." : "Generate"}
-              </Button>
-              <Button 
-                variant="secondary"
-                onClick={() => regeneratePanelMutation.mutate()}
-                disabled={!selectedPanel || regeneratePanelMutation.isPending}
-                data-testid="button-regenerate-panel"
-              >
-                <RotateCcw className="mr-1 h-4 w-4" />
-                {regeneratePanelMutation.isPending ? "Regenerating..." : "Regenerate"}
-              </Button>
+            <div className="space-y-2">
+              {/* Primary Actions Row */}
+              <div className="grid grid-cols-2 gap-2">
+                <Button 
+                  onClick={() => generatePanelMutation.mutate()}
+                  disabled={!selectedPanel || generatePanelMutation.isPending || !prompt.trim()}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90"
+                  data-testid="button-generate-panel"
+                >
+                  <Wand2 className="mr-1 h-4 w-4" />
+                  {generatePanelMutation.isPending ? "Generating..." : "Generate"}
+                </Button>
+                <Button 
+                  variant="secondary"
+                  onClick={() => regeneratePanelMutation.mutate()}
+                  disabled={!selectedPanel || regeneratePanelMutation.isPending}
+                  data-testid="button-regenerate-panel"
+                >
+                  <RotateCcw className="mr-1 h-4 w-4" />
+                  {regeneratePanelMutation.isPending ? "Regenerating..." : "Regenerate"}
+                </Button>
+              </div>
+              
+              {/* Background Generation - Full Width for Emphasis */}
               <Button 
                 variant="outline"
                 onClick={() => generateBackgroundMutation.mutate()}
                 disabled={!selectedPanel || isGeneratingBackground || !!generatedBackground}
+                className="w-full bg-gradient-to-r from-emerald-50 to-cyan-50 dark:from-emerald-900/20 dark:to-cyan-900/20 border-emerald-200 dark:border-emerald-700 hover:from-emerald-100 hover:to-cyan-100 dark:hover:from-emerald-800/30 dark:hover:to-cyan-800/30 font-medium text-emerald-700 dark:text-emerald-300"
                 data-testid="button-generate-background"
               >
-                <Cloud className="mr-1 h-4 w-4" />
-                {isGeneratingBackground ? "Creating..." : generatedBackground ? "Background Ready" : "Generate Background"}
+                <Cloud className="mr-2 h-4 w-4" />
+                {isGeneratingBackground ? "🎨 Creating Background..." : generatedBackground ? "🌟 Background Ready!" : "🎨 Generate Background"}
               </Button>
+              
+              {/* Helpful tip when no panel is selected */}
+              {!selectedPanel && (
+                <p className="text-xs text-muted-foreground text-center p-2 bg-muted/50 rounded">
+                  👆 Select a panel above to start generating
+                </p>
+              )}
             </div>
           </div>
         </div>
