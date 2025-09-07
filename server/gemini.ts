@@ -1,4 +1,4 @@
-import { GoogleGenAI, Modality } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -110,11 +110,8 @@ export class GeminiService {
       console.log(`Generating image for panel ${request.panelId} with prompt: ${contextualPrompt}`);
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash-preview-image-generation",
-        contents: [{ role: "user", parts: [{ text: contextualPrompt }] }],
-        config: {
-          responseModalities: [Modality.TEXT, Modality.IMAGE],
-        },
+        model: "gemini-2.5-flash-image-preview",
+        contents: contextualPrompt,
       });
 
       // Process the response to extract image data
@@ -180,11 +177,8 @@ export class GeminiService {
       console.log(`Generating background for panel ${request.panelId} with prompt: ${backgroundPrompt}`);
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash-preview-image-generation",
-        contents: [{ role: "user", parts: [{ text: backgroundPrompt }] }],
-        config: {
-          responseModalities: [Modality.TEXT, Modality.IMAGE],
-        },
+        model: "gemini-2.5-flash-image-preview",
+        contents: backgroundPrompt,
       });
 
       // COMPREHENSIVE DEBUGGING - Log the entire response structure
