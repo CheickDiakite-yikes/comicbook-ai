@@ -176,6 +176,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update page route - CRITICAL: This was missing!
+  app.put("/api/pages/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const page = await storage.getPage(req.params.id);
+      if (!page) {
+        return res.status(404).json({ message: "Page not found" });
+      }
+
+      const project = await storage.getProject(page.projectId);
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Parse and validate the update data
+      const updates = insertPageSchema.partial().parse(req.body);
+      console.log(`📝 UPDATING PAGE ${req.params.id}: layoutTemplate = "${updates.layoutTemplate}"`);
+      
+      const updatedPage = await storage.updatePage(req.params.id, updates);
+      if (!updatedPage) {
+        return res.status(404).json({ message: "Page not found" });
+      }
+
+      res.json(updatedPage);
+    } catch (error) {
+      console.error("Error updating page:", error);
+      res.status(400).json({ message: "Failed to update page" });
+    }
+  });
+
   // Delete page route
   app.delete("/api/pages/:id", isAuthenticated, async (req: any, res) => {
     try {
