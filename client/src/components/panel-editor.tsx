@@ -104,21 +104,25 @@ export default function PanelEditor({
               isGenerated: true,
               generationStatus: "completed"
             });
+            console.log("Panel updated successfully:", existingPanel.id);
           } else {
             // Create new panel
-            await apiRequest("POST", `/api/pages/${currentPage.id}/panels`, {
+            const newPanel = await apiRequest("POST", `/api/pages/${currentPage.id}/panels`, {
               panelNumber: selectedPanel,
               imageUrl: result.imageUrl,
               prompt: prompt,
               isGenerated: true,
               generationStatus: "completed"
             });
+            console.log("New panel created successfully:", newPanel);
           }
           
           // Update client state
           if (onImageGenerated) {
             onImageGenerated(selectedPanel, result.imageUrl);
           }
+          
+          console.log("Panel saved to database successfully");
         } catch (error) {
           console.error("Failed to save panel to database:", error);
           toast({
@@ -235,23 +239,32 @@ export default function PanelEditor({
               isGenerated: true,
               generationStatus: "completed"
             });
+            console.log("Panel regenerated and updated successfully:", existingPanel.id);
           } else {
             // Create new panel
-            await apiRequest("POST", `/api/pages/${currentPage.id}/panels`, {
+            const newPanel = await apiRequest("POST", `/api/pages/${currentPage.id}/panels`, {
               panelNumber: selectedPanel,
               imageUrl: result.imageUrl,
               prompt: prompt + " (regeneration)",
               isGenerated: true,
               generationStatus: "completed"
             });
+            console.log("New regenerated panel created successfully:", newPanel);
           }
           
           // Update client state
           if (onImageGenerated) {
             onImageGenerated(selectedPanel, result.imageUrl);
           }
+          
+          console.log("Regenerated panel saved to database successfully");
         } catch (error) {
           console.error("Failed to save regenerated panel to database:", error);
+          toast({
+            title: "Warning",
+            description: "Panel regenerated but failed to save to database.",
+            variant: "destructive",
+          });
         }
       }
       
