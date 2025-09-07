@@ -56,6 +56,8 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
   const queryClient = useQueryClient();
   const [selectedArtStyle, setSelectedArtStyle] = useState<string>("");
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+  const [isGeneratingCharacter, setIsGeneratingCharacter] = useState(false);
   const [characters, setCharacters] = useState([
     { name: "Captain Thunder", role: "Main Hero", bio: "A powerful superhero with lightning abilities, tall with silver hair and a blue cape. Always confident and protective of civilians." }
   ]);
@@ -155,6 +157,108 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
     }
   };
 
+  const handleGenerateDescription = async () => {
+    const formData = form.getValues();
+    if (!formData.title) {
+      toast({
+        title: "Missing Information",
+        description: "Please add a comic title first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingDescription(true);
+    
+    try {
+      const prompt = `Generate a compelling story description for a ${formData.genre || 'comic'} titled "${formData.title}". Create an engaging synopsis that introduces the world, main conflict, and tone. Keep it concise but exciting. 2-3 sentences.`;
+      
+      const response = await fetch("/api/generate-text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await response.json();
+      
+      form.setValue("description", data.text);
+      toast({
+        title: "Description Generated!",
+        description: "Story description created. Review and edit as needed.",
+      });
+    } catch (error) {
+      toast({
+        title: "Generation Failed",
+        description: "Unable to generate description. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingDescription(false);
+    }
+  };
+
+  const handleGenerateCharacter = async () => {
+    const formData = form.getValues();
+    if (!formData.title) {
+      toast({
+        title: "Missing Information",
+        description: "Please add a comic title first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingCharacter(true);
+    
+    try {
+      const prompt = `Generate a complete character for the ${formData.genre || 'comic'} story "${formData.title}".
+      ${formData.description ? `Story context: ${formData.description}` : ''}
+      
+      Create a well-rounded character that fits this world. Make them interesting and unique.
+      Respond with JSON: {"name": "Character name", "role": "Their role", "bio": "2-3 sentence bio with personality and background"}`;
+      
+      const response = await fetch("/api/generate-text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await response.json();
+      
+      try {
+        const characterData = JSON.parse(data.text);
+        setCharacters(prev => [...prev, {
+          name: characterData.name || "Generated Character",
+          role: characterData.role || "Character",
+          bio: characterData.bio || "A mysterious character with an unknown past.",
+        }]);
+        
+        toast({
+          title: "Character Generated!",
+          description: `${characterData.name || 'New character'} has been added to your cast.`,
+        });
+      } catch (parseError) {
+        // Fallback if JSON parsing fails
+        setCharacters(prev => [...prev, {
+          name: "Generated Character",
+          role: "Supporting Character", 
+          bio: data.text || "A mysterious character with an unknown past.",
+        }]);
+        
+        toast({
+          title: "Character Generated!",
+          description: "New character has been added to your cast.",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Generation Failed",
+        description: "Unable to generate character. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingCharacter(false);
+    }
+  };
+
   if (!open) return null;
 
   return (
@@ -219,7 +323,20 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Story Description</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Story Description</FormLabel>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGenerateDescription}
+                      disabled={isGeneratingDescription}
+                      data-testid="button-generate-description"
+                    >
+                      <Wand2 className="mr-1 h-3 w-3" />
+                      {isGeneratingDescription ? "Generating..." : "Generate with AI"}
+                    </Button>
+                  </div>
                   <FormControl>
                     <Textarea 
                       className="resize-none" 
@@ -264,15 +381,28 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Characters</h3>
-                <Button 
-                  type="button" 
-                  variant="outline"
-                  onClick={addCharacter}
-                  data-testid="button-add-character"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Character
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    type="button" 
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleGenerateCharacter}
+                    disabled={isGeneratingCharacter}
+                    data-testid="button-generate-character"
+                  >
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    {isGeneratingCharacter ? "Generating..." : "Generate with AI"}
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline"
+                    onClick={addCharacter}
+                    data-testid="button-add-character"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Character
+                  </Button>
+                </div>
               </div>
               
               <div className="space-y-4">
