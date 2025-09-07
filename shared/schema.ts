@@ -93,6 +93,64 @@ export const panels = pgTable("panels", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Structured Scripts table - Enhanced script system
+export const structuredScripts = pgTable("structured_scripts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => projects.id),
+  title: varchar("title").notNull(),
+  logline: text("logline"),
+  version: integer("version").default(1),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Script Pages table - Page-level script data
+export const scriptPages = pgTable("script_pages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  structuredScriptId: varchar("structured_script_id").notNull().references(() => structuredScripts.id),
+  pageNumber: integer("page_number").notNull(),
+  title: varchar("title"),
+  setting: text("setting").notNull(),
+  mood: varchar("mood"), // tense, lighthearted, dramatic, etc.
+  timeOfDay: varchar("time_of_day"), // morning, night, etc.
+  location: varchar("location"), // specific location name
+  weatherConditions: varchar("weather_conditions"), // sunny, rainy, etc.
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Script Panels table - Panel-level script data
+export const scriptPanels = pgTable("script_panels", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scriptPageId: varchar("script_page_id").notNull().references(() => scriptPages.id),
+  panelNumber: integer("panel_number").notNull(),
+  action: text("action").notNull(), // What happens in this panel
+  sceneDescription: text("scene_description").notNull(), // Visual description for AI
+  visualNotes: text("visual_notes"), // Art direction notes
+  characters: text("characters").array(), // Character names present in panel
+  mood: varchar("mood"), // panel-specific mood
+  cameraAngle: varchar("camera_angle"), // close-up, wide-shot, bird's-eye, etc.
+  shotType: varchar("shot_type"), // establishing, reaction, action, etc.
+  timing: varchar("timing"), // fast, slow, dramatic-pause, etc.
+  soundEffects: text("sound_effects").array(), // SFX for this panel
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Script Dialogue table - Dialogue with metadata
+export const scriptDialogue = pgTable("script_dialogue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scriptPanelId: varchar("script_panel_id").notNull().references(() => scriptPanels.id),
+  character: varchar("character").notNull(),
+  text: text("text").notNull(),
+  tone: varchar("tone"), // angry, whisper, shout, thought, etc.
+  bubbleType: varchar("bubble_type").default("speech"), // speech, thought, shout, whisper, caption
+  emotionalState: varchar("emotional_state"), // happy, sad, angry, surprised, etc.
+  orderIndex: integer("order_index").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   id: true,
