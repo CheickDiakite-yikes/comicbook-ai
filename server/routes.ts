@@ -139,6 +139,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update character route
+  app.put("/api/characters/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const character = await storage.getCharacter(req.params.id);
+      if (!character) {
+        return res.status(404).json({ message: "Character not found" });
+      }
+
+      const project = await storage.getProject(character.projectId);
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      const updates = insertCharacterSchema.partial().parse(req.body);
+      const updatedCharacter = await storage.updateCharacter(req.params.id, updates);
+      res.json(updatedCharacter);
+    } catch (error) {
+      console.error("Error updating character:", error);
+      res.status(400).json({ message: "Failed to update character" });
+    }
+  });
+
+  // Delete character route
+  app.delete("/api/characters/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const character = await storage.getCharacter(req.params.id);
+      if (!character) {
+        return res.status(404).json({ message: "Character not found" });
+      }
+
+      const project = await storage.getProject(character.projectId);
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      const success = await storage.deleteCharacter(req.params.id);
+      if (success) {
+        res.json({ success: true, message: "Character deleted successfully" });
+      } else {
+        res.status(404).json({ message: "Character not found" });
+      }
+    } catch (error) {
+      console.error("Error deleting character:", error);
+      res.status(500).json({ message: "Failed to delete character" });
+    }
+  });
+
   // Page routes
   app.post("/api/projects/:projectId/pages", isAuthenticated, async (req: any, res) => {
     try {

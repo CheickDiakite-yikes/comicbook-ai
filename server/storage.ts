@@ -33,6 +33,7 @@ export interface IStorage {
 
   // Character operations
   createCharacter(character: InsertCharacter): Promise<Character>;
+  getCharacter(id: string): Promise<Character | undefined>;
   getProjectCharacters(projectId: string): Promise<Character[]>;
   updateCharacter(id: string, updates: Partial<InsertCharacter>): Promise<Character | undefined>;
   deleteCharacter(id: string): Promise<boolean>;
@@ -150,6 +151,10 @@ export class MemStorage implements IStorage {
     };
     this.characters.set(character.id, character);
     return character;
+  }
+
+  async getCharacter(id: string): Promise<Character | undefined> {
+    return this.characters.get(id);
   }
 
   async getProjectCharacters(projectId: string): Promise<Character[]> {
@@ -321,6 +326,11 @@ export class DatabaseStorage implements IStorage {
   async createCharacter(characterData: InsertCharacter): Promise<Character> {
     const [character] = await db.insert(characters).values(characterData).returning();
     return character;
+  }
+
+  async getCharacter(id: string): Promise<Character | undefined> {
+    const [character] = await db.select().from(characters).where(eq(characters.id, id));
+    return character || undefined;
   }
 
   async getProjectCharacters(projectId: string): Promise<Character[]> {

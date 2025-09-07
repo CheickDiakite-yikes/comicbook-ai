@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { X, Palette, BookOpen, Users } from "lucide-react";
-import type { Project } from "@shared/schema";
+import { aiService } from "@/lib/ai-service";
+import { X, Palette, BookOpen, Users, Wand2, Upload, Plus, Edit, Trash2 } from "lucide-react";
+import type { Project, Character } from "@shared/schema";
 
 interface EditProjectModalProps {
   open: boolean;
@@ -28,6 +29,13 @@ const projectSchema = z.object({
   artStyle: z.string().optional(),
   script: z.string().optional(),
   canonRules: z.string().optional(),
+});
+
+const characterSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  role: z.string().optional(),
+  bio: z.string().optional(),
+  visualDescriptors: z.string().optional(),
 });
 
 type ProjectFormData = z.infer<typeof projectSchema>;
@@ -55,6 +63,12 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedArtStyle, setSelectedArtStyle] = useState<string>("");
+  const [activeTab, setActiveTab] = useState("basic");
+  const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+  const [newCharacter, setNewCharacter] = useState({ name: "", role: "", bio: "", visualDescriptors: "" });
+  const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
+  const [showCharacterForm, setShowCharacterForm] = useState(false);
+  // aiService is imported as a singleton
 
   const form = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema),
@@ -66,6 +80,16 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
       script: "",
       canonRules: "",
     },
+  });
+
+  // Fetch characters for this project
+  const { data: characters = [] } = useQuery<Character[]>({
+    queryKey: ["/api/projects", project.id, "characters"],
+    queryFn: async () => {
+      const response = await fetch(`/api/projects/${project.id}/characters`);
+      return response.json();
+    },
+    enabled: open && !!project.id,
   });
 
   // Initialize form with project data when modal opens
@@ -80,6 +104,7 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
         canonRules: project.canonRules || "",
       });
       setSelectedArtStyle(project.artStyle || "");
+      setActiveTab("basic");
     }
   }, [open, project, form]);
 
@@ -110,13 +135,98 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
     },
   });
 
+  // Character management mutations
+  const createCharacterMutation = useMutation({
+    mutationFn: async (characterData: typeof newCharacter) => {
+      const response = await apiRequest("POST", `/api/projects/${project.id}/characters`, characterData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "characters"] });
+      setNewCharacter({ name: "", role: "", bio: "", visualDescriptors: "" });
+      setShowCharacterForm(false);
+      toast({ title: "Character created", description: "New character added successfully!" });
+    },
+  });
+
+  const updateCharacterMutation = useMutation({
+    mutationFn: async ({ id, ...data }: Character) => {
+      const response = await apiRequest("PUT", `/api/characters/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "characters"] });
+      setEditingCharacter(null);
+      toast({ title: "Character updated", description: "Character updated successfully!" });
+    },
+  });
+
+  const deleteCharacterMutation = useMutation({
+    mutationFn: async (characterId: string) => {
+      await apiRequest("DELETE", `/api/characters/${characterId}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "characters"] });
+      toast({ title: "Character deleted", description: "Character removed successfully!" });
+    },
+  });
+
+  // Script generation mutation
+  const generateScriptMutation = useMutation({
+    mutationFn: async () => {
+      const scriptRequest = {
+        title: form.getValues("title"),
+        genre: form.getValues("genre") || "",
+        description: form.getValues("description") || "",
+        characters: characters.map(c => ({ name: c.name, role: c.role || "", bio: c.bio || "" })),
+        settings: [],
+        pageCount: 5,
+        tone: "engaging and visual",
+      };
+      return await aiService.generateScript(scriptRequest);
+    },
+    onSuccess: (response) => {
+      form.setValue("script", response.script);
+      setIsGeneratingScript(false);
+      toast({ title: "Script generated", description: "AI script has been generated successfully!" });
+    },
+    onError: () => {
+      setIsGeneratingScript(false);
+      toast({ title: "Error", description: "Failed to generate script. Please try again.", variant: "destructive" });
+    },
+  });
+
   const onSubmit = (data: ProjectFormData) => {
     updateProjectMutation.mutate(data);
   };
 
+  const handleGenerateScript = () => {
+    setIsGeneratingScript(true);
+    generateScriptMutation.mutate();
+  };
+
+  const handleCreateCharacter = () => {
+    createCharacterMutation.mutate(newCharacter);
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type === "text/plain") {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target?.result as string;
+        form.setValue("script", content);
+        toast({ title: "Script uploaded", description: "Script file has been uploaded successfully!" });
+      };
+      reader.readAsText(file);
+    } else {
+      toast({ title: "Error", description: "Please upload a valid text file.", variant: "destructive" });
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-xl font-semibold">Edit Project</DialogTitle>
@@ -126,9 +236,47 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
           </div>
         </DialogHeader>
         
+        {/* Tab Navigation */}
+        <div className="flex space-x-1 bg-muted p-1 rounded-lg">
+          <Button
+            type="button"
+            variant={activeTab === "basic" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setActiveTab("basic")}
+            className="flex-1"
+            data-testid="tab-basic"
+          >
+            <BookOpen className="mr-2 h-4 w-4" />
+            Basic Info
+          </Button>
+          <Button
+            type="button"
+            variant={activeTab === "characters" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setActiveTab("characters")}
+            className="flex-1"
+            data-testid="tab-characters"
+          >
+            <Users className="mr-2 h-4 w-4" />
+            Characters ({characters.length})
+          </Button>
+          <Button
+            type="button"
+            variant={activeTab === "script" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setActiveTab("script")}
+            className="flex-1"
+            data-testid="tab-script"
+          >
+            <Wand2 className="mr-2 h-4 w-4" />
+            Script & Story
+          </Button>
+        </div>
+        
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {activeTab === "basic" && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Basic Info */}
               <Card>
                 <CardContent className="p-4">
@@ -231,59 +379,264 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
                   </div>
                 </CardContent>
               </Card>
-            </div>
+              </div>
+            )}
 
-            {/* Story Content */}
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center mb-4">
-                  <Users className="mr-2 h-5 w-5 text-primary" />
-                  <h3 className="font-semibold">Story Content</h3>
+            {activeTab === "characters" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">Project Characters</h3>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowCharacterForm(true)}
+                    data-testid="button-add-character"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Character
+                  </Button>
                 </div>
-                <div className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="script"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Script</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Write your comic script or story outline here..."
-                            className="min-h-[120px]"
-                            {...field}
-                            data-testid="textarea-script"
+
+                {/* Character Form */}
+                {showCharacterForm && (
+                  <Card>
+                    <CardContent className="p-4">
+                      <h4 className="font-semibold mb-3">
+                        {editingCharacter ? "Edit Character" : "New Character"}
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Name</label>
+                          <Input
+                            value={editingCharacter ? editingCharacter.name : newCharacter.name}
+                            onChange={(e) => editingCharacter 
+                              ? setEditingCharacter({...editingCharacter, name: e.target.value})
+                              : setNewCharacter({...newCharacter, name: e.target.value})
+                            }
+                            placeholder="Character name"
+                            data-testid="input-character-name"
                           />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="canonRules"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Story Rules & Canon</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Define important rules, character traits, world-building details that should remain consistent..."
-                            className="min-h-[100px]"
-                            {...field}
-                            data-testid="textarea-canon-rules"
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Role</label>
+                          <Input
+                            value={editingCharacter ? editingCharacter.role || "" : newCharacter.role}
+                            onChange={(e) => editingCharacter 
+                              ? setEditingCharacter({...editingCharacter, role: e.target.value})
+                              : setNewCharacter({...newCharacter, role: e.target.value})
+                            }
+                            placeholder="Hero, Villain, Sidekick..."
+                            data-testid="input-character-role"
                           />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                        </div>
+                      </div>
+                      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Biography</label>
+                          <Textarea
+                            value={editingCharacter ? editingCharacter.bio || "" : newCharacter.bio}
+                            onChange={(e) => editingCharacter 
+                              ? setEditingCharacter({...editingCharacter, bio: e.target.value})
+                              : setNewCharacter({...newCharacter, bio: e.target.value})
+                            }
+                            placeholder="Character background and personality..."
+                            className="min-h-[80px]"
+                            data-testid="textarea-character-bio"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Visual Description</label>
+                          <Textarea
+                            value={editingCharacter ? editingCharacter.visualDescriptors || "" : newCharacter.visualDescriptors}
+                            onChange={(e) => editingCharacter 
+                              ? setEditingCharacter({...editingCharacter, visualDescriptors: e.target.value})
+                              : setNewCharacter({...newCharacter, visualDescriptors: e.target.value})
+                            }
+                            placeholder="Hair color, clothing, distinctive features..."
+                            className="min-h-[80px]"
+                            data-testid="textarea-character-visual"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex space-x-2 mt-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setShowCharacterForm(false);
+                            setEditingCharacter(null);
+                            setNewCharacter({ name: "", role: "", bio: "", visualDescriptors: "" });
+                          }}
+                          data-testid="button-cancel-character"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={editingCharacter 
+                            ? () => updateCharacterMutation.mutate(editingCharacter)
+                            : handleCreateCharacter
+                          }
+                          disabled={createCharacterMutation.isPending || updateCharacterMutation.isPending}
+                          data-testid="button-save-character"
+                        >
+                          {editingCharacter ? "Update" : "Create"} Character
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Characters List */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {characters.map((character) => (
+                    <Card key={character.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-semibold">{character.name}</h4>
+                            {character.role && (
+                              <p className="text-sm text-muted-foreground">{character.role}</p>
+                            )}
+                            {character.bio && (
+                              <p className="text-sm mt-2 line-clamp-2">{character.bio}</p>
+                            )}
+                          </div>
+                          <div className="flex space-x-1 ml-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setEditingCharacter(character);
+                                setShowCharacterForm(true);
+                              }}
+                              data-testid={`button-edit-character-${character.id}`}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteCharacterMutation.mutate(character.id)}
+                              disabled={deleteCharacterMutation.isPending}
+                              data-testid={`button-delete-character-${character.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
+
+                {characters.length === 0 && !showCharacterForm && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p>No characters yet. Add some characters to bring your story to life!</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "script" && (
+              <div className="space-y-6">
+                {/* Script Generation */}
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center">
+                        <Wand2 className="mr-2 h-5 w-5 text-primary" />
+                        <h3 className="font-semibold">AI Script Generation</h3>
+                      </div>
+                      <div className="flex space-x-2">
+                        <label htmlFor="script-upload" className="cursor-pointer">
+                          <input
+                            id="script-upload"
+                            type="file"
+                            accept=".txt"
+                            onChange={handleFileUpload}
+                            className="hidden"
+                            data-testid="input-script-upload"
+                          />
+                          <Button type="button" variant="outline" size="sm">
+                            <Upload className="mr-2 h-4 w-4" />
+                            Upload Script
+                          </Button>
+                        </label>
+                        <Button
+                          type="button"
+                          variant="default"
+                          size="sm"
+                          onClick={handleGenerateScript}
+                          disabled={isGeneratingScript}
+                          data-testid="button-generate-script"
+                        >
+                          <Wand2 className="mr-2 h-4 w-4" />
+                          {isGeneratingScript ? "Generating..." : "Generate Script"}
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Generate an AI-powered script based on your project details and characters, or upload your own script file.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Script Content */}
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="script"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Script</FormLabel>
+                            <FormControl>
+                              <Textarea 
+                                placeholder="Write your comic script or story outline here..."
+                                className="min-h-[200px]"
+                                {...field}
+                                data-testid="textarea-script"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="canonRules"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Story Rules & Canon</FormLabel>
+                            <FormControl>
+                              <Textarea 
+                                placeholder="Define important rules, character traits, world-building details that should remain consistent..."
+                                className="min-h-[120px]"
+                                {...field}
+                                data-testid="textarea-canon-rules"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
             {/* Actions */}
-            <div className="flex justify-end space-x-3">
+            <div className="flex justify-end space-x-3 pt-4 border-t">
               <Button type="button" variant="outline" onClick={onClose} data-testid="button-cancel">
                 Cancel
               </Button>
