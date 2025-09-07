@@ -14,9 +14,10 @@ interface PanelEditorProps {
   selectedPanel: number | null;
   project: Project;
   currentPage?: Page;
+  onImageGenerated?: (panelId: number, imageUrl: string) => void;
 }
 
-export default function PanelEditor({ selectedPanel, project, currentPage }: PanelEditorProps) {
+export default function PanelEditor({ selectedPanel, project, currentPage, onImageGenerated }: PanelEditorProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [prompt, setPrompt] = useState("A superhero flies over a bustling city at sunset, cape flowing in the wind...");
@@ -27,7 +28,7 @@ export default function PanelEditor({ selectedPanel, project, currentPage }: Pan
     mutationFn: async () => {
       if (!selectedPanel) throw new Error("No panel selected");
       
-      return await apiRequest("POST", "/api/generate-image", {
+      const response = await apiRequest("POST", "/api/generate-image", {
         prompt,
         panelId: selectedPanel,
         projectContext: {
@@ -37,16 +38,26 @@ export default function PanelEditor({ selectedPanel, project, currentPage }: Pan
           artStyle: project.artStyle,
         },
         characterContext: [], // Would be populated from project characters
+        styleOptions: {
+          artStyle: artStyle,
+        },
       });
+      
+      return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (result.status === "completed" && result.imageUrl && selectedPanel && onImageGenerated) {
+        onImageGenerated(selectedPanel, result.imageUrl);
+      }
+      
       toast({
         title: "Panel generated",
         description: "AI has generated an image for the selected panel.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/pages", currentPage?.id, "panels"] });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Panel generation failed:", error);
       toast({
         title: "Generation failed",
         description: "Failed to generate panel. Please try again.",
@@ -59,7 +70,7 @@ export default function PanelEditor({ selectedPanel, project, currentPage }: Pan
     mutationFn: async () => {
       if (!selectedPanel) throw new Error("No panel selected");
       
-      return await apiRequest("POST", "/api/generate-image", {
+      const response = await apiRequest("POST", "/api/generate-image", {
         prompt: prompt + " (regeneration)",
         panelId: selectedPanel,
         projectContext: {
@@ -69,14 +80,31 @@ export default function PanelEditor({ selectedPanel, project, currentPage }: Pan
           artStyle: project.artStyle,
         },
         characterContext: [],
+        styleOptions: {
+          artStyle: artStyle,
+        },
       });
+      
+      return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (result.status === "completed" && result.imageUrl && selectedPanel && onImageGenerated) {
+        onImageGenerated(selectedPanel, result.imageUrl);
+      }
+      
       toast({
         title: "Panel regenerated",
         description: "AI has created a new version of the panel.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/pages", currentPage?.id, "panels"] });
+    },
+    onError: (error) => {
+      console.error("Panel regeneration failed:", error);
+      toast({
+        title: "Regeneration failed",
+        description: "Failed to regenerate panel. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 

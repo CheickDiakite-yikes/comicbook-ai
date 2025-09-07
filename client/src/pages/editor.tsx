@@ -4,11 +4,15 @@ import { useParams, useLocation } from "wouter";
 import Navigation from "@/components/navigation";
 import Sidebar from "@/components/sidebar";
 import PanelEditor from "@/components/panel-editor";
+import LayoutChangeModal from "@/components/layout-change-modal";
+import ComicPageLayout from "@/components/comic-page-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Save, Download, ChevronLeft, ChevronRight, Wand2 } from "lucide-react";
+import { ArrowLeft, Save, Download, ChevronLeft, ChevronRight, Wand2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { aiService } from "@/lib/ai-service";
+import { comicLayouts } from "@/lib/comic-layouts";
 import type { Project, Page, Panel } from "@shared/schema";
 
 export default function Editor() {
@@ -18,6 +22,10 @@ export default function Editor() {
   const queryClient = useQueryClient();
   const [selectedPanel, setSelectedPanel] = useState<number | null>(null);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [currentLayout, setCurrentLayout] = useState("classic-grid");
+  const [showLayoutModal, setShowLayoutModal] = useState(false);
+  const [generatedImages, setGeneratedImages] = useState<{[key: number]: string}>({});
+  const [isGeneratingFullPage, setIsGeneratingFullPage] = useState(false);
 
   const { data: project } = useQuery<Project>({
     queryKey: ["/api/projects", projectId],
@@ -50,21 +58,71 @@ export default function Editor() {
 
   const generatePageMutation = useMutation({
     mutationFn: async () => {
-      // This would integrate with Nano Banana API
-      await apiRequest("POST", "/api/generate-image", {
-        prompt: "Generate full page layout",
-        panelId: "full-page",
-        projectContext: project,
+      if (!project) throw new Error("No project available");
+      
+      setIsGeneratingFullPage(true);
+      const layout = comicLayouts.find(l => l.id === currentLayout);
+      if (!layout) throw new Error("Layout not found");
+      
+      // Create panel descriptions based on project script or generate them
+      const panelDescriptions = [];
+      for (let i = 1; i <= layout.panelCount; i++) {
+        panelDescriptions.push({
+          panelNumber: i,
+          description: `Panel ${i}: Scene continues from the story of ${project.title}. ${project.description || 'Continue the narrative flow.'}`,
+        });
+      }
+      
+      const result = await aiService.generateFullPage(
+        {
+          title: project.title,
+          genre: project.genre,
+          description: project.description,
+          artStyle: project.artStyle,
+        },
+        project.description || "",
+        panelDescriptions
+      );
+      
+      // Update local state with generated images
+      const imageMap: {[key: number]: string} = {};
+      result.forEach((panelResult, index) => {
+        if (panelResult.status === "completed" && panelResult.imageUrl) {
+          imageMap[index + 1] = panelResult.imageUrl;
+        }
       });
+      setGeneratedImages(prev => ({ ...prev, ...imageMap }));
+      
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      const successCount = result.filter(r => r.status === "completed").length;
       toast({
-        title: "Page generated",
-        description: "AI has generated images for all panels on this page.",
+        title: "Page Generated!",
+        description: `Successfully generated ${successCount} of ${result.length} panels.`,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/pages", currentPage?.id, "panels"] });
+      setIsGeneratingFullPage(false);
+    },
+    onError: (error) => {
+      console.error("Full page generation failed:", error);
+      toast({
+        title: "Generation Failed",
+        description: "Failed to generate full page. Please try again.",
+        variant: "destructive",
+      });
+      setIsGeneratingFullPage(false);
     },
   });
+  
+  const handleLayoutChange = (layoutId: string) => {
+    setCurrentLayout(layoutId);
+    setGeneratedImages({}); // Clear existing images when layout changes
+    setShowLayoutModal(false);
+    toast({
+      title: "Layout Changed",
+      description: "Comic layout has been updated. Generate images to see the new layout.",
+    });
+  };
 
   if (!project) {
     return (
@@ -129,74 +187,16 @@ export default function Editor() {
               <div className="max-w-4xl mx-auto">
                 {/* Page Canvas */}
                 <div className="bg-white rounded-xl shadow-lg p-8 mb-6" style={{ aspectRatio: "8.5/11" }}>
-                  {/* Comic Page Layout - 6 Panel Grid */}
-                  <div className="w-full h-full grid grid-cols-3 grid-rows-3 gap-3">
-                    {/* Panel 1 - Large hero panel */}
-                    <div 
-                      className={`comic-panel col-span-2 row-span-1 bg-gradient-to-br from-chart-1/10 to-chart-2/10 rounded-lg flex items-center justify-center relative ${selectedPanel === 1 ? 'selected' : ''}`}
-                      onClick={() => setSelectedPanel(1)}
-                      data-testid="panel-1"
-                    >
-                      <div className="w-full h-full flex items-center justify-center">
-                        <p className="text-xs text-muted-foreground">Panel 1 - Click to generate</p>
-                      </div>
-                    </div>
-                    
-                    {/* Panel 2 - Character close-up */}
-                    <div 
-                      className={`comic-panel bg-gradient-to-br from-chart-3/10 to-chart-4/10 rounded-lg flex items-center justify-center relative ${selectedPanel === 2 ? 'selected' : ''}`}
-                      onClick={() => setSelectedPanel(2)}
-                      data-testid="panel-2"
-                    >
-                      <div className="w-full h-full flex items-center justify-center">
-                        <p className="text-xs text-muted-foreground">Panel 2</p>
-                      </div>
-                    </div>
-
-                    {/* Panel 3 - Action sequence */}
-                    <div 
-                      className={`comic-panel bg-gradient-to-br from-chart-5/10 to-destructive/10 rounded-lg flex items-center justify-center relative ${selectedPanel === 3 ? 'selected' : ''}`}
-                      onClick={() => setSelectedPanel(3)}
-                      data-testid="panel-3"
-                    >
-                      <div className="w-full h-full flex items-center justify-center">
-                        <p className="text-xs text-muted-foreground">Panel 3</p>
-                      </div>
-                    </div>
-
-                    {/* Panel 4 - Team assembly */}
-                    <div 
-                      className={`comic-panel col-span-2 bg-gradient-to-br from-chart-2/10 to-chart-4/10 rounded-lg flex items-center justify-center ${selectedPanel === 4 ? 'selected' : ''}`}
-                      onClick={() => setSelectedPanel(4)}
-                      data-testid="panel-4"
-                    >
-                      <div className="w-full h-full flex items-center justify-center">
-                        <p className="text-xs text-muted-foreground">Panel 4</p>
-                      </div>
-                    </div>
-
-                    {/* Panel 5 - Dialogue */}
-                    <div 
-                      className={`comic-panel bg-muted rounded-lg flex items-center justify-center ${selectedPanel === 5 ? 'selected' : ''}`}
-                      onClick={() => setSelectedPanel(5)}
-                      data-testid="panel-5"
-                    >
-                      <div className="text-center p-4">
-                        <p className="text-xs text-muted-foreground">Panel 5 - Click to generate</p>
-                      </div>
-                    </div>
-
-                    {/* Panel 6 - Final panel */}
-                    <div 
-                      className={`comic-panel bg-gradient-to-br from-chart-1/10 to-chart-3/10 rounded-lg flex items-center justify-center ${selectedPanel === 6 ? 'selected' : ''}`}
-                      onClick={() => setSelectedPanel(6)}
-                      data-testid="panel-6"
-                    >
-                      <div className="w-full h-full flex items-center justify-center">
-                        <p className="text-xs text-muted-foreground">Panel 6</p>
-                      </div>
-                    </div>
-                  </div>
+                  {/* Dynamic Comic Page Layout */}
+                  <ComicPageLayout 
+                    layoutId={currentLayout}
+                    generatedImages={generatedImages}
+                    selectedPanel={selectedPanel}
+                    onPanelClick={setSelectedPanel}
+                    onImageUpdate={(panelId, imageUrl) => {
+                      setGeneratedImages(prev => ({ ...prev, [panelId]: imageUrl }));
+                    }}
+                  />
                 </div>
 
                 {/* Page Controls */}
@@ -228,13 +228,26 @@ export default function Editor() {
                         <Button 
                           className="bg-chart-1 text-white hover:bg-chart-1/90"
                           onClick={() => generatePageMutation.mutate()}
-                          disabled={generatePageMutation.isPending}
+                          disabled={isGeneratingFullPage}
                           data-testid="button-generate-page"
                         >
-                          <Wand2 className="mr-2 h-4 w-4" />
-                          {generatePageMutation.isPending ? "Generating..." : "Generate Full Page"}
+                          {isGeneratingFullPage ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <Wand2 className="mr-2 h-4 w-4" />
+                              Generate Full Page
+                            </>
+                          )}
                         </Button>
-                        <Button variant="secondary" data-testid="button-change-layout">
+                        <Button 
+                          variant="secondary" 
+                          onClick={() => setShowLayoutModal(true)}
+                          data-testid="button-change-layout"
+                        >
                           <svg className="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M3 3h18v18H3V3zm16 16V5H5v14h14zM7 7h2v2H7V7zm4 0h2v2h-2V7zm4 0h2v2h-2V7zM7 11h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2zM7 15h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2z"/>
                           </svg>
@@ -252,10 +265,21 @@ export default function Editor() {
               selectedPanel={selectedPanel} 
               project={project}
               currentPage={currentPage}
+              onImageGenerated={(panelId, imageUrl) => {
+                setGeneratedImages(prev => ({ ...prev, [panelId]: imageUrl }));
+              }}
             />
           </div>
         </div>
       </div>
+      
+      {/* Layout Change Modal */}
+      <LayoutChangeModal 
+        open={showLayoutModal}
+        onClose={() => setShowLayoutModal(false)}
+        currentLayout={currentLayout}
+        onLayoutChange={handleLayoutChange}
+      />
     </div>
   );
 }
