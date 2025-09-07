@@ -311,11 +311,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         artStyle: project.artStyle || undefined,
       };
 
-      // For page-level generation, enhance context with layout info
+      // For page-level generation, enhance context with layout info and proper structure
       const enhancedPanelContext = pageId && layoutTemplate ? {
         ...panelContext,
         fullPage: true,
-        layoutTemplate
+        layoutTemplate,
+        // Add missing properties that buildBackgroundPrompt expects
+        aspectRatio: 1.5, // Standard comic panel ratio
+        panelType: "standard",
+        panelNumber: 1,
+        dimensions: {
+          width: 400,
+          height: 300
+        }
       } : panelContext;
 
       const result = await geminiService.generatePanelBackground({

@@ -393,6 +393,8 @@ export class GeminiService {
     projectContext: GenerateImageRequest["projectContext"];
     panelContext?: GenerateImageRequest["panelContext"];
   }): string {
+    console.log("DEBUG: buildBackgroundPrompt called with panelContext:", JSON.stringify(request.panelContext, null, 2));
+    
     let prompt = "Create a subtle comic panel background that sets the scene without being distracting. ";
 
     // Genre-based background suggestions
@@ -428,9 +430,12 @@ export class GeminiService {
       prompt += `Rendered in ${request.projectContext.artStyle} art style. `;
     }
 
-    // Panel composition context
+    // Panel composition context - with safe property access
     if (request.panelContext) {
-      const { aspectRatio, panelType } = request.panelContext;
+      const aspectRatio = request.panelContext.aspectRatio;
+      const panelType = request.panelContext.panelType;
+      
+      console.log("DEBUG: aspectRatio =", aspectRatio, "panelType =", panelType);
       
       if (panelType === "wide-cinematic" || panelType === "wide") {
         prompt += "Wide cinematic background composition, panoramic view. ";
@@ -441,7 +446,7 @@ export class GeminiService {
       }
       
       // Add aspect ratio if available, with fallback to standard ratio
-      if (aspectRatio && typeof aspectRatio === 'number') {
+      if (aspectRatio && typeof aspectRatio === 'number' && !isNaN(aspectRatio)) {
         prompt += `Optimized for aspect ratio ${aspectRatio.toFixed(2)}:1. `;
       } else {
         prompt += "Standard comic panel aspect ratio. ";
