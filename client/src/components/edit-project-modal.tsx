@@ -65,6 +65,9 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
   const [selectedArtStyle, setSelectedArtStyle] = useState<string>("");
   const [activeTab, setActiveTab] = useState("basic");
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+  const [isGeneratingCharacterBio, setIsGeneratingCharacterBio] = useState(false);
+  const [isGeneratingCharacterVisual, setIsGeneratingCharacterVisual] = useState(false);
   const [newCharacter, setNewCharacter] = useState({ name: "", role: "", bio: "", visualDescriptors: "" });
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
   const [showCharacterForm, setShowCharacterForm] = useState(false);
@@ -196,6 +199,83 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
     },
   });
 
+  // Project description generation mutation
+  const generateDescriptionMutation = useMutation({
+    mutationFn: async () => {
+      const prompt = `Generate a compelling comic book description for a ${form.getValues("genre") || "comic"} story titled "${form.getValues("title")}". Make it engaging and visual, describing the premise, main conflicts, and what makes this story unique. Keep it to 2-3 sentences.`;
+      const response = await fetch("/api/generate-text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await response.json();
+      return data.text;
+    },
+    onSuccess: (description) => {
+      form.setValue("description", description);
+      setIsGeneratingDescription(false);
+      toast({ title: "Description generated", description: "AI project description created!" });
+    },
+    onError: () => {
+      setIsGeneratingDescription(false);
+      toast({ title: "Error", description: "Failed to generate description.", variant: "destructive" });
+    },
+  });
+
+  // Character bio generation mutation
+  const generateCharacterBioMutation = useMutation({
+    mutationFn: async (characterData: { name: string; role: string; genre: string; projectTitle: string }) => {
+      const prompt = `Generate a compelling character biography for ${characterData.name}, a ${characterData.role} in the ${characterData.genre} comic "${characterData.projectTitle}". Include personality traits, background, motivations, and what makes them unique. Keep it engaging and visual for comic storytelling. 2-3 sentences.`;
+      const response = await fetch("/api/generate-text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await response.json();
+      return data.text;
+    },
+    onSuccess: (bio) => {
+      if (editingCharacter) {
+        setEditingCharacter({ ...editingCharacter, bio });
+      } else {
+        setNewCharacter({ ...newCharacter, bio });
+      }
+      setIsGeneratingCharacterBio(false);
+      toast({ title: "Bio generated", description: "Character biography created!" });
+    },
+    onError: () => {
+      setIsGeneratingCharacterBio(false);
+      toast({ title: "Error", description: "Failed to generate bio.", variant: "destructive" });
+    },
+  });
+
+  // Character visual description generation mutation
+  const generateCharacterVisualMutation = useMutation({
+    mutationFn: async (characterData: { name: string; role: string; bio: string; genre: string }) => {
+      const prompt = `Generate a detailed visual description for ${characterData.name}, a ${characterData.role} in a ${characterData.genre} comic. Based on this bio: "${characterData.bio}". Include physical appearance, clothing style, distinctive features, and visual elements that reflect their personality. Focus on details an artist would need. 2-3 sentences.`;
+      const response = await fetch("/api/generate-text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await response.json();
+      return data.text;
+    },
+    onSuccess: (visualDescriptors) => {
+      if (editingCharacter) {
+        setEditingCharacter({ ...editingCharacter, visualDescriptors });
+      } else {
+        setNewCharacter({ ...newCharacter, visualDescriptors });
+      }
+      setIsGeneratingCharacterVisual(false);
+      toast({ title: "Visual description generated", description: "Character appearance created!" });
+    },
+    onError: () => {
+      setIsGeneratingCharacterVisual(false);
+      toast({ title: "Error", description: "Failed to generate visual description.", variant: "destructive" });
+    },
+  });
+
   const onSubmit = (data: ProjectFormData) => {
     updateProjectMutation.mutate(data);
   };
@@ -222,6 +302,41 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
     } else {
       toast({ title: "Error", description: "Please upload a valid text file.", variant: "destructive" });
     }
+  };
+
+  const handleGenerateDescription = () => {
+    setIsGeneratingDescription(true);
+    generateDescriptionMutation.mutate();
+  };
+
+  const handleGenerateCharacterBio = () => {
+    const characterData = editingCharacter || newCharacter;
+    if (!characterData.name || !characterData.role) {
+      toast({ title: "Error", description: "Please enter character name and role first.", variant: "destructive" });
+      return;
+    }
+    setIsGeneratingCharacterBio(true);
+    generateCharacterBioMutation.mutate({
+      name: characterData.name,
+      role: characterData.role,
+      genre: form.getValues("genre") || "comic",
+      projectTitle: form.getValues("title") || "Comic Project",
+    });
+  };
+
+  const handleGenerateCharacterVisual = () => {
+    const characterData = editingCharacter || newCharacter;
+    if (!characterData.name || !characterData.bio) {
+      toast({ title: "Error", description: "Please enter character name and bio first.", variant: "destructive" });
+      return;
+    }
+    setIsGeneratingCharacterVisual(true);
+    generateCharacterVisualMutation.mutate({
+      name: characterData.name,
+      role: characterData.role || "character",
+      bio: characterData.bio,
+      genre: form.getValues("genre") || "comic",
+    });
   };
 
   return (
@@ -333,7 +448,21 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
                       name="description"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Description</FormLabel>
+                          <div className="flex items-center justify-between">
+                            <FormLabel>Description</FormLabel>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleGenerateDescription}
+                              disabled={isGeneratingDescription || !form.getValues("title")}
+                              data-testid="button-generate-description"
+                              className="text-xs"
+                            >
+                              <Wand2 className="mr-1 h-3 w-3" />
+                              {isGeneratingDescription ? "Generating..." : "AI Generate"}
+                            </Button>
+                          </div>
                           <FormControl>
                             <Textarea 
                               placeholder="Describe your comic's story, characters, and setting..."
@@ -433,7 +562,21 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
                       </div>
                       <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label className="text-sm font-medium mb-2 block">Biography</label>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-medium">Biography</label>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleGenerateCharacterBio}
+                              disabled={isGeneratingCharacterBio}
+                              data-testid="button-generate-character-bio"
+                              className="text-xs"
+                            >
+                              <Wand2 className="mr-1 h-3 w-3" />
+                              {isGeneratingCharacterBio ? "Generating..." : "AI Generate"}
+                            </Button>
+                          </div>
                           <Textarea
                             value={editingCharacter ? editingCharacter.bio || "" : newCharacter.bio}
                             onChange={(e) => editingCharacter 
@@ -446,7 +589,21 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
                           />
                         </div>
                         <div>
-                          <label className="text-sm font-medium mb-2 block">Visual Description</label>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-medium">Visual Description</label>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleGenerateCharacterVisual}
+                              disabled={isGeneratingCharacterVisual}
+                              data-testid="button-generate-character-visual"
+                              className="text-xs"
+                            >
+                              <Wand2 className="mr-1 h-3 w-3" />
+                              {isGeneratingCharacterVisual ? "Generating..." : "AI Generate"}
+                            </Button>
+                          </div>
                           <Textarea
                             value={editingCharacter ? editingCharacter.visualDescriptors || "" : newCharacter.visualDescriptors}
                             onChange={(e) => editingCharacter 

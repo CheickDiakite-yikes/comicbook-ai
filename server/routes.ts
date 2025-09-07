@@ -469,6 +469,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate text route for general AI text generation
+  app.post("/api/generate-text", isAuthenticated, async (req: any, res) => {
+    try {
+      const { prompt } = req.body;
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+      
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+      });
+      const text = response.text || "";
+      res.json({ text });
+    } catch (error) {
+      console.error("Error generating text:", error);
+      res.status(500).json({ message: "Failed to generate text" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
