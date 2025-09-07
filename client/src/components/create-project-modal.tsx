@@ -122,9 +122,11 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
             tone: data.genre,
             logline: data.description
           });
+          console.log("Structured script generated successfully");
         } catch (scriptError) {
           console.error("Failed to generate structured script:", scriptError);
           // Don't fail the entire project creation if script generation fails
+          // The project will still be created successfully without the structured script
         }
       }
       

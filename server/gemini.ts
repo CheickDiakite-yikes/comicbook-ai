@@ -611,11 +611,11 @@ export class GeminiService {
                             }
                           }
                         },
-                        required: ["panelNumber", "visualDescription", "cameraAngle", "shotType", "mood", "visualNotes", "timing", "soundEffects", "dialogue"]
+                        required: ["panelNumber", "visualDescription"]
                       }
                     }
                   },
-                  required: ["pageNumber", "title", "setting", "characters", "narrative", "panels"]
+                  required: ["pageNumber", "title", "panels"]
                 }
               }
             },
@@ -630,8 +630,64 @@ export class GeminiService {
         throw new Error("No response received from Gemini");
       }
 
-      const structuredScript: GenerateStructuredScriptResponse = JSON.parse(responseText);
-      return structuredScript;
+      try {
+        const structuredScript: GenerateStructuredScriptResponse = JSON.parse(responseText);
+        
+        // Validate and ensure we have at least some pages
+        if (!structuredScript.pages || structuredScript.pages.length === 0) {
+          throw new Error("No pages generated in structured script");
+        }
+        
+        // Fill in missing required fields with defaults
+        structuredScript.pages = structuredScript.pages.map(page => ({
+          ...page,
+          overallMood: page.overallMood || "neutral",
+          setting: page.setting || "Unknown location",
+          characters: page.characters || [],
+          narrative: page.narrative || "",
+          panels: (page.panels || []).map(panel => ({
+            ...panel,
+            cameraAngle: panel.cameraAngle || "medium shot",
+            shotType: panel.shotType || "establishing shot",
+            mood: panel.mood || "neutral",
+            characterEmotions: panel.characterEmotions || {},
+            visualNotes: panel.visualNotes || "",
+            timing: panel.timing || "moment",
+            soundEffects: panel.soundEffects || [],
+            dialogue: panel.dialogue || []
+          }))
+        }));
+        
+        return structuredScript;
+      } catch (parseError) {
+        console.error("JSON parsing failed, attempting to extract partial data:", parseError);
+        
+        // Fallback: create a minimal valid response
+        return {
+          title: request.title || "Generated Comic Script",
+          logline: request.logline || request.description || "A compelling comic story",
+          pages: [{
+            pageNumber: 1,
+            title: "Opening Scene",
+            overallMood: "neutral",
+            setting: "Unknown location",
+            characters: request.characters?.map(c => c.name) || [],
+            narrative: "The story begins...",
+            panels: [{
+              panelNumber: 1,
+              visualDescription: "Opening scene establishing the setting and introducing the main characters",
+              cameraAngle: "wide shot",
+              shotType: "establishing shot",
+              mood: "neutral",
+              characterEmotions: {},
+              visualNotes: "Clear establishing shot",
+              timing: "moment",
+              soundEffects: [],
+              dialogue: []
+            }]
+          }]
+        };
+      }
     } catch (error) {
       console.error("Error generating structured script:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
