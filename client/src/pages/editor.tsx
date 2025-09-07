@@ -293,29 +293,48 @@ export default function Editor() {
         currentLayout
       );
       
-      // Update local state with generated images
+      // Update local state with generated images - with safer error handling
       const imageMap: {[key: number]: string} = {};
-      result.forEach((panelResult, index) => {
-        if (panelResult.status === "completed" && panelResult.imageUrl) {
-          imageMap[index + 1] = panelResult.imageUrl;
-        }
-      });
+      
+      if (Array.isArray(result)) {
+        result.forEach((panelResult, index) => {
+          try {
+            if (panelResult && 
+                typeof panelResult === 'object' && 
+                panelResult.status === "completed" && 
+                panelResult.imageUrl) {
+              imageMap[index + 1] = panelResult.imageUrl;
+            }
+          } catch (err) {
+            console.warn(`Error processing panel ${index + 1}:`, err, panelResult);
+          }
+        });
+      } else {
+        console.warn("Unexpected result format:", result);
+      }
+      
       setGeneratedImages(prev => ({ ...prev, ...imageMap }));
       
       return result;
     },
     onSuccess: (result) => {
-      const successCount = result.filter(r => r.status === "completed").length;
-      toast({
-        title: "Page Generated!",
-        description: `Successfully generated ${successCount} of ${result.length} panels.`,
-      });
-      setIsGeneratingFullPage(false);
-      
-      // Invalidate panels query to refresh the UI with new images
-      queryClient.invalidateQueries({
-        queryKey: ["/api/pages", currentPage?.id, "panels"]
-      });
+      try {
+        const successCount = Array.isArray(result) ? 
+          result.filter(r => r && r.status === "completed").length : 0;
+        toast({
+          title: "Page Generated!",
+          description: `Successfully generated ${successCount} of ${Array.isArray(result) ? result.length : 0} panels.`,
+        });
+        setIsGeneratingFullPage(false);
+        
+        // Invalidate panels query to refresh the UI with new images
+        queryClient.invalidateQueries({
+          queryKey: ["/api/pages", currentPage?.id, "panels"]
+        });
+      } catch (err) {
+        console.error("Error in onSuccess handler:", err);
+        setIsGeneratingFullPage(false);
+      }
     },
     onError: (error) => {
       console.error("Full page generation failed:", error);
