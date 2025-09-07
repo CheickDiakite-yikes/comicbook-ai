@@ -27,6 +27,7 @@ export default function Editor() {
   const [showLayoutModal, setShowLayoutModal] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<{[key: number]: string}>({});
   const [generatedBackgrounds, setGeneratedBackgrounds] = useState<{[key: number]: string}>({});
+  const [pageBackground, setPageBackground] = useState<string | null>(null);
   const [isGeneratingFullPage, setIsGeneratingFullPage] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [panelEditorOpen, setPanelEditorOpen] = useState(false);
@@ -168,6 +169,7 @@ export default function Editor() {
       // Clear local state
       setGeneratedImages({});
       setGeneratedBackgrounds({});
+      setPageBackground(null);
       setSelectedPanel(null);
       
       toast({
@@ -191,7 +193,7 @@ export default function Editor() {
       const layout = comicLayouts.find(l => l.id === currentLayout);
       if (!layout) throw new Error("Layout not found");
       
-      const result = await apiRequest("POST", "/api/generate-background", {
+      const response = await apiRequest("POST", "/api/generate-background", {
         projectId: project.id,
         pageId: currentPage.id,
         layoutTemplate: currentLayout,
@@ -201,6 +203,7 @@ export default function Editor() {
         }
       });
       
+      const result = await response.json();
       return result;
     },
     onSuccess: (result: any) => {
@@ -214,6 +217,9 @@ export default function Editor() {
       console.log("=== END FRONTEND SUCCESS ===");
       
       if (result.status === "completed" && result.imageUrl) {
+        // Set the page background for the canvas
+        setPageBackground(result.imageUrl);
+        
         toast({
           title: "Page Background Generated!",
           description: "Beautiful story-themed background created for this page.",
