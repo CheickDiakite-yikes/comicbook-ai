@@ -311,6 +311,11 @@ export default function Editor() {
         description: `Successfully generated ${successCount} of ${result.length} panels.`,
       });
       setIsGeneratingFullPage(false);
+      
+      // Invalidate panels query to refresh the UI with new images
+      queryClient.invalidateQueries({
+        queryKey: ["/api/pages", currentPage?.id, "panels"]
+      });
     },
     onError: (error) => {
       console.error("Full page generation failed:", error);
