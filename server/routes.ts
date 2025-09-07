@@ -596,6 +596,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate structured script with rich metadata
+  app.post("/api/projects/:projectId/generate-structured-script", isAuthenticated, async (req: any, res) => {
+    try {
+      const { projectId } = req.params;
+      const { title, description, genre, characters, settings, pageCount, tone, logline } = req.body;
+      
+      // Import GeminiService
+      const { GeminiService } = await import("./gemini");
+      const geminiService = new GeminiService();
+      
+      // Generate structured script
+      const structuredScriptResponse = await geminiService.generateStructuredScript({
+        title,
+        description,
+        genre,
+        characters,
+        settings,
+        pageCount,
+        tone,
+        logline,
+      });
+      
+      // Save to structured script database
+      const savedScript = await storage.createStructuredScript({
+        projectId,
+        title: structuredScriptResponse.title,
+        logline: structuredScriptResponse.logline,
+        totalPages: structuredScriptResponse.totalPages,
+        overallMood: structuredScriptResponse.overallMood,
+      });
+      
+      // Save pages with panels and dialogue
+      for (const pageData of structuredScriptResponse.pages) {
+        const savedPage = await storage.createScriptPage({
+          structuredScriptId: savedScript.id,
+          pageNumber: pageData.pageNumber,
+          title: pageData.title,
+          overallMood: pageData.overallMood,
+          setting: pageData.setting,
+          characters: pageData.characters,
+          narrative: pageData.narrative,
+        });
+        
+        // Save panels for this page
+        for (const panelData of pageData.panels) {
+          const savedPanel = await storage.createScriptPanel({
+            scriptPageId: savedPage.id,
+            panelNumber: panelData.panelNumber,
+            visualDescription: panelData.visualDescription,
+            cameraAngle: panelData.cameraAngle,
+            shotType: panelData.shotType,
+            mood: panelData.mood,
+            characterEmotions: panelData.characterEmotions,
+            visualNotes: panelData.visualNotes,
+            timing: panelData.timing,
+            soundEffects: panelData.soundEffects,
+          });
+          
+          // Save dialogue for this panel
+          for (let i = 0; i < panelData.dialogue.length; i++) {
+            const dialogueData = panelData.dialogue[i];
+            await storage.createScriptDialogue({
+              scriptPanelId: savedPanel.id,
+              characterName: dialogueData.characterName,
+              text: dialogueData.text,
+              tone: dialogueData.tone,
+              placement: dialogueData.placement,
+              orderIndex: i,
+            });
+          }
+        }
+      }
+      
+      // Return the full structured script with all relations
+      const fullScript = await storage.getProjectStructuredScript(projectId);
+      res.json(fullScript);
+    } catch (error) {
+      console.error("Error generating structured script:", error);
+      res.status(500).json({ message: "Failed to generate structured script" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

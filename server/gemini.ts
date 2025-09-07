@@ -69,6 +69,57 @@ export interface GenerateImageResponse {
   error?: string;
 }
 
+export interface GenerateStructuredScriptRequest {
+  title: string;
+  genre?: string;
+  description: string;
+  characters: Array<{
+    name: string;
+    role: string;
+    bio: string;
+  }>;
+  settings: Array<{
+    name: string;
+    description: string;
+  }>;
+  pageCount?: number;
+  tone?: string;
+  logline?: string;
+}
+
+export interface GenerateStructuredScriptResponse {
+  title: string;
+  logline: string;
+  totalPages: number;
+  overallMood: string;
+  pages: Array<{
+    pageNumber: number;
+    title: string;
+    overallMood: string;
+    setting: string;
+    characters: string[];
+    narrative: string;
+    panels: Array<{
+      panelNumber: number;
+      visualDescription: string;
+      cameraAngle: string;
+      shotType: string;
+      mood: string;
+      characterEmotions: { [character: string]: string };
+      visualNotes: string;
+      timing: string;
+      soundEffects: string[];
+      dialogue: Array<{
+        characterName: string;
+        text: string;
+        tone: string;
+        placement: string;
+      }>;
+    }>;
+  }>;
+}
+
+// Legacy interfaces for backward compatibility
 export interface GenerateScriptRequest {
   title: string;
   genre?: string;
@@ -498,7 +549,94 @@ export class GeminiService {
   }
 
   /**
-   * Generate a comic script using Gemini's text generation
+   * Generate a structured comic script with rich metadata
+   */
+  async generateStructuredScript(request: GenerateStructuredScriptRequest): Promise<GenerateStructuredScriptResponse> {
+    try {
+      const prompt = this.buildStructuredScriptPrompt(request);
+      
+      console.log("Generating structured script with prompt:", prompt);
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-pro",
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              logline: { type: "string" },
+              totalPages: { type: "number" },
+              overallMood: { type: "string" },
+              pages: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    pageNumber: { type: "number" },
+                    title: { type: "string" },
+                    overallMood: { type: "string" },
+                    setting: { type: "string" },
+                    characters: { type: "array", items: { type: "string" } },
+                    narrative: { type: "string" },
+                    panels: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          panelNumber: { type: "number" },
+                          visualDescription: { type: "string" },
+                          cameraAngle: { type: "string" },
+                          shotType: { type: "string" },
+                          mood: { type: "string" },
+                          characterEmotions: { type: "object" },
+                          visualNotes: { type: "string" },
+                          timing: { type: "string" },
+                          soundEffects: { type: "array", items: { type: "string" } },
+                          dialogue: {
+                            type: "array",
+                            items: {
+                              type: "object",
+                              properties: {
+                                characterName: { type: "string" },
+                                text: { type: "string" },
+                                tone: { type: "string" },
+                                placement: { type: "string" }
+                              },
+                              required: ["characterName", "text", "tone", "placement"]
+                            }
+                          }
+                        },
+                        required: ["panelNumber", "visualDescription", "cameraAngle", "shotType", "mood", "characterEmotions", "visualNotes", "timing", "soundEffects", "dialogue"]
+                      }
+                    }
+                  },
+                  required: ["pageNumber", "title", "overallMood", "setting", "characters", "narrative", "panels"]
+                }
+              }
+            },
+            required: ["title", "logline", "totalPages", "overallMood", "pages"]
+          }
+        },
+        contents: prompt,
+      });
+
+      const responseText = response.text;
+      if (!responseText) {
+        throw new Error("No response received from Gemini");
+      }
+
+      const structuredScript: GenerateStructuredScriptResponse = JSON.parse(responseText);
+      return structuredScript;
+    } catch (error) {
+      console.error("Error generating structured script:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      throw new Error("Failed to generate structured script: " + errorMessage);
+    }
+  }
+
+  /**
+   * Generate a comic script using Gemini's text generation (legacy)
    */
   async generateScript(request: GenerateScriptRequest): Promise<GenerateScriptResponse> {
     try {
@@ -735,7 +873,74 @@ export class GeminiService {
   }
 
   /**
-   * Build a prompt for script generation
+   * Build a structured script generation prompt with rich metadata
+   */
+  private buildStructuredScriptPrompt(request: GenerateStructuredScriptRequest): string {
+    let prompt = `You are an expert comic book script writer. Create a highly detailed, structured comic book script with rich metadata for optimal AI comic generation.
+
+STORY BRIEF:
+- Title: "${request.title}"
+- Genre: ${request.genre || "General"}
+- Description: ${request.description}
+- ${request.logline ? `Logline: ${request.logline}` : ''}
+- Tone: ${request.tone || "Engaging and visual"}
+
+CHARACTERS:`;
+
+    request.characters.forEach(char => {
+      prompt += `\n- ${char.name} (${char.role}): ${char.bio}`;
+    });
+
+    prompt += `\n\nSETTINGS:`;
+    request.settings.forEach(setting => {
+      prompt += `\n- ${setting.name}: ${setting.description}`;
+    });
+
+    prompt += `\n\nPRODUCE A STRUCTURED SCRIPT WITH:
+
+1. Script Metadata:
+   - Compelling logline
+   - Overall mood and tone
+   - Total page count (target: ${request.pageCount || 5-8} pages)
+
+2. Page-by-Page Breakdown:
+   - Each page should have 3-6 panels for optimal comic pacing
+   - Page title and overall mood
+   - Setting and characters present
+   - Brief narrative description
+
+3. Panel-Level Details (CRITICAL for AI generation):
+   - Visual description (detailed, specific, visual)
+   - Camera angle (close-up, medium shot, wide shot, bird's eye, worm's eye, over-shoulder, etc.)
+   - Shot type (establishing shot, action shot, reaction shot, dramatic shot, etc.)
+   - Mood and atmosphere
+   - Character emotions for each character in the panel
+   - Visual notes (lighting, composition, special effects)
+   - Timing (beat, pause, moment, action)
+   - Sound effects (if any)
+
+4. Dialogue Specifications:
+   - Character name
+   - Dialogue text
+   - Tone (excited, whispered, shouting, thoughtful, etc.)
+   - Placement (top-left, center, bottom-right, off-panel, etc.)
+
+GUIDELINES:
+- Make visual descriptions extremely detailed and specific
+- Include concrete visual elements AI can understand
+- Specify camera work like a film director
+- Consider panel-to-panel flow and transitions
+- Balance action, dialogue, and emotional beats
+- Ensure each panel has clear visual focus
+- Include environmental details and character positioning
+
+Create a script that tells a complete, satisfying story with strong visual storytelling, memorable characters, and emotional impact. Focus on creating vivid, specific imagery that AI can translate into compelling comic panels.`;
+
+    return prompt;
+  }
+
+  /**
+   * Build a prompt for script generation (legacy)
    */
   private buildScriptPrompt(request: GenerateScriptRequest): string {
     let prompt = `Write a comic book script for "${request.title}".`;
