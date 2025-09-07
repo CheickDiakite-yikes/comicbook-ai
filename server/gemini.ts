@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import * as fs from "fs";
 import * as path from "path";
 import { imageProcessor } from "./image-processor";
+import { imageEnhancer } from "./image-enhancer";
 
 // Initialize Gemini AI client
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
@@ -141,29 +142,53 @@ export class GeminiService {
           
           fs.writeFileSync(imagePath, buffer);
           
-          // Process image to fit panel dimensions if context provided
+          // Process image to fit panel dimensions
           let finalImageUrl = `/generated/${filename}`;
           
-          if (request.panelContext?.dimensions) {
-            try {
-              const processedFilename = `panel_${request.panelId}_processed_${Date.now()}.png`;
-              const processedPath = path.join(process.cwd(), "public", "generated", processedFilename);
-              
-              // Process image to remove borders and fit panel exactly
-              const processedImagePath = await imageProcessor.processForComicPanel(
-                imagePath,
-                request.panelContext.dimensions.width,
-                request.panelContext.dimensions.height,
-                Number(request.panelId)
-              );
-              
-              // Extract just the filename from the processed path
-              const processedFile = path.basename(processedImagePath);
-              finalImageUrl = `/generated/${processedFile}`;
-              console.log(`Image processed for panel ${request.panelId}: ${finalImageUrl}`);
-            } catch (processError) {
-              console.error("Failed to process image, using original:", processError);
-              // Fall back to original image if processing fails
+          // Always try to enhance the image for better fitting
+          try {
+            // Determine panel dimensions
+            let panelWidth = 400; // Default
+            let panelHeight = 400; // Default
+            
+            if (request.panelContext?.dimensions) {
+              panelWidth = request.panelContext.dimensions.width;
+              panelHeight = request.panelContext.dimensions.height;
+            } else {
+              // Fallback: estimate from panel number and standard layouts
+              console.log("No dimensions provided, using defaults for panel", request.panelId);
+            }
+            
+            // Use the enhanced image processor for better results
+            const enhancedImagePath = await imageEnhancer.fitImageToPanel(
+              imagePath,
+              panelWidth,
+              panelHeight,
+              Number(request.panelId)
+            );
+            
+            // Extract just the filename from the processed path
+            const enhancedFile = path.basename(enhancedImagePath);
+            finalImageUrl = `/generated/${enhancedFile}`;
+            console.log(`Image enhanced for panel ${request.panelId}: ${finalImageUrl}`);
+            
+          } catch (enhanceError) {
+            console.error("Enhancement failed, trying basic processing:", enhanceError);
+            
+            // Fallback to basic processor
+            if (request.panelContext?.dimensions) {
+              try {
+                const processedImagePath = await imageProcessor.processForComicPanel(
+                  imagePath,
+                  request.panelContext.dimensions.width,
+                  request.panelContext.dimensions.height,
+                  Number(request.panelId)
+                );
+                const processedFile = path.basename(processedImagePath);
+                finalImageUrl = `/generated/${processedFile}`;
+              } catch (processError) {
+                console.error("All processing failed, using original:", processError);
+              }
             }
           }
           
@@ -233,29 +258,53 @@ export class GeminiService {
           
           fs.writeFileSync(imagePath, buffer);
           
-          // Process image to fit panel dimensions if context provided
+          // Process image to fit panel dimensions
           let finalImageUrl = `/generated/${filename}`;
           
-          if (request.panelContext?.dimensions) {
-            try {
-              const processedFilename = `panel_${request.panelId}_processed_${Date.now()}.png`;
-              const processedPath = path.join(process.cwd(), "public", "generated", processedFilename);
-              
-              // Process image to remove borders and fit panel exactly
-              const processedImagePath = await imageProcessor.processForComicPanel(
-                imagePath,
-                request.panelContext.dimensions.width,
-                request.panelContext.dimensions.height,
-                Number(request.panelId)
-              );
-              
-              // Extract just the filename from the processed path
-              const processedFile = path.basename(processedImagePath);
-              finalImageUrl = `/generated/${processedFile}`;
-              console.log(`Image processed for panel ${request.panelId}: ${finalImageUrl}`);
-            } catch (processError) {
-              console.error("Failed to process image, using original:", processError);
-              // Fall back to original image if processing fails
+          // Always try to enhance the image for better fitting
+          try {
+            // Determine panel dimensions
+            let panelWidth = 400; // Default
+            let panelHeight = 400; // Default
+            
+            if (request.panelContext?.dimensions) {
+              panelWidth = request.panelContext.dimensions.width;
+              panelHeight = request.panelContext.dimensions.height;
+            } else {
+              // Fallback: estimate from panel number and standard layouts
+              console.log("No dimensions provided, using defaults for panel", request.panelId);
+            }
+            
+            // Use the enhanced image processor for better results
+            const enhancedImagePath = await imageEnhancer.fitImageToPanel(
+              imagePath,
+              panelWidth,
+              panelHeight,
+              Number(request.panelId)
+            );
+            
+            // Extract just the filename from the processed path
+            const enhancedFile = path.basename(enhancedImagePath);
+            finalImageUrl = `/generated/${enhancedFile}`;
+            console.log(`Image enhanced for panel ${request.panelId}: ${finalImageUrl}`);
+            
+          } catch (enhanceError) {
+            console.error("Enhancement failed, trying basic processing:", enhanceError);
+            
+            // Fallback to basic processor
+            if (request.panelContext?.dimensions) {
+              try {
+                const processedImagePath = await imageProcessor.processForComicPanel(
+                  imagePath,
+                  request.panelContext.dimensions.width,
+                  request.panelContext.dimensions.height,
+                  Number(request.panelId)
+                );
+                const processedFile = path.basename(processedImagePath);
+                finalImageUrl = `/generated/${processedFile}`;
+              } catch (processError) {
+                console.error("All processing failed, using original:", processError);
+              }
             }
           }
           
