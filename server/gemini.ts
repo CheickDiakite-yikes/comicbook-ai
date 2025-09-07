@@ -670,6 +670,8 @@ export class GeminiService {
         return {
           title: request.title || "Generated Comic Script",
           logline: request.logline || request.description || "A compelling comic story",
+          totalPages: 1,
+          overallMood: "neutral",
           pages: [{
             pageNumber: 1,
             title: "Opening Scene",
@@ -1003,6 +1005,7 @@ CHARACTERS:`;
    - Brief narrative description
 
 3. Panel-Level Details (CRITICAL for AI generation):
+   - Panel numbering: Number panels sequentially within each page (1, 2, 3, 4, 5, 6)
    - Visual description (detailed, specific, visual)
    - Camera angle (close-up, medium shot, wide shot, bird's eye, worm's eye, over-shoulder, etc.)
    - Shot type (establishing shot, action shot, reaction shot, dramatic shot, etc.)
@@ -1019,6 +1022,7 @@ CHARACTERS:`;
    - Placement (top-left, center, bottom-right, off-panel, etc.)
 
 GUIDELINES:
+- CRITICAL: Number panels sequentially within each page starting from 1 (Panel 1, Panel 2, Panel 3, etc.)
 - Make visual descriptions extremely detailed and specific
 - Include concrete visual elements AI can understand
 - Specify camera work like a film director

@@ -695,17 +695,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           setting: pageData.setting,
         });
         
-        // Save panels for this page with proper sequential numbering
-        for (let panelIndex = 0; panelIndex < pageData.panels.length; panelIndex++) {
-          const panelData = pageData.panels[panelIndex];
-          const properPanelNumber = panelIndex + 1; // Sequential numbering: 1, 2, 3, 4
-          
-          console.log(`Saving panel ${properPanelNumber} for page ${pageData.pageNumber} (AI originally said panel ${panelData.panelNumber})`);
-          
+        // Save panels for this page
+        for (const panelData of pageData.panels) {
           const savedPanel = await storage.createScriptPanel({
             scriptPageId: savedPage.id,
-            panelNumber: properPanelNumber, // Use sequential numbering instead of AI's numbering
-            action: panelData.visualDescription || `Panel ${properPanelNumber} action`,
+            panelNumber: Math.floor(Number(panelData.panelNumber)),
+            action: panelData.visualDescription || `Panel ${Math.floor(Number(panelData.panelNumber))} action`,
             sceneDescription: panelData.visualDescription,
             cameraAngle: panelData.cameraAngle,
             shotType: panelData.shotType,
