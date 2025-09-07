@@ -265,16 +265,33 @@ export default function Editor() {
       const layout = comicLayouts.find(l => l.id === currentLayout);
       if (!layout) throw new Error("Layout not found");
       
-      // Create panel descriptions with proper story progression
-      const storyProgression = [
-        "Marie the bee discovers a beautiful flower garden while searching for love",
-        "She meets a handsome bee gathering pollen and feels instant attraction",
-        "They share a romantic moment dancing among the flowers",
-        "The handsome bee presents Marie with a special flower as a gift",
-        "They fly away together into the sunset, having found true love"
-      ];
+      // Ensure we have a page to work with
+      let pageToUse = currentPage;
+      if (!pageToUse) {
+        // Create a new page automatically if none exists
+        const newPageNumber = pages.length + 1;
+        pageToUse = await apiRequest("POST", `/api/projects/${projectId}/pages`, {
+          projectId: projectId!,
+          pageNumber: newPageNumber,
+          layoutTemplate: currentLayout,
+          panels: null,
+          scriptSnippet: null,
+        }) as unknown as Page;
+        
+        // Update the pages data and set the current page
+        await queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "pages"] });
+        setCurrentPageIndex(pages.length);
+      }
       
-      // Build panel data with dimensions and context
+      // Get structured script data for this project
+      let structuredScript = null;
+      try {
+        structuredScript = await apiRequest("GET", `/api/projects/${projectId}/structured-script`);
+      } catch (error) {
+        console.log("No structured script found, using fallback descriptions");
+      }
+      
+      // Build panel data with enhanced context from structured script
       const panelsWithContext = [];
       for (let i = 1; i <= layout.panelCount; i++) {
         const panel = layout.panels[i - 1];
@@ -286,9 +303,29 @@ export default function Editor() {
           1100 // page height
         );
         
+        // Use structured script data if available, otherwise fallback
+        let description = `Scene ${i} of ${project.title}`;
+        
+        if (structuredScript?.pages) {
+          const scriptPage = structuredScript.pages.find((p: any) => p.pageNumber === pageToUse.pageNumber);
+          if (scriptPage?.panels) {
+            const scriptPanel = scriptPage.panels.find((p: any) => p.panelNumber === i);
+            if (scriptPanel) {
+              // Use rich metadata from structured script
+              description = `${scriptPanel.sceneDescription || scriptPanel.visualDescription}. Camera: ${scriptPanel.cameraAngle}. Shot: ${scriptPanel.shotType}. Mood: ${scriptPanel.mood}`;
+              if (scriptPanel.characters?.length > 0) {
+                description += `. Characters: ${scriptPanel.characters.join(", ")}`;
+              }
+              if (scriptPanel.visualNotes) {
+                description += `. Visual notes: ${scriptPanel.visualNotes}`;
+              }
+            }
+          }
+        }
+        
         panelsWithContext.push({
           panelNumber: i,
-          description: storyProgression[i - 1] || `Scene ${i} of ${project.title}`,
+          description: description,
           panelContext: panelContext,
           layoutInfo: panel
         });
@@ -301,9 +338,9 @@ export default function Editor() {
           description: project.description || undefined,
           artStyle: project.artStyle || undefined,
         },
-        currentPage?.scriptSnippet || project.description || "",
+        pageToUse?.scriptSnippet || project.description || "",
         panelsWithContext,
-        currentPage?.id,
+        pageToUse.id,
         currentLayout
       );
       
