@@ -413,7 +413,11 @@ export default function Editor() {
                     className="bg-white rounded-xl shadow-lg p-4 sm:p-8 w-full" 
                     style={{ 
                       aspectRatio: isMobile ? "0.85" : "8.5/11",
-                      minHeight: isMobile ? "85vh" : "auto"
+                      minHeight: isMobile ? "85vh" : "auto",
+                      backgroundImage: pageBackground ? `url(${pageBackground})` : undefined,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      backgroundRepeat: 'no-repeat'
                     }}
                   >
                     <ComicPageLayout 
