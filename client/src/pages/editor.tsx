@@ -61,6 +61,11 @@ export default function Editor() {
   // Load existing panel data and page background when page changes
   useEffect(() => {
     if (currentPage?.id) {
+      // CRITICAL FIX: Restore the saved layout template from database
+      if (currentPage.layoutTemplate) {
+        setCurrentLayout(currentPage.layoutTemplate);
+      }
+      
       const loadPanelData = async () => {
         try {
           const response = await fetch(`/api/pages/${currentPage.id}/panels`);
@@ -94,6 +99,8 @@ export default function Editor() {
       setGeneratedImages({});
       setGeneratedBackgrounds({});
       setPageBackground(null);
+      // Reset to default layout when no page
+      setCurrentLayout("classic-grid");
     }
   }, [currentPage?.id]);
   
@@ -351,9 +358,30 @@ export default function Editor() {
     setCurrentLayout(layoutId);
     setGeneratedImages({}); // Clear existing images when layout changes
     setShowLayoutModal(false);
+    
+    // CRITICAL FIX: Save the layout change to database immediately
+    if (currentPage?.id) {
+      apiRequest("PUT", `/api/pages/${currentPage.id}`, {
+        layoutTemplate: layoutId,
+        updatedAt: new Date()
+      }).then(() => {
+        // Invalidate page queries to refresh data
+        queryClient.invalidateQueries({
+          queryKey: ["/api/projects", projectId, "pages"]
+        });
+      }).catch((error) => {
+        console.error("Failed to save layout:", error);
+        toast({
+          title: "Save Failed",
+          description: "Failed to save layout change. Please try again.",
+          variant: "destructive",
+        });
+      });
+    }
+    
     toast({
       title: "Layout Changed",
-      description: "Comic layout has been updated. Generate images to see the new layout.",
+      description: "Comic layout has been updated and saved.",
     });
   };
 
