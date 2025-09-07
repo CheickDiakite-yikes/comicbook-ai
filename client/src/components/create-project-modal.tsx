@@ -169,30 +169,42 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
         return;
       }
 
-      // For script preview, we'll create a simple preview text
-      // The actual structured script will be generated when the project is created
-      const previewText = `# ${formValues.title} - Script Preview
+      // Build character descriptions from the characters array
+      const characterDescriptions = characters
+        .filter(char => char.name && char.role)
+        .map(char => `${char.name} (${char.role}) - ${char.bio}. Visual: ${char.visualDescriptors || 'No description'}`)
+        .join('. ');
+      
+      const prompt = `Write a detailed comic book script for "${formValues.title}". 
 
-This will generate a complete structured script with:
-✓ Rich metadata for each panel (camera angles, shot types, mood)
-✓ Character dialogue with placement and tone
-✓ Visual descriptions and sound effects
-✓ Collapsible page/panel organization
-✓ Scene settings and character emotions
+**Context:**
+- Genre: ${formValues.genre || 'Adventure'}
+- Art Style: ${selectedArtStyle || 'Comic Book'}
+- Story: ${formValues.description}
+- Characters: ${characterDescriptions || 'Various characters'}
 
-The full enhanced script will be available in the editor after project creation.
+**Instructions:**
+Create a 5-page comic script formatted with:
+- Clear page breaks (PAGE 1, PAGE 2, etc.)
+- Panel descriptions with camera angles and visual details
+- Character dialogue and narration
+- Scene settings and mood
+- Visual notes that fit the ${selectedArtStyle || 'Comic Book'} art style
 
-**Story:** ${formValues.description}
-**Genre:** ${formValues.genre}
-**Characters:** ${characters.filter(char => char.name && char.role).map(c => c.name).join(", ")}
-**Pages:** 5 pages with multiple panels each`;
-
-      // Update the script field with preview text
-      form.setValue("script", previewText);
+Make it engaging and visual, considering the ${formValues.genre || 'adventure'} genre and ${selectedArtStyle || 'comic book'} style.`;
+      
+      const response = await fetch("/api/generate-text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await response.json();
+      
+      form.setValue("script", data.text);
       
       toast({
-        title: "Script Preview Generated!",
-        description: "Create the project to generate the full structured script with rich metadata.",
+        title: "Script Generated!",
+        description: "A complete comic script has been created based on your story and characters.",
       });
     } catch (error) {
       console.error("Error generating script:", error);
