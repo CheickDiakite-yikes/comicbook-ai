@@ -59,8 +59,8 @@ export default function ComicPageLayout({
                   style={{
                     objectFit: 'cover',
                     objectPosition: 'center',
-                    minWidth: '100%',
-                    minHeight: '100%'
+                    width: '100%',
+                    height: '100%'
                   }}
                   onError={() => {
                     console.error(`Failed to load image for panel ${panelNumber}`);

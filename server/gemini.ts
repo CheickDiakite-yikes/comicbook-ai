@@ -141,8 +141,34 @@ export class GeminiService {
           
           fs.writeFileSync(imagePath, buffer);
           
+          // Process image to fit panel dimensions if context provided
+          let finalImageUrl = `/generated/${filename}`;
+          
+          if (request.panelContext?.dimensions) {
+            try {
+              const processedFilename = `panel_${request.panelId}_processed_${Date.now()}.png`;
+              const processedPath = path.join(process.cwd(), "public", "generated", processedFilename);
+              
+              // Process image to remove borders and fit panel exactly
+              const processedImagePath = await imageProcessor.processForComicPanel(
+                imagePath,
+                request.panelContext.dimensions.width,
+                request.panelContext.dimensions.height,
+                Number(request.panelId)
+              );
+              
+              // Extract just the filename from the processed path
+              const processedFile = path.basename(processedImagePath);
+              finalImageUrl = `/generated/${processedFile}`;
+              console.log(`Image processed for panel ${request.panelId}: ${finalImageUrl}`);
+            } catch (processError) {
+              console.error("Failed to process image, using original:", processError);
+              // Fall back to original image if processing fails
+            }
+          }
+          
           return {
-            imageUrl: `/generated/${filename}`,
+            imageUrl: finalImageUrl,
             status: "completed",
             panelId: request.panelId,
             generationId: Date.now().toString(),
@@ -207,8 +233,34 @@ export class GeminiService {
           
           fs.writeFileSync(imagePath, buffer);
           
+          // Process image to fit panel dimensions if context provided
+          let finalImageUrl = `/generated/${filename}`;
+          
+          if (request.panelContext?.dimensions) {
+            try {
+              const processedFilename = `panel_${request.panelId}_processed_${Date.now()}.png`;
+              const processedPath = path.join(process.cwd(), "public", "generated", processedFilename);
+              
+              // Process image to remove borders and fit panel exactly
+              const processedImagePath = await imageProcessor.processForComicPanel(
+                imagePath,
+                request.panelContext.dimensions.width,
+                request.panelContext.dimensions.height,
+                Number(request.panelId)
+              );
+              
+              // Extract just the filename from the processed path
+              const processedFile = path.basename(processedImagePath);
+              finalImageUrl = `/generated/${processedFile}`;
+              console.log(`Image processed for panel ${request.panelId}: ${finalImageUrl}`);
+            } catch (processError) {
+              console.error("Failed to process image, using original:", processError);
+              // Fall back to original image if processing fails
+            }
+          }
+          
           return {
-            imageUrl: `/generated/${filename}`,
+            imageUrl: finalImageUrl,
             status: "completed",
             panelId: request.panelId,
             generationId: Date.now().toString(),
