@@ -105,7 +105,9 @@ class AIService {
         panelContext: request.panelContext,
       });
 
-      return response as unknown as GenerateImageResponse; // apiRequest already returns JSON
+      // CRITICAL FIX: Parse the JSON response properly  
+      const jsonData = await response.json();
+      return jsonData as GenerateImageResponse;
     } catch (error) {
       console.error("Failed to generate panel image:", error);
       throw new Error("Failed to generate panel image. Please try again.");
@@ -136,7 +138,16 @@ class AIService {
         layoutId,
       });
 
-      return response as unknown as Array<GenerateImageResponse>;
+      // CRITICAL FIX: Parse the JSON response properly
+      const jsonData = await response.json();
+      console.log("Full page response:", jsonData); // Debug logging
+      
+      if (!Array.isArray(jsonData)) {
+        console.error("Expected array response, got:", typeof jsonData, jsonData);
+        throw new Error("Invalid response format from server");
+      }
+
+      return jsonData as Array<GenerateImageResponse>;
     } catch (error) {
       console.error("Failed to generate full page:", error);
       throw new Error("Failed to generate full page. Please try again.");
@@ -149,7 +160,9 @@ class AIService {
   async generateScript(request: GenerateScriptRequest): Promise<GenerateScriptResponse> {
     try {
       const response = await apiRequest("POST", `${this.baseUrl}/generate-script`, request);
-      return response as unknown as GenerateScriptResponse;
+      // CRITICAL FIX: Parse the JSON response properly
+      const jsonData = await response.json();
+      return jsonData as GenerateScriptResponse;
     } catch (error) {
       console.error("Failed to generate script:", error);
       throw new Error("Failed to generate script. Please try again.");
