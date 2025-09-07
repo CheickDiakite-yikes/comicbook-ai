@@ -302,6 +302,10 @@ export default function Editor() {
       
       console.log("Using page for generation:", pageToUse.id, "Page number:", pageToUse.pageNumber);
       
+      // Fetch detailed character information for consistency
+      const charactersResponse = await fetch(`/api/projects/${project.id}/characters`);
+      const characters = await charactersResponse.json();
+      
       // Get structured script data for this project - with retry logic
       let structuredScript = null;
       try {
@@ -333,10 +337,35 @@ export default function Editor() {
           if (scriptPage?.panels && Array.isArray(scriptPage.panels)) {
             const scriptPanel = scriptPage.panels.find((p: any) => p.panelNumber === i);
             if (scriptPanel) {
-              // Use rich metadata from structured script
+              // Use rich metadata from structured script with enhanced character continuity
               let richDescription = scriptPanel.sceneDescription || scriptPanel.visualDescription || scriptPanel.action;
               if (richDescription) {
                 description = richDescription;
+                
+                // Add specific character descriptions for this panel
+                if (scriptPanel.characters?.length > 0 && characters.length > 0) {
+                  const panelCharacters = scriptPanel.characters.map((charName: string) => {
+                    const charData = characters.find((c: any) => c.name === charName);
+                    if (charData && charData.visualDescriptors) {
+                      return `${charName} (APPEARANCE: ${charData.visualDescriptors})`;
+                    }
+                    return charName;
+                  }).join(", ");
+                  description += `. Characters in panel: ${panelCharacters}`;
+                } else if (scriptPanel.characters?.length > 0) {
+                  description += `. Characters: ${scriptPanel.characters.join(", ")}`;
+                }
+                
+                // Add character emotions and dialogue context
+                if (scriptPanel.dialogue?.length > 0) {
+                  const emotions = scriptPanel.dialogue
+                    .filter((d: any) => d.emotionalState)
+                    .map((d: any) => `${d.character} is ${d.emotionalState}`)
+                    .join(", ");
+                  if (emotions) {
+                    description += `. Character emotions: ${emotions}`;
+                  }
+                }
                 
                 // Add camera and shot information
                 if (scriptPanel.cameraAngle) {
@@ -349,14 +378,14 @@ export default function Editor() {
                   description += `. Mood: ${scriptPanel.mood}`;
                 }
                 
-                // Add character information
-                if (scriptPanel.characters?.length > 0) {
-                  description += `. Characters: ${scriptPanel.characters.join(", ")}`;
-                }
-                
                 // Add visual notes
                 if (scriptPanel.visualNotes) {
                   description += `. Visual notes: ${scriptPanel.visualNotes}`;
+                }
+                
+                // Add action details
+                if (scriptPanel.action) {
+                  description += `. Action: ${scriptPanel.action}`;
                 }
                 
                 console.log(`Panel ${i} enhanced description:`, description);
@@ -379,13 +408,27 @@ export default function Editor() {
         });
       }
       
+      // Build enhanced project context with full character details
+      const enhancedProjectContext = {
+        title: project.title,
+        genre: project.genre || undefined,
+        description: project.description || undefined,
+        artStyle: project.artStyle || undefined,
+        characters: characters.map((char: any) => ({
+          name: char.name,
+          role: char.role,
+          bio: char.bio,
+          visualDescriptors: char.visualDescriptors || "",
+          alwaysTraits: char.alwaysTraits || "",
+          neverTraits: char.neverTraits || "",
+          colorScheme: char.colorScheme || ""
+        })),
+        // Add style consistency instructions
+        styleConsistencyRules: `CRITICAL: Maintain EXACT character appearances throughout all panels. Characters MUST have consistent facial features, hair color, hair style, body type, and clothing style across all panels.`
+      };
+      
       const result = await aiService.generateFullPage(
-        {
-          title: project.title,
-          genre: project.genre || undefined,
-          description: project.description || undefined,
-          artStyle: project.artStyle || undefined,
-        },
+        enhancedProjectContext,
         pageToUse?.scriptSnippet || project.description || "",
         panelsWithContext,
         pageToUse.id,

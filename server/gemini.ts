@@ -20,11 +20,15 @@ export interface GenerateImageRequest {
       role: string;
       bio: string;
       visualDescriptors?: string;
+      alwaysTraits?: string;
+      neverTraits?: string;
+      colorScheme?: string;
     }>;
     settings?: Array<{
       name: string;
       description: string;
     }>;
+    styleConsistencyRules?: string;
   };
   characterContext?: Array<{
     name: string;
@@ -862,13 +866,39 @@ export class GeminiService {
       }
     }
 
-    // Add art style context
+    // Add detailed art style context with consistency rules
     if (request.projectContext.artStyle) {
-      prompt += `, in ${request.projectContext.artStyle} art style`;
+      prompt += `, in CONSISTENT ${request.projectContext.artStyle} art style`;
+      prompt += `. STYLE CONSISTENCY: Use the EXACT same art style, line weight, shading technique, and color palette across ALL panels. Maintain consistent artistic rendering throughout.`;
     }
 
-    // Add character context for consistency
-    if (request.characterContext && request.characterContext.length > 0) {
+    // Add detailed character context for consistency - ENHANCED VERSION
+    if (request.projectContext.characters && request.projectContext.characters.length > 0) {
+      const characterProfiles = request.projectContext.characters
+        .map(char => {
+          let profile = `${char.name} (${char.role})`;
+          if (char.visualDescriptors) {
+            profile += `: EXACT APPEARANCE - ${char.visualDescriptors}`;
+          }
+          if (char.alwaysTraits) {
+            profile += `. ALWAYS: ${char.alwaysTraits}`;
+          }
+          if (char.neverTraits) {
+            profile += `. NEVER: ${char.neverTraits}`;
+          }
+          if (char.colorScheme) {
+            profile += `. COLOR SCHEME: ${char.colorScheme}`;
+          }
+          return profile;
+        })
+        .join(" | ");
+      
+      prompt += `. CHARACTER CONSISTENCY RULES - ${characterProfiles}`;
+      prompt += `. CRITICAL: These characters MUST maintain EXACT same appearance in every panel - same face, hair color, hair style, body type, and clothing style.`;
+    }
+    
+    // Fallback to old character context if new one isn't available
+    else if (request.characterContext && request.characterContext.length > 0) {
       const characterDescriptions = request.characterContext
         .map(char => `${char.name} (${char.role}): ${char.visualDescriptors}`)
         .join(", ");
@@ -894,7 +924,7 @@ export class GeminiService {
       prompt += `. Color palette: ${request.styleOptions.colorPalette.join(", ")}`;
     }
 
-    // Add cross-page narrative context for continuity without panel numbering
+    // Add cross-page narrative and visual context for continuity
     if (request.crossPageContext && request.crossPageContext.length > 0) {
       const narrativeContext = request.crossPageContext
         .map(page => {
@@ -906,6 +936,7 @@ export class GeminiService {
         .join(". ");
       
       prompt += `. Previous story context: ${narrativeContext}`;
+      prompt += `. VISUAL CONTINUITY: Characters and settings established in previous pages MUST maintain their exact appearance. Reference the visual style and character looks from earlier panels.`;
     }
 
     // Add professional composition instructions
@@ -923,7 +954,9 @@ export class GeminiService {
     }
 
     // Add consistency and quality instructions with ENHANCED speech bubble guidance
-    prompt += ". Continue the narrative flow naturally from previous events. Maintain character visual consistency with previous panels";
+    prompt += ". Continue the narrative flow naturally from previous events.";
+    prompt += " CHARACTER CONSISTENCY IS CRITICAL: Every character MUST look EXACTLY the same across all panels - same facial features, same hair color and style, same body proportions, same clothing style (unless story requires a change).";
+    prompt += " ARTISTIC CONSISTENCY: Maintain the EXACT same art style, drawing technique, line thickness, and color saturation throughout all panels. No style changes between panels.";
     prompt += ". 🚨 SPEECH BUBBLE PLACEMENT RULES: 1) Keep ALL text 15% away from edges 2) Center speech bubbles in SAFE ZONES 3) Use the middle 70% of panel area for text 4) Never cut off words or speech bubbles";
     prompt += ". ABSOLUTELY NO WHITE BORDERS OR PADDING - the artwork must extend fully to all four edges (top, bottom, left, right)";
     prompt += ". Generate professional comic book artwork that bleeds to the edges like printed comics";
