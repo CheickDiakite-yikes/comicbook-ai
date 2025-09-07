@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Clock, Users, Settings } from "lucide-react";
 import type { Project } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function Dashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -38,7 +39,8 @@ export default function Dashboard() {
       const allPages = [];
       for (const project of projects) {
         try {
-          const pages = await fetch(`/api/projects/${project.id}/pages`).then(res => res.json());
+          const response = await apiRequest("GET", `/api/projects/${project.id}/pages`, undefined);
+          const pages = await response.json();
           allPages.push(...pages.map((page: any) => ({ ...page, projectId: project.id })));
         } catch (error) {
           console.error(`Failed to fetch pages for project ${project.id}:`, error);
