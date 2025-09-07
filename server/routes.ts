@@ -689,7 +689,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const pageData of structuredScriptResponse.pages) {
         const savedPage = await storage.createScriptPage({
           structuredScriptId: savedScript.id,
-          pageNumber: pageData.pageNumber,
+          pageNumber: Math.floor(Number(pageData.pageNumber)),
           title: pageData.title,
           mood: pageData.mood || pageData.overallMood,
           setting: pageData.setting,
@@ -699,8 +699,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const panelData of pageData.panels) {
           const savedPanel = await storage.createScriptPanel({
             scriptPageId: savedPage.id,
-            panelNumber: panelData.panelNumber,
-            action: panelData.visualDescription || `Panel ${panelData.panelNumber} action`,
+            panelNumber: Math.floor(Number(panelData.panelNumber)),
+            action: panelData.visualDescription || `Panel ${Math.floor(Number(panelData.panelNumber))} action`,
             sceneDescription: panelData.visualDescription,
             cameraAngle: panelData.cameraAngle,
             shotType: panelData.shotType,
