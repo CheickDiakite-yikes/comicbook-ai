@@ -265,31 +265,52 @@ export default function Editor() {
       const layout = comicLayouts.find(l => l.id === currentLayout);
       if (!layout) throw new Error("Layout not found");
       
-      // Ensure we have a page to work with
+      // Ensure we have a page to work with - with robust error handling
       let pageToUse = currentPage;
       if (!pageToUse) {
-        // Create a new page automatically if none exists
-        const newPageNumber = pages.length + 1;
-        pageToUse = await apiRequest("POST", `/api/projects/${projectId}/pages`, {
-          projectId: projectId!,
-          pageNumber: newPageNumber,
-          layoutTemplate: currentLayout,
-          panels: null,
-          scriptSnippet: null,
-        }) as unknown as Page;
-        
-        // Update the pages data and set the current page
-        await queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "pages"] });
-        setCurrentPageIndex(pages.length);
+        console.log("No current page found, creating new page...");
+        try {
+          // Create a new page automatically if none exists
+          const newPageNumber = pages.length + 1;
+          const newPageResponse = await apiRequest("POST", `/api/projects/${projectId}/pages`, {
+            projectId: projectId!,
+            pageNumber: newPageNumber,
+            layoutTemplate: currentLayout,
+            panels: null,
+            scriptSnippet: null,
+          });
+          
+          pageToUse = await newPageResponse.json() as Page;
+          console.log("New page created:", pageToUse.id);
+          
+          // Update the pages data and wait for it to complete
+          await queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "pages"] });
+          
+          // Wait a moment for the query to refresh
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          setCurrentPageIndex(pages.length);
+        } catch (error) {
+          console.error("Failed to create page:", error);
+          throw new Error("Failed to create page for generation");
+        }
       }
       
-      // Get structured script data for this project
+      if (!pageToUse?.id) {
+        throw new Error("No valid page available for generation");
+      }
+      
+      console.log("Using page for generation:", pageToUse.id, "Page number:", pageToUse.pageNumber);
+      
+      // Get structured script data for this project - with retry logic
       let structuredScript = null;
       try {
+        console.log("Fetching structured script...");
         const response = await apiRequest("GET", `/api/projects/${projectId}/structured-script`);
         structuredScript = await response.json();
+        console.log("Structured script loaded with", structuredScript?.pages?.length || 0, "pages");
       } catch (error) {
-        console.log("No structured script found, using fallback descriptions");
+        console.log("No structured script found, using fallback descriptions:", error);
       }
       
       // Build panel data with enhanced context from structured script
