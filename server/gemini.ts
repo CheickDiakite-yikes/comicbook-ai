@@ -229,6 +229,22 @@ export class GeminiService {
   private buildContextualPrompt(request: GenerateImageRequest): string {
     let prompt = `Create a comic panel image: ${request.prompt}`;
 
+    // Add panel dimension context for better composition
+    if (request.panelContext) {
+      const { aspectRatio, panelType } = request.panelContext;
+      
+      if (panelType === "wide-cinematic" || panelType === "wide") {
+        prompt += " (wide cinematic composition, landscape orientation)";
+      } else if (panelType === "tall-vertical") {
+        prompt += " (vertical composition, portrait orientation)";
+      } else if (panelType === "square") {
+        prompt += " (square composition, balanced framing)";
+      }
+      
+      // Add aspect ratio hint for better fit
+      prompt += ` (aspect ratio ${aspectRatio.toFixed(2)}:1)`;
+    }
+
     // Add art style context
     if (request.projectContext.artStyle) {
       prompt += `, in ${request.projectContext.artStyle} art style`;
@@ -261,7 +277,7 @@ export class GeminiService {
       prompt += `. Color palette: ${request.styleOptions.colorPalette.join(", ")}`;
     }
 
-    // Add consistency instructions
+    // Add consistency and quality instructions
     prompt += ". Maintain character visual consistency with previous panels. Create a detailed, high-quality comic book illustration.";
 
     return prompt;

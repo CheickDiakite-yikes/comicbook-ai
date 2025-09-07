@@ -240,7 +240,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI Generation endpoints
   app.post("/api/generate-image", isAuthenticated, async (req: any, res) => {
     try {
-      const { prompt, panelId, projectContext, characterContext, styleOptions } = req.body;
+      const { prompt, panelId, projectContext, characterContext, styleOptions, panelContext } = req.body;
       
       const result = await geminiService.generatePanelImage({
         prompt,
@@ -248,6 +248,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         projectContext,
         characterContext,
         styleOptions,
+        panelContext,
       });
       
       res.json(result);
