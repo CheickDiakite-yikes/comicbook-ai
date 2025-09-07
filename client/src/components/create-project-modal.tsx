@@ -227,7 +227,13 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
     setIsGeneratingCharacterBio(index);
     
     try {
-      const prompt = `Generate a compelling character biography for ${character.name}, a ${character.role} in the ${formData.genre || 'comic'} comic "${formData.title}". Include personality traits, background, motivations, and what makes them unique. Keep it engaging and visual for comic storytelling. 2-3 sentences.`;
+      const prompt = `Generate a compelling character biography for ${character.name}, a ${character.role} in the ${formData.genre || 'comic'} comic "${formData.title}".
+
+Story Context: ${formData.description || 'A thrilling comic adventure'}
+Art Style: ${selectedArtStyle || 'comic-book'} style
+Genre: ${formData.genre || 'Adventure'}
+
+Create a biography that fits perfectly within this story world and genre. Include personality traits, background, motivations, and what makes them unique. Consider how they fit into the story context and art style. Keep it engaging and visual for comic storytelling. 2-3 sentences.`;
       
       const response = await fetch("/api/generate-text", {
         method: "POST",
@@ -269,7 +275,14 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
     setIsGeneratingCharacterVisual(index);
     
     try {
-      const prompt = `Generate a detailed visual description for ${character.name}, a ${character.role} in a ${formData.genre || 'comic'} comic. Based on this bio: "${character.bio}". Include physical appearance, clothing style, distinctive features, and visual elements that reflect their personality. Focus on details an artist would need. 2-3 sentences.`;
+      const prompt = `Generate a detailed visual description for ${character.name}, a ${character.role} in the ${formData.genre || 'comic'} comic "${formData.title}".
+
+Story Context: ${formData.description || 'A thrilling comic adventure'}
+Art Style: ${selectedArtStyle || 'comic-book'} style (consider how this affects visual design)
+Genre: ${formData.genre || 'Adventure'}
+Character Bio: "${character.bio}"
+
+Create a visual description that fits the ${selectedArtStyle || 'comic-book'} art style and ${formData.genre || 'adventure'} genre. Include physical appearance, clothing style, distinctive features, color palette, and visual elements that reflect their personality and role in this specific story world. Focus on details an artist would need to draw them in ${selectedArtStyle || 'comic-book'} style. 2-3 sentences.`;
       
       const response = await fetch("/api/generate-text", {
         method: "POST",
