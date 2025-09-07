@@ -17,15 +17,21 @@ export function calculatePanelAspectRatio(width: number, height: number): number
 }
 
 /**
- * Determine panel type based on aspect ratio with more precise categorization
+ * Determine panel type based on aspect ratio optimized for standard comic formats
  */
 export function determinePanelType(aspectRatio: number): string {
-  if (aspectRatio > 2.5) return "ultra-wide";
-  if (aspectRatio > 1.8) return "wide-cinematic";
-  if (aspectRatio > 1.3) return "wide";
-  if (aspectRatio > 0.8) return "standard";
-  if (aspectRatio > 0.6) return "tall";
-  return "tall-vertical";
+  // Match to standard comic ratios for better AI generation
+  if (Math.abs(aspectRatio - 1.778) < 0.1) return "cinematic-16-9";  // 16:9
+  if (Math.abs(aspectRatio - 1.618) < 0.1) return "golden-ratio";    // Golden ratio
+  if (Math.abs(aspectRatio - 1.5) < 0.1) return "standard-3-2";     // 3:2 
+  if (Math.abs(aspectRatio - 1.0) < 0.1) return "perfect-square";   // 1:1
+  if (Math.abs(aspectRatio - 0.667) < 0.1) return "standard-2-3";   // 2:3
+  
+  // Fallbacks for non-standard ratios
+  if (aspectRatio > 2.0) return "ultra-wide";
+  if (aspectRatio > 1.2) return "landscape";
+  if (aspectRatio < 0.8) return "portrait";
+  return "near-square";
 }
 
 /**
