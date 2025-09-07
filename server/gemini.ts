@@ -49,6 +49,14 @@ export interface GenerateImageRequest {
     };
     panelType: string;
   };
+  crossPageContext?: Array<{
+    pageNumber: number;
+    panels: Array<{
+      panelNumber: number;
+      prompt: string;
+      imageUrl?: string;
+    }>;
+  }>;
 }
 
 export interface GenerateImageResponse {
@@ -223,11 +231,27 @@ export class GeminiService {
   async generateFullPage(
     projectContext: GenerateImageRequest["projectContext"],
     pageScript: string,
-    panelLayout: Array<{ panelNumber: number; description: string }>
+    panelLayout: Array<{ panelNumber: number; description: string }>,
+    currentPageId?: string,
+    storage?: any
   ): Promise<Array<GenerateImageResponse>> {
     const results: Array<GenerateImageResponse> = [];
     
     try {
+      // Build cross-page context if currentPageId and storage are provided
+      let crossPageContext: Array<{
+        pageNumber: number;
+        panels: Array<{
+          panelNumber: number;
+          prompt: string;
+          imageUrl?: string;
+        }>;
+      }> = [];
+      
+      if (currentPageId && storage) {
+        crossPageContext = await this.buildCrossPageContext(currentPageId, storage);
+      }
+      
       // Generate each panel sequentially to maintain consistency
       for (const panel of panelLayout) {
         const request: GenerateImageRequest = {
@@ -239,6 +263,7 @@ export class GeminiService {
             prompt: panelLayout[index]?.description || "",
             imageUrl: r.imageUrl,
           })),
+          crossPageContext,
         };
 
         const result = await this.generatePanelImage(request);
@@ -253,6 +278,80 @@ export class GeminiService {
       console.error("Error generating full page:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       throw new Error("Failed to generate full page: " + errorMessage);
+    }
+  }
+
+  /**
+   * Build cross-page context by fetching previous pages and their panels
+   */
+  async buildCrossPageContext(
+    currentPageId: string,
+    storage: any
+  ): Promise<Array<{
+    pageNumber: number;
+    panels: Array<{
+      panelNumber: number;
+      prompt: string;
+      imageUrl?: string;
+    }>;
+  }>> {
+    try {
+      // Get the current page to find its project and page number
+      const currentPage = await storage.getPage(currentPageId);
+      if (!currentPage) {
+        console.log("Current page not found, skipping cross-page context");
+        return [];
+      }
+
+      // Get all pages in the project
+      const allPages = await storage.getProjectPages(currentPage.projectId);
+      if (!allPages || allPages.length <= 1) {
+        console.log("No previous pages found, skipping cross-page context");
+        return [];
+      }
+
+      // Sort pages by page number and filter out current and future pages
+      const previousPages = allPages
+        .filter((page: any) => page.pageNumber < currentPage.pageNumber)
+        .sort((a: any, b: any) => a.pageNumber - b.pageNumber);
+
+      if (previousPages.length === 0) {
+        console.log("No previous pages found after filtering, skipping cross-page context");
+        return [];
+      }
+
+      // Limit to last 3 pages to keep context manageable
+      const recentPreviousPages = previousPages.slice(-3);
+
+      console.log(`Building cross-page context from ${recentPreviousPages.length} previous pages`);
+
+      // Build context for each previous page
+      const crossPageContext = [];
+      for (const page of recentPreviousPages) {
+        try {
+          const panels = await storage.getPagePanels(page.id);
+          
+          const pageContext = {
+            pageNumber: page.pageNumber,
+            panels: panels.map((panel: any) => ({
+              panelNumber: panel.panelNumber,
+              prompt: panel.prompt || `Panel ${panel.panelNumber}`, 
+              imageUrl: panel.imageUrl,
+            })),
+          };
+          
+          crossPageContext.push(pageContext);
+        } catch (error) {
+          console.error(`Error fetching panels for page ${page.id}:`, error);
+          // Continue with other pages even if one fails
+        }
+      }
+
+      console.log(`Cross-page context built with ${crossPageContext.length} pages`);
+      return crossPageContext;
+    } catch (error) {
+      console.error("Error building cross-page context:", error);
+      return []; // Return empty context rather than failing
     }
   }
 
@@ -401,8 +500,22 @@ export class GeminiService {
       prompt += `. Color palette: ${request.styleOptions.colorPalette.join(", ")}`;
     }
 
+    // Add cross-page narrative context for continuity
+    if (request.crossPageContext && request.crossPageContext.length > 0) {
+      const narrativeContext = request.crossPageContext
+        .map(page => {
+          const panelSummaries = page.panels
+            .map(panel => `Panel ${panel.panelNumber}: ${panel.prompt}`)
+            .join(", ");
+          return `Page ${page.pageNumber}: ${panelSummaries}`;
+        })
+        .join(". ");
+      
+      prompt += `. Previous story context: ${narrativeContext}`;
+    }
+
     // Add consistency and quality instructions
-    prompt += ". Maintain character visual consistency with previous panels. Create a detailed, high-quality comic book illustration.";
+    prompt += ". Continue the narrative flow naturally from previous events. Maintain character visual consistency with previous panels. Create a detailed, high-quality comic book illustration.";
 
     return prompt;
   }

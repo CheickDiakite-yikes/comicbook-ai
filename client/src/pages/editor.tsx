@@ -248,7 +248,8 @@ export default function Editor() {
           artStyle: project.artStyle || undefined,
         },
         project.description || "",
-        panelDescriptions
+        panelDescriptions,
+        currentPage?.id // Pass current page ID for cross-page context
       );
       
       // Update local state with generated images

@@ -338,7 +338,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const results = await geminiService.generateFullPage(
         projectContext,
         pageScript,
-        panelLayout
+        panelLayout,
+        req.body.currentPageId,
+        storage
       );
       
       res.json(results);
