@@ -8,16 +8,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Wand2, RotateCcw, MessageSquare, Cloud, Palette, BookOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { calculatePanelAspectRatio, determinePanelType } from "@/lib/ai-service";
+import { comicLayouts } from "@/lib/comic-layouts";
 import type { Project, Page } from "@shared/schema";
 
 interface PanelEditorProps {
   selectedPanel: number | null;
   project: Project;
   currentPage?: Page;
+  currentLayout: string;
   onImageGenerated?: (panelId: number, imageUrl: string) => void;
 }
 
-export default function PanelEditor({ selectedPanel, project, currentPage, onImageGenerated }: PanelEditorProps) {
+export default function PanelEditor({ selectedPanel, project, currentPage, currentLayout, onImageGenerated }: PanelEditorProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [prompt, setPrompt] = useState("A superhero flies over a bustling city at sunset, cape flowing in the wind...");
@@ -27,6 +30,27 @@ export default function PanelEditor({ selectedPanel, project, currentPage, onIma
   const generatePanelMutation = useMutation({
     mutationFn: async () => {
       if (!selectedPanel) throw new Error("No panel selected");
+      
+      // Get panel context for size-aware generation
+      const layout = comicLayouts.find(l => l.id === currentLayout);
+      let panelContext = undefined;
+      
+      if (layout && selectedPanel <= layout.panels.length) {
+        const panel = layout.panels[selectedPanel - 1];
+        const aspectRatio = calculatePanelAspectRatio(panel.width, panel.height);
+        const panelType = determinePanelType(aspectRatio);
+        
+        panelContext = {
+          layoutTemplate: currentLayout,
+          panelNumber: selectedPanel,
+          aspectRatio,
+          dimensions: {
+            width: panel.width,
+            height: panel.height
+          },
+          panelType
+        };
+      }
       
       const response = await apiRequest("POST", "/api/generate-image", {
         prompt,
@@ -41,11 +65,12 @@ export default function PanelEditor({ selectedPanel, project, currentPage, onIma
         styleOptions: {
           artStyle: artStyle,
         },
+        panelContext,
       });
       
-      return response.json();
+      return response as any;
     },
-    onSuccess: (result) => {
+    onSuccess: (result: any) => {
       if (result.status === "completed" && result.imageUrl && selectedPanel && onImageGenerated) {
         onImageGenerated(selectedPanel, result.imageUrl);
       }

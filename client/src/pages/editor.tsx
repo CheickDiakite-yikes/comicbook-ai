@@ -8,7 +8,7 @@ import LayoutChangeModal from "@/components/layout-change-modal";
 import ComicPageLayout from "@/components/comic-page-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Save, Download, ChevronLeft, ChevronRight, Wand2, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Download, ChevronLeft, ChevronRight, Wand2, Loader2, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { aiService } from "@/lib/ai-service";
@@ -52,6 +52,37 @@ export default function Editor() {
       toast({
         title: "Project saved",
         description: "Your comic project has been saved successfully.",
+      });
+    },
+  });
+
+  const createPageMutation = useMutation({
+    mutationFn: async (): Promise<Page> => {
+      if (!project) throw new Error("No project available");
+      
+      const newPageNumber = pages.length + 1;
+      const newPage = await apiRequest("POST", `/api/projects/${projectId}/pages`, {
+        projectId: projectId!,
+        pageNumber: newPageNumber,
+        layoutTemplate: currentLayout,
+        panels: null,
+        scriptSnippet: null,
+      });
+      return newPage as unknown as Page;
+    },
+    onSuccess: (newPage: Page) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "pages"] });
+      setCurrentPageIndex(pages.length); // Go to the new page
+      toast({
+        title: "New page created",
+        description: `Page ${newPage.pageNumber} has been added to your comic.`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create new page. Please try again.",
+        variant: "destructive",
       });
     },
   });
@@ -214,15 +245,30 @@ export default function Editor() {
                           <ChevronLeft className="h-4 w-4" />
                         </Button>
                         <span className="text-sm font-medium">Page {currentPageIndex + 1}</span>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          disabled={currentPageIndex >= pages.length - 1}
-                          onClick={() => setCurrentPageIndex(Math.min(pages.length - 1, currentPageIndex + 1))}
-                          data-testid="button-next-page"
-                        >
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
+                        {currentPageIndex >= pages.length - 1 ? (
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => createPageMutation.mutate()}
+                            disabled={createPageMutation.isPending}
+                            data-testid="button-new-page"
+                          >
+                            {createPageMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Plus className="h-4 w-4" />
+                            )}
+                          </Button>
+                        ) : (
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => setCurrentPageIndex(Math.min(pages.length - 1, currentPageIndex + 1))}
+                            data-testid="button-next-page"
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                       <div className="flex items-center space-x-2">
                         <Button 
@@ -265,6 +311,7 @@ export default function Editor() {
               selectedPanel={selectedPanel} 
               project={project}
               currentPage={currentPage}
+          currentLayout={currentLayout}
               onImageGenerated={(panelId, imageUrl) => {
                 setGeneratedImages(prev => ({ ...prev, [panelId]: imageUrl }));
               }}

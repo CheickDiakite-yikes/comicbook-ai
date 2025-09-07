@@ -39,6 +39,16 @@ export interface GenerateImageRequest {
     prompt: string;
     imageUrl?: string;
   }>;
+  panelContext?: {
+    layoutTemplate: string;
+    panelNumber: number;
+    aspectRatio: number;
+    dimensions: {
+      width: number;
+      height: number;
+    };
+    panelType: string;
+  };
 }
 
 export interface GenerateImageResponse {

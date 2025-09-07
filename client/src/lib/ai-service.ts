@@ -34,6 +34,16 @@ export interface GenerateImageRequest {
     prompt: string;
     imageUrl?: string;
   }>;
+  panelContext?: {
+    layoutTemplate: string;
+    panelNumber: number;
+    aspectRatio: number;
+    dimensions: {
+      width: number;
+      height: number;
+    };
+    panelType: string;
+  };
 }
 
 export interface GenerateImageResponse {
@@ -92,9 +102,10 @@ class AIService {
         projectContext: request.projectContext,
         characterContext: request.characterContext,
         styleOptions: request.styleOptions,
+        panelContext: request.panelContext,
       });
 
-      return await response.json();
+      return response as unknown as GenerateImageResponse; // apiRequest already returns JSON
     } catch (error) {
       console.error("Failed to generate panel image:", error);
       throw new Error("Failed to generate panel image. Please try again.");
@@ -160,6 +171,22 @@ class AIService {
   private buildContextualPrompt(request: GenerateImageRequest): string {
     let prompt = request.prompt;
 
+    // Add panel dimension context for better composition
+    if (request.panelContext) {
+      const { aspectRatio, panelType } = request.panelContext;
+      
+      if (panelType === "wide-cinematic" || panelType === "wide") {
+        prompt += " (wide cinematic composition, landscape orientation)";
+      } else if (panelType === "tall-vertical") {
+        prompt += " (vertical composition, portrait orientation)";
+      } else if (panelType === "square") {
+        prompt += " (square composition, balanced framing)";
+      }
+      
+      // Add aspect ratio hint
+      prompt += ` (aspect ratio ${aspectRatio.toFixed(2)}:1)`;
+    }
+
     // Add art style context
     if (request.projectContext.artStyle) {
       prompt += `, in ${request.projectContext.artStyle} art style`;
@@ -192,8 +219,8 @@ class AIService {
       prompt += `. Color palette: ${request.styleOptions.colorPalette.join(", ")}`;
     }
 
-    // Add consistency instructions
-    prompt += ". Maintain character visual consistency with previous panels.";
+    // Add consistency and quality instructions
+    prompt += ". Maintain character visual consistency with previous panels. Create a detailed, high-quality comic book illustration.";
 
     return prompt;
   }
@@ -268,4 +295,17 @@ class AIService {
 }
 
 // Export singleton instance
+// Helper functions for panel context
+export function calculatePanelAspectRatio(width: number, height: number): number {
+  return width / height;
+}
+
+export function determinePanelType(aspectRatio: number): string {
+  if (aspectRatio > 2) return "wide-cinematic";
+  if (aspectRatio > 1.5) return "wide";
+  if (aspectRatio > 0.8 && aspectRatio < 1.2) return "square";
+  if (aspectRatio < 0.5) return "tall-vertical";
+  return "standard";
+}
+
 export const aiService = new AIService();
