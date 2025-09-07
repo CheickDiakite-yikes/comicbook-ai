@@ -4,13 +4,15 @@ import { Link } from "wouter";
 import Navigation from "@/components/navigation";
 import Sidebar from "@/components/sidebar";
 import CreateProjectModal from "@/components/create-project-modal";
+import EditProjectModal from "@/components/edit-project-modal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Clock, Users } from "lucide-react";
+import { Plus, Clock, Users, Settings } from "lucide-react";
 import type { Project } from "@shared/schema";
 
 export default function Dashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
   // Close sidebar on mobile when screen size changes
@@ -159,44 +161,62 @@ export default function Dashboard() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {projects.map((project) => (
-                  <Link key={project.id} href={`/editor/${project.id}`}>
+                  <div key={project.id} className="relative group">
+                    <Link href={`/editor/${project.id}`}>
+                      <Button
+                        variant="ghost"
+                        className="border-border hover:shadow-lg transition-shadow cursor-pointer h-auto p-0 w-full rounded-lg min-h-[200px]"
+                        data-testid={`card-project-${project.id}`}
+                      >
+                        <div className="w-full">
+                          <div className="aspect-video bg-gradient-to-br from-chart-1/20 to-chart-2/20 flex items-center justify-center rounded-t-lg">
+                            <div className="text-center">
+                              <svg className="h-10 w-10 sm:h-12 sm:w-12 text-chart-1 mx-auto mb-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                              </svg>
+                              <p className="text-sm text-muted-foreground">
+                                {getProjectPageCount(project.id)} pages created
+                              </p>
+                            </div>
+                          </div>
+                          <div className="p-4 text-left">
+                            <h3 className="font-semibold text-base sm:text-lg mb-1">{project.title}</h3>
+                            <p className="text-xs sm:text-sm text-muted-foreground mb-3 line-clamp-2">
+                              {project.description || "No description available"}
+                            </p>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+                                <Clock className="h-3 w-3" aria-hidden="true" />
+                                <span>Just created</span>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <span className="bg-chart-4 w-2 h-2 rounded-full" aria-hidden="true"></span>
+                                <span className="bg-chart-5 w-2 h-2 rounded-full" aria-hidden="true"></span>
+                                <span className="bg-chart-1 w-2 h-2 rounded-full" aria-hidden="true"></span>
+                                <span className="text-xs text-muted-foreground ml-2">3 characters</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </Button>
+                    </Link>
+                    
+                    {/* Edit button */}
                     <Button
                       variant="ghost"
-                      className="border-border hover:shadow-lg transition-shadow cursor-pointer h-auto p-0 w-full rounded-lg min-h-[200px]"
-                      data-testid={`card-project-${project.id}`}
+                      size="sm"
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm hover:bg-background/90 w-8 h-8 p-0"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setEditingProject(project);
+                      }}
+                      data-testid={`button-edit-project-${project.id}`}
+                      aria-label="Edit project"
                     >
-                      <div className="w-full">
-                        <div className="aspect-video bg-gradient-to-br from-chart-1/20 to-chart-2/20 flex items-center justify-center rounded-t-lg">
-                          <div className="text-center">
-                            <svg className="h-10 w-10 sm:h-12 sm:w-12 text-chart-1 mx-auto mb-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                            </svg>
-                            <p className="text-sm text-muted-foreground">
-                              {getProjectPageCount(project.id)} pages created
-                            </p>
-                          </div>
-                        </div>
-                        <div className="p-4 text-left">
-                          <h3 className="font-semibold text-base sm:text-lg mb-1">{project.title}</h3>
-                          <p className="text-xs sm:text-sm text-muted-foreground mb-3 line-clamp-2">
-                            {project.description || "No description available"}
-                          </p>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2 text-xs text-muted-foreground">
-                              <Clock className="h-3 w-3" aria-hidden="true" />
-                              <span>Just created</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <span className="bg-chart-4 w-2 h-2 rounded-full" aria-hidden="true"></span>
-                              <span className="bg-chart-5 w-2 h-2 rounded-full" aria-hidden="true"></span>
-                              <span className="bg-chart-1 w-2 h-2 rounded-full" aria-hidden="true"></span>
-                              <span className="text-xs text-muted-foreground ml-2">3 characters</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                      <Settings className="h-4 w-4" />
                     </Button>
-                  </Link>
+                  </div>
                 ))}
                 
                 {/* Add new project card */}
@@ -282,6 +302,14 @@ export default function Dashboard() {
         open={showCreateModal} 
         onClose={() => setShowCreateModal(false)} 
       />
+      
+      {editingProject && (
+        <EditProjectModal 
+          open={!!editingProject} 
+          onClose={() => setEditingProject(null)} 
+          project={editingProject}
+        />
+      )}
     </div>
   );
 }
