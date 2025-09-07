@@ -286,7 +286,8 @@ export default function Editor() {
       // Get structured script data for this project
       let structuredScript = null;
       try {
-        structuredScript = await apiRequest("GET", `/api/projects/${projectId}/structured-script`);
+        const response = await apiRequest("GET", `/api/projects/${projectId}/structured-script`);
+        structuredScript = await response.json();
       } catch (error) {
         console.log("No structured script found, using fallback descriptions");
       }

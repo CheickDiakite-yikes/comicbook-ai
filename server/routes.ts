@@ -691,7 +691,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           structuredScriptId: savedScript.id,
           pageNumber: Math.floor(Number(pageData.pageNumber)),
           title: pageData.title,
-          mood: pageData.mood || pageData.overallMood,
+          mood: pageData.mood,
           setting: pageData.setting,
         });
         
@@ -708,7 +708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             visualNotes: panelData.visualNotes,
             timing: panelData.timing,
             soundEffects: panelData.soundEffects,
-            characters: panelData.characters || pageData.characters || [],
+            characters: panelData.characters || [],
           });
           
           // Save dialogue for this panel
