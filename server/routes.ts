@@ -691,7 +691,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           structuredScriptId: savedScript.id,
           pageNumber: Math.floor(Number(pageData.pageNumber)),
           title: pageData.title,
-          mood: pageData.mood || pageData.overallMood,
+          mood: pageData.overallMood,
           setting: pageData.setting,
         });
         

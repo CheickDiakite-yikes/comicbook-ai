@@ -328,21 +328,47 @@ export default function Editor() {
         // Use structured script data if available, otherwise fallback
         let description = `Scene ${i} of ${project.title}`;
         
-        if (structuredScript?.pages) {
+        if (structuredScript?.pages && Array.isArray(structuredScript.pages)) {
           const scriptPage = structuredScript.pages.find((p: any) => p.pageNumber === pageToUse.pageNumber);
-          if (scriptPage?.panels) {
+          if (scriptPage?.panels && Array.isArray(scriptPage.panels)) {
             const scriptPanel = scriptPage.panels.find((p: any) => p.panelNumber === i);
             if (scriptPanel) {
               // Use rich metadata from structured script
-              description = `${scriptPanel.sceneDescription || scriptPanel.visualDescription}. Camera: ${scriptPanel.cameraAngle}. Shot: ${scriptPanel.shotType}. Mood: ${scriptPanel.mood}`;
-              if (scriptPanel.characters?.length > 0) {
-                description += `. Characters: ${scriptPanel.characters.join(", ")}`;
+              let richDescription = scriptPanel.sceneDescription || scriptPanel.visualDescription || scriptPanel.action;
+              if (richDescription) {
+                description = richDescription;
+                
+                // Add camera and shot information
+                if (scriptPanel.cameraAngle) {
+                  description += `. Camera: ${scriptPanel.cameraAngle}`;
+                }
+                if (scriptPanel.shotType) {
+                  description += `. Shot: ${scriptPanel.shotType}`;
+                }
+                if (scriptPanel.mood) {
+                  description += `. Mood: ${scriptPanel.mood}`;
+                }
+                
+                // Add character information
+                if (scriptPanel.characters?.length > 0) {
+                  description += `. Characters: ${scriptPanel.characters.join(", ")}`;
+                }
+                
+                // Add visual notes
+                if (scriptPanel.visualNotes) {
+                  description += `. Visual notes: ${scriptPanel.visualNotes}`;
+                }
+                
+                console.log(`Panel ${i} enhanced description:`, description);
               }
-              if (scriptPanel.visualNotes) {
-                description += `. Visual notes: ${scriptPanel.visualNotes}`;
-              }
+            } else {
+              console.log(`No script panel found for panel ${i} on page ${pageToUse.pageNumber}`);
             }
+          } else {
+            console.log(`No panels found in script page ${pageToUse.pageNumber}`);
           }
+        } else {
+          console.log("No structured script pages available");
         }
         
         panelsWithContext.push({
@@ -411,9 +437,26 @@ export default function Editor() {
     },
     onError: (error) => {
       console.error("Full page generation failed:", error);
+      
+      // Provide more detailed error information
+      let errorMessage = "Failed to generate the page. Please try again.";
+      if (error?.message) {
+        if (error.message.includes("currentPageId")) {
+          errorMessage = "Page setup failed. Please refresh and try again.";
+        } else if (error.message.includes("Layout not found")) {
+          errorMessage = "Invalid layout selected. Please change layout and try again.";
+        } else if (error.message.includes("No project available")) {
+          errorMessage = "Project not found. Please refresh the page.";
+        } else if (error.message.includes("No valid page")) {
+          errorMessage = "Page creation failed. Please try again.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: "Generation Failed",
-        description: "Failed to generate full page. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
       setIsGeneratingFullPage(false);
