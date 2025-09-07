@@ -180,7 +180,7 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
     },
   });
 
-  // Script generation mutation
+  // Structured script generation mutation
   const generateScriptMutation = useMutation({
     mutationFn: async () => {
       const scriptRequest = {
@@ -191,13 +191,34 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
         settings: [],
         pageCount: 12,
         tone: "engaging and visual",
+        logline: form.getValues("description") || "A compelling story unfolds...",
       };
-      return await aiService.generateScript(scriptRequest);
+      
+      const response = await fetch(`/api/projects/${project.id}/generate-structured-script`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(scriptRequest),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate structured script');
+      }
+      
+      return await response.json();
     },
     onSuccess: (response) => {
-      form.setValue("script", response.script);
+      // Update both the basic script field and refetch structured script
+      const basicScriptText = `# ${response.title}\n\n${response.logline}\n\n${response.pages.map((page: any, pageIndex: number) => 
+        `## Page ${pageIndex + 1}: ${page.title}\n${page.panels.map((panel: any, panelIndex: number) => 
+          `**Panel ${panelIndex + 1}**: ${panel.sceneDescription}`).join('\n\n')}`).join('\n\n')}`;
+      
+      form.setValue("script", basicScriptText);
+      // Invalidate structured script query to refetch it
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/${project.id}/structured-script`] });
       setIsGeneratingScript(false);
-      toast({ title: "Script generated", description: "AI script has been generated successfully!" });
+      toast({ title: "Script generated", description: "Enhanced script with detailed metadata generated successfully!" });
     },
     onError: () => {
       setIsGeneratingScript(false);
