@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,11 +29,22 @@ interface StructuredScriptViewerProps {
 export default function StructuredScriptViewer({ projectId, currentPageNumber }: StructuredScriptViewerProps) {
   const [expandedPages, setExpandedPages] = useState<Set<string>>(new Set());
   const [expandedPanels, setExpandedPanels] = useState<Set<string>>(new Set());
+  const [showAllPages, setShowAllPages] = useState(false);
 
   const { data: structuredScript, isLoading } = useQuery<FullStructuredScript | null>({
     queryKey: ["/api/projects", projectId, "structured-script"],
     retry: false,
   });
+
+  // Auto-expand current page when in focused mode
+  useEffect(() => {
+    if (structuredScript && currentPageNumber && !showAllPages) {
+      const currentPage = structuredScript.pages?.find(p => p.pageNumber === currentPageNumber);
+      if (currentPage) {
+        setExpandedPages(new Set([currentPage.id]));
+      }
+    }
+  }, [structuredScript, currentPageNumber, showAllPages]);
 
   const togglePage = (pageId: string) => {
     const newExpanded = new Set(expandedPages);
@@ -113,13 +124,35 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
 
       {/* Pages */}
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Script Breakdown</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">
+            {currentPageNumber && !showAllPages
+              ? `Page ${currentPageNumber} Script`
+              : "Script Breakdown"
+            }
+          </h2>
+          {currentPageNumber && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAllPages(!showAllPages)}
+              className="text-xs"
+            >
+              {showAllPages ? "Focus on Current Page" : "View All Pages"}
+            </Button>
+          )}
+        </div>
         
         <ScrollArea className="h-[600px] w-full border rounded-md p-4">
           <div className="space-y-4">
-            {structuredScript.pages?.filter(page => 
-              currentPageNumber ? page.pageNumber === currentPageNumber : true
-            ).map((page) => (
+            {structuredScript.pages?.filter(page => {
+              // If we have a current page and not showing all pages, only show current page
+              if (currentPageNumber && !showAllPages) {
+                return page.pageNumber === currentPageNumber;
+              }
+              // Otherwise show all pages
+              return true;
+            }).map((page) => (
               <Card key={page.id} className={`overflow-hidden ${
                 currentPageNumber && page.pageNumber === currentPageNumber ? 'border-primary border-2' : ''
               }`}>
