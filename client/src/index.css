@@ -50,6 +50,15 @@
   --shadow-2xl: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
+  
+  /* Safe Areas for iOS */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  
+  /* Fluid Typography */
+  --text-xs: clamp(0.75rem, 2vw, 0.875rem);
+  --text-base: clamp(1rem, 2.5vw, 1.125rem);
+  --text-hero: clamp(2rem, 8vw, 5rem);
 }
 
 .dark {
@@ -109,6 +118,21 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
+  
+  /* Enhanced focus styles for AA compliance */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+  
+  /* Container queries for responsive components */
+  .feature-grid {
+    container-type: inline-size;
+  }
+}
+
+@container (max-width: 640px) {
+  .feature-grid .grid { @apply grid-cols-1 gap-4; }
 }
 
 .comic-panel {
