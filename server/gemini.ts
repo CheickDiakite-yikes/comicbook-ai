@@ -642,7 +642,10 @@ export class GeminiService {
           throw new Error("No pages generated in structured script");
         }
         
-        // Fill in missing required fields with defaults
+        // Fill in missing required fields with defaults and ensure page count
+        structuredScript.totalPages = structuredScript.pages?.length || 0;
+        structuredScript.overallMood = structuredScript.overallMood || "engaging";
+        
         structuredScript.pages = structuredScript.pages.map(page => ({
           ...page,
           overallMood: page.overallMood || "neutral",
@@ -661,6 +664,8 @@ export class GeminiService {
             dialogue: panel.dialogue || []
           }))
         }));
+        
+        console.log(`✅ AI generated ${structuredScript.pages.length} pages for structured script`);
         
         return structuredScript;
       } catch (parseError) {

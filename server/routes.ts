@@ -678,12 +678,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         logline,
       });
       
-      // Save to structured script database
-      const savedScript = await storage.createStructuredScript({
-        projectId,
-        title: structuredScriptResponse.title,
-        logline: structuredScriptResponse.logline,
-      });
+      // Check if structured script already exists for this project
+      const existingScript = await storage.getProjectStructuredScript(projectId);
+      
+      let savedScript;
+      if (existingScript) {
+        // Clear existing pages/panels/dialogue for this script before adding new ones
+        const existingPages = await storage.getScriptPages(existingScript.id);
+        for (const page of existingPages) {
+          await storage.deleteScriptPage(page.id);
+        }
+        
+        // Update existing script
+        savedScript = await storage.updateStructuredScript(existingScript.id, {
+          title: structuredScriptResponse.title,
+          logline: structuredScriptResponse.logline,
+        }) || existingScript;
+        
+        console.log(`Updated existing structured script ${existingScript.id} with ${structuredScriptResponse.pages.length} pages`);
+      } else {
+        // Create new structured script
+        savedScript = await storage.createStructuredScript({
+          projectId,
+          title: structuredScriptResponse.title,
+          logline: structuredScriptResponse.logline,
+        });
+        
+        console.log(`Created new structured script ${savedScript.id} with ${structuredScriptResponse.pages.length} pages`);
+      }
       
       // Save pages with panels and dialogue
       for (const pageData of structuredScriptResponse.pages) {
