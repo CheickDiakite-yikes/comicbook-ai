@@ -57,9 +57,10 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
   const [selectedArtStyle, setSelectedArtStyle] = useState<string>("");
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
-  const [isGeneratingCharacter, setIsGeneratingCharacter] = useState(false);
+  const [isGeneratingCharacterBio, setIsGeneratingCharacterBio] = useState<number | null>(null);
+  const [isGeneratingCharacterVisual, setIsGeneratingCharacterVisual] = useState<number | null>(null);
   const [characters, setCharacters] = useState([
-    { name: "Captain Thunder", role: "Main Hero", bio: "A powerful superhero with lightning abilities, tall with silver hair and a blue cape. Always confident and protective of civilians." }
+    { name: "Captain Thunder", role: "Main Hero", bio: "A powerful superhero with lightning abilities, tall with silver hair and a blue cape. Always confident and protective of civilians.", visualDescriptors: "" }
   ]);
 
   const form = useForm<ProjectFormData>({
@@ -75,12 +76,26 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
 
   const createProjectMutation = useMutation({
     mutationFn: async (data: ProjectFormData) => {
-      const response = await apiRequest("POST", "/api/projects", {
+      // Create the project first
+      const projectResponse = await apiRequest("POST", "/api/projects", {
         ...data,
         artStyle: selectedArtStyle,
         settings: [{ name: "Metro City", description: "A bustling metropolis with towering skyscrapers and busy streets. The city has a modern feel with glass buildings reflecting sunlight." }],
       });
-      return response.json() as Promise<Project>;
+      const project = await projectResponse.json() as Project;
+      
+      // Then create the characters
+      const validCharacters = characters.filter(char => char.name && char.role);
+      for (const character of validCharacters) {
+        await apiRequest("POST", `/api/projects/${project.id}/characters`, {
+          name: character.name,
+          role: character.role,
+          bio: character.bio,
+          visualDescriptors: character.visualDescriptors || "",
+        });
+      }
+      
+      return project;
     },
     onSuccess: (project) => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
@@ -105,7 +120,7 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
   };
 
   const addCharacter = () => {
-    setCharacters([...characters, { name: "", role: "", bio: "" }]);
+    setCharacters([...characters, { name: "", role: "", bio: "", visualDescriptors: "" }]);
   };
 
   const updateCharacter = (index: number, field: string, value: string) => {
@@ -196,25 +211,23 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
     }
   };
 
-  const handleGenerateCharacter = async () => {
+  const handleGenerateCharacterBio = async (index: number) => {
+    const character = characters[index];
     const formData = form.getValues();
-    if (!formData.title) {
+    
+    if (!character.name || !character.role) {
       toast({
         title: "Missing Information",
-        description: "Please add a comic title first.",
+        description: "Please enter character name and role first.",
         variant: "destructive",
       });
       return;
     }
 
-    setIsGeneratingCharacter(true);
+    setIsGeneratingCharacterBio(index);
     
     try {
-      const prompt = `Generate a complete character for the ${formData.genre || 'comic'} story "${formData.title}".
-      ${formData.description ? `Story context: ${formData.description}` : ''}
-      
-      Create a well-rounded character that fits this world. Make them interesting and unique.
-      Respond with JSON: {"name": "Character name", "role": "Their role", "bio": "2-3 sentence bio with personality and background"}`;
+      const prompt = `Generate a compelling character biography for ${character.name}, a ${character.role} in the ${formData.genre || 'comic'} comic "${formData.title}". Include personality traits, background, motivations, and what makes them unique. Keep it engaging and visual for comic storytelling. 2-3 sentences.`;
       
       const response = await fetch("/api/generate-text", {
         method: "POST",
@@ -223,39 +236,62 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
       });
       const data = await response.json();
       
-      try {
-        const characterData = JSON.parse(data.text);
-        setCharacters(prev => [...prev, {
-          name: characterData.name || "Generated Character",
-          role: characterData.role || "Character",
-          bio: characterData.bio || "A mysterious character with an unknown past.",
-        }]);
-        
-        toast({
-          title: "Character Generated!",
-          description: `${characterData.name || 'New character'} has been added to your cast.`,
-        });
-      } catch (parseError) {
-        // Fallback if JSON parsing fails
-        setCharacters(prev => [...prev, {
-          name: "Generated Character",
-          role: "Supporting Character", 
-          bio: data.text || "A mysterious character with an unknown past.",
-        }]);
-        
-        toast({
-          title: "Character Generated!",
-          description: "New character has been added to your cast.",
-        });
-      }
+      updateCharacter(index, "bio", data.text);
+      
+      toast({
+        title: "Biography Generated!",
+        description: "Character biography created successfully.",
+      });
     } catch (error) {
       toast({
         title: "Generation Failed",
-        description: "Unable to generate character. Please try again.",
+        description: "Unable to generate biography. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setIsGeneratingCharacter(false);
+      setIsGeneratingCharacterBio(null);
+    }
+  };
+
+  const handleGenerateCharacterVisual = async (index: number) => {
+    const character = characters[index];
+    const formData = form.getValues();
+    
+    if (!character.name || !character.bio) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter character name and bio first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingCharacterVisual(index);
+    
+    try {
+      const prompt = `Generate a detailed visual description for ${character.name}, a ${character.role} in a ${formData.genre || 'comic'} comic. Based on this bio: "${character.bio}". Include physical appearance, clothing style, distinctive features, and visual elements that reflect their personality. Focus on details an artist would need. 2-3 sentences.`;
+      
+      const response = await fetch("/api/generate-text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await response.json();
+      
+      updateCharacter(index, "visualDescriptors", data.text);
+      
+      toast({
+        title: "Visual Description Generated!",
+        description: "Character appearance created successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Generation Failed",
+        description: "Unable to generate visual description. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingCharacterVisual(null);
     }
   };
 
@@ -381,28 +417,15 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Characters</h3>
-                <div className="flex gap-2">
-                  <Button 
-                    type="button" 
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleGenerateCharacter}
-                    disabled={isGeneratingCharacter}
-                    data-testid="button-generate-character"
-                  >
-                    <Wand2 className="mr-2 h-4 w-4" />
-                    {isGeneratingCharacter ? "Generating..." : "Generate with AI"}
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="outline"
-                    onClick={addCharacter}
-                    data-testid="button-add-character"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Character
-                  </Button>
-                </div>
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  onClick={addCharacter}
+                  data-testid="button-add-character"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Character
+                </Button>
               </div>
               
               <div className="space-y-4">
@@ -435,16 +458,57 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
                           <div className="w-12 h-12 bg-chart-1 rounded-full"></div>
                         </div>
                       </div>
-                      <div className="mt-4">
-                        <FormLabel className="text-sm font-medium block mb-2">Character Bio</FormLabel>
-                        <Textarea 
-                          value={character.bio}
-                          onChange={(e) => updateCharacter(index, "bio", e.target.value)}
-                          className="text-sm resize-none" 
-                          rows={2} 
-                          placeholder="Brief character description, personality, and key visual traits..."
-                          data-testid={`textarea-character-bio-${index}`}
-                        />
+                      <div className="mt-4 grid md:grid-cols-2 gap-4">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <FormLabel className="text-sm font-medium">Biography</FormLabel>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleGenerateCharacterBio(index)}
+                              disabled={isGeneratingCharacterBio === index}
+                              data-testid={`button-generate-bio-${index}`}
+                              className="text-xs"
+                            >
+                              <Wand2 className="mr-1 h-3 w-3" />
+                              {isGeneratingCharacterBio === index ? "Generating..." : "AI Generate"}
+                            </Button>
+                          </div>
+                          <Textarea 
+                            value={character.bio}
+                            onChange={(e) => updateCharacter(index, "bio", e.target.value)}
+                            className="text-sm resize-none" 
+                            rows={3} 
+                            placeholder="Character background and personality..."
+                            data-testid={`textarea-character-bio-${index}`}
+                          />
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <FormLabel className="text-sm font-medium">Visual Description</FormLabel>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleGenerateCharacterVisual(index)}
+                              disabled={isGeneratingCharacterVisual === index}
+                              data-testid={`button-generate-visual-${index}`}
+                              className="text-xs"
+                            >
+                              <Wand2 className="mr-1 h-3 w-3" />
+                              {isGeneratingCharacterVisual === index ? "Generating..." : "AI Generate"}
+                            </Button>
+                          </div>
+                          <Textarea 
+                            value={character.visualDescriptors || ""}
+                            onChange={(e) => updateCharacter(index, "visualDescriptors", e.target.value)}
+                            className="text-sm resize-none" 
+                            rows={3} 
+                            placeholder="Hair color, clothing, distinctive features..."
+                            data-testid={`textarea-character-visual-${index}`}
+                          />
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
