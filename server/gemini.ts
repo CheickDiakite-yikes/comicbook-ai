@@ -655,6 +655,13 @@ export class GeminiService {
       // Import functions for adaptive speech bubble optimization
       const { generateSpeechBubbleInstructions } = require("../client/src/lib/speech-bubble-optimizer");
       const adaptiveInstructions = generateSpeechBubbleInstructions(dimensions);
+      
+      // Debug logging to track adaptive system performance
+      console.log(`📐 ADAPTIVE SPEECH BUBBLE SYSTEM: Panel ${request.panelId}`);
+      console.log(`   Dimensions: ${dimensions.widthPx}×${dimensions.heightPx}px (${dimensions.areaPixels.toLocaleString()} pixels)`);
+      console.log(`   Aspect Ratio: ${dimensions.aspectRatio.toFixed(2)}:1`);
+      console.log(`   Instructions: ${adaptiveInstructions.substring(0, 150)}...`);
+      
       prompt += adaptiveInstructions;
     } else {
       // Fallback to conservative safe zone for unknown dimensions  
