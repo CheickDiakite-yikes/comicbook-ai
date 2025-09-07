@@ -16,6 +16,8 @@ import {
   type InsertPanel,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -252,4 +254,156 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Database storage implementation
+export class DatabaseStorage implements IStorage {
+  // User operations (mandatory for Replit Auth)
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+
+  // Project operations
+  async createProject(userId: string, projectData: InsertProject): Promise<Project> {
+    const [project] = await db
+      .insert(projects)
+      .values({
+        ...projectData,
+        userId,
+      })
+      .returning();
+    return project;
+  }
+
+  async getProject(id: string): Promise<Project | undefined> {
+    const [project] = await db.select().from(projects).where(eq(projects.id, id));
+    return project || undefined;
+  }
+
+  async getUserProjects(userId: string): Promise<Project[]> {
+    return await db
+      .select()
+      .from(projects)
+      .where(eq(projects.userId, userId))
+      .orderBy(desc(projects.updatedAt));
+  }
+
+  async updateProject(id: string, updates: Partial<InsertProject>): Promise<Project | undefined> {
+    const [project] = await db
+      .update(projects)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(projects.id, id))
+      .returning();
+    return project || undefined;
+  }
+
+  async deleteProject(id: string): Promise<boolean> {
+    const result = await db.delete(projects).where(eq(projects.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Character operations
+  async createCharacter(characterData: InsertCharacter): Promise<Character> {
+    const [character] = await db.insert(characters).values(characterData).returning();
+    return character;
+  }
+
+  async getProjectCharacters(projectId: string): Promise<Character[]> {
+    return await db
+      .select()
+      .from(characters)
+      .where(eq(characters.projectId, projectId))
+      .orderBy(desc(characters.createdAt));
+  }
+
+  async updateCharacter(id: string, updates: Partial<InsertCharacter>): Promise<Character | undefined> {
+    const [character] = await db
+      .update(characters)
+      .set(updates)
+      .where(eq(characters.id, id))
+      .returning();
+    return character || undefined;
+  }
+
+  async deleteCharacter(id: string): Promise<boolean> {
+    const result = await db.delete(characters).where(eq(characters.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Page operations
+  async createPage(pageData: InsertPage): Promise<Page> {
+    const [page] = await db.insert(pages).values(pageData).returning();
+    return page;
+  }
+
+  async getProjectPages(projectId: string): Promise<Page[]> {
+    return await db
+      .select()
+      .from(pages)
+      .where(eq(pages.projectId, projectId))
+      .orderBy(pages.pageNumber);
+  }
+
+  async getPage(id: string): Promise<Page | undefined> {
+    const [page] = await db.select().from(pages).where(eq(pages.id, id));
+    return page || undefined;
+  }
+
+  async updatePage(id: string, updates: Partial<InsertPage>): Promise<Page | undefined> {
+    const [page] = await db
+      .update(pages)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(pages.id, id))
+      .returning();
+    return page || undefined;
+  }
+
+  async deletePage(id: string): Promise<boolean> {
+    const result = await db.delete(pages).where(eq(pages.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Panel operations
+  async createPanel(panelData: InsertPanel): Promise<Panel> {
+    const [panel] = await db.insert(panels).values(panelData).returning();
+    return panel;
+  }
+
+  async getPagePanels(pageId: string): Promise<Panel[]> {
+    return await db
+      .select()
+      .from(panels)
+      .where(eq(panels.pageId, pageId))
+      .orderBy(panels.panelNumber);
+  }
+
+  async updatePanel(id: string, updates: Partial<InsertPanel>): Promise<Panel | undefined> {
+    const [panel] = await db
+      .update(panels)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(panels.id, id))
+      .returning();
+    return panel || undefined;
+  }
+
+  async deletePanel(id: string): Promise<boolean> {
+    const result = await db.delete(panels).where(eq(panels.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+}
+
+export const storage = new DatabaseStorage();
