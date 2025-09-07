@@ -363,19 +363,20 @@ export default function Editor() {
           } : "NOT FOUND");
           
           if (scriptPage?.panels && Array.isArray(scriptPage.panels)) {
-            // Try multiple strategies to find the correct panel
+            // With fixed sequential numbering, try both strategies to handle old and new scripts
             let scriptPanel = scriptPage.panels.find((p: any) => p.panelNumber === i);
             
-            // If not found by panel number, try by array index (0-based)
+            // Fallback for existing scripts with wrong numbering: use array index
             if (!scriptPanel && scriptPage.panels[i - 1]) {
               scriptPanel = scriptPage.panels[i - 1];
-              console.log(`Panel ${i}: Using array index [${i-1}] - found panel with number ${scriptPanel.panelNumber}`);
+              console.log(`Panel ${i}: Using fallback array index [${i-1}] for panel labeled as ${scriptPanel.panelNumber}`);
             }
             
-            console.log(`Panel ${i} search result:`, scriptPanel ? {
-              panelNumber: scriptPanel.panelNumber,
+            console.log(`Panel ${i} match:`, scriptPanel ? {
+              foundPanelNumber: scriptPanel.panelNumber,
               sceneDescription: scriptPanel.sceneDescription?.substring(0, 50) + "...",
-              hasDialogue: scriptPanel.dialogue?.length > 0
+              hasDialogue: scriptPanel.dialogue?.length > 0,
+              hasCharacters: scriptPanel.characters?.length > 0
             } : "NOT FOUND");
             if (scriptPanel) {
               // Use rich metadata from structured script with enhanced character continuity
