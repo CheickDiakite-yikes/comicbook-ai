@@ -3,13 +3,17 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { X, Plus, Upload, Wand2, Palette, Loader2 } from "lucide-react";
+import { X, Plus, Upload, Wand2, Palette, Loader2, ChevronDown, ChevronRight, FileText, Camera, MessageSquare, Users, MapPin, Clock, Volume2, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
@@ -56,6 +60,7 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
   const queryClient = useQueryClient();
   const [selectedArtStyle, setSelectedArtStyle] = useState<string>("");
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+  const [generatedStructuredScript, setGeneratedStructuredScript] = useState<any>(null);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [isGeneratingCharacterBio, setIsGeneratingCharacterBio] = useState<number | null>(null);
   const [isGeneratingCharacterVisual, setIsGeneratingCharacterVisual] = useState<number | null>(null);
@@ -95,8 +100,8 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
         });
       }
       
-      // Generate structured script if description is provided
-      if (data.description) {
+      // Generate structured script if description is provided or if we have a preview
+      if (data.description || generatedStructuredScript) {
         try {
           const characterData = validCharacters.map(char => ({
             name: char.name,
@@ -105,6 +110,8 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
             visualDescriptors: char.visualDescriptors || ""
           }));
           
+          // If we already have a generated script from preview, we still need to generate a fresh one for the actual project
+          // because the preview used a temporary project
           await apiRequest("POST", `/api/projects/${project.id}/generate-structured-script`, {
             title: data.title,
             description: data.description,
@@ -169,48 +176,77 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
         return;
       }
 
-      // Build character descriptions from the characters array
-      const characterDescriptions = characters
+      // Build character data for structured generation
+      const characterData = characters
         .filter(char => char.name && char.role)
-        .map(char => `${char.name} (${char.role}) - ${char.bio}. Visual: ${char.visualDescriptors || 'No description'}`)
-        .join('. ');
+        .map(char => ({
+          name: char.name,
+          role: char.role,
+          bio: char.bio,
+          visualDescriptors: char.visualDescriptors || ""
+        }));
       
-      const prompt = `Write a detailed comic book script for "${formValues.title}". 
-
-**Context:**
-- Genre: ${formValues.genre || 'Adventure'}
-- Art Style: ${selectedArtStyle || 'Comic Book'}
-- Story: ${formValues.description}
-- Characters: ${characterDescriptions || 'Various characters'}
-
-**Instructions:**
-Create a 5-page comic script formatted with:
-- Clear page breaks (PAGE 1, PAGE 2, etc.)
-- Panel descriptions with camera angles and visual details
-- Character dialogue and narration
-- Scene settings and mood
-- Visual notes that fit the ${selectedArtStyle || 'Comic Book'} art style
-
-Make it engaging and visual, considering the ${formValues.genre || 'adventure'} genre and ${selectedArtStyle || 'comic book'} style.`;
-      
-      const response = await fetch("/api/generate-text", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+      // Create a temporary project to generate structured script
+      const tempProjectResponse = await apiRequest("POST", "/api/projects", {
+        title: formValues.title + " (Preview)",
+        genre: formValues.genre,
+        description: formValues.description,
+        artStyle: selectedArtStyle,
+        script: "",
+        settings: [{ name: "Metro City", description: "A bustling metropolis with towering skyscrapers and busy streets." }],
       });
-      const data = await response.json();
+      const tempProject = await tempProjectResponse.json() as Project;
       
-      form.setValue("script", data.text);
-      
-      toast({
-        title: "Script Generated!",
-        description: "A complete comic script has been created based on your story and characters.",
-      });
+      try {
+        // Generate structured script
+        const structuredResponse = await fetch(`/api/projects/${tempProject.id}/generate-structured-script`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: formValues.title,
+            description: formValues.description,
+            genre: formValues.genre,
+            characters: characterData,
+            settings: [{ name: "Metro City", description: "A bustling metropolis with towering skyscrapers and busy streets." }],
+            pageCount: 5,
+            tone: formValues.genre,
+            logline: formValues.description
+          }),
+        });
+        
+        if (!structuredResponse.ok) {
+          throw new Error("Failed to generate structured script");
+        }
+        
+        const structuredScript = await structuredResponse.json();
+        setGeneratedStructuredScript(structuredScript);
+        
+        // Also set a preview text in the form field
+        const previewText = `# ${formValues.title} - Structured Script Generated!
+
+✅ ${structuredScript.pages?.length || 5} pages with detailed metadata
+✅ Rich panel descriptions with camera angles and shot types
+✅ Character dialogue with emotional context
+✅ Visual notes optimized for ${selectedArtStyle || 'Comic Book'} style
+✅ Scene settings and mood indicators
+
+The full structured script is available for preview below and will be automatically included in your project.`;
+        
+        form.setValue("script", previewText);
+        
+        toast({
+          title: "Enhanced Script Generated!",
+          description: "A structured script with rich metadata has been created for your comic.",
+        });
+      } finally {
+        // Clean up the temporary project
+        await apiRequest("DELETE", `/api/projects/${tempProject.id}`);
+      }
     } catch (error) {
       console.error("Error generating script:", error);
       toast({
         title: "Generation Failed",
-        description: "Failed to generate script. Please try again.",
+        description: "Failed to generate structured script. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -603,6 +639,102 @@ Create a visual description that fits the ${selectedArtStyle || 'comic-book'} ar
                   )}
                 </Button>
               </div>
+              
+              {/* Structured Script Preview */}
+              {generatedStructuredScript && (
+                <div className="mb-4">
+                  <h4 className="text-md font-medium mb-2 flex items-center">
+                    <FileText className="mr-2 h-4 w-4" />
+                    Enhanced Script Preview
+                  </h4>
+                  <Card className="border border-border">
+                    <CardContent className="p-4">
+                      <ScrollArea className="h-96">
+                        <div className="space-y-4">
+                          {generatedStructuredScript.pages?.map((page: any, pageIndex: number) => (
+                            <Collapsible key={page.id || pageIndex}>
+                              <CollapsibleTrigger asChild>
+                                <Button variant="ghost" className="w-full justify-start p-2 h-auto">
+                                  <ChevronRight className="mr-2 h-4 w-4" />
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline">Page {page.pageNumber}</Badge>
+                                    <span className="font-medium">{page.title || `Page ${page.pageNumber}`}</span>
+                                  </div>
+                                </Button>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent className="pl-6 pt-2">
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <MapPin className="h-3 w-3" />
+                                    <span>{page.setting}</span>
+                                    {page.overallMood && (
+                                      <>
+                                        <Separator orientation="vertical" className="h-3" />
+                                        <span>Mood: {page.overallMood}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                  {page.characters && page.characters.length > 0 && (
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                      <Users className="h-3 w-3" />
+                                      <span>{page.characters.join(", ")}</span>
+                                    </div>
+                                  )}
+                                  {page.narrative && (
+                                    <p className="text-sm text-muted-foreground italic">{page.narrative}</p>
+                                  )}
+                                  
+                                  {/* Panels */}
+                                  <div className="space-y-2 ml-4">
+                                    {page.panels?.map((panel: any, panelIndex: number) => (
+                                      <Collapsible key={panel.id || panelIndex}>
+                                        <CollapsibleTrigger asChild>
+                                          <Button variant="ghost" size="sm" className="w-full justify-start p-1 h-auto">
+                                            <ChevronRight className="mr-1 h-3 w-3" />
+                                            <Badge variant="secondary" className="mr-2">Panel {panel.panelNumber}</Badge>
+                                            <span className="text-xs">{panel.shotType} | {panel.cameraAngle}</span>
+                                          </Button>
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent className="pl-4 pt-1">
+                                          <div className="space-y-1 text-xs">
+                                            <div className="flex items-center gap-2">
+                                              <Camera className="h-3 w-3" />
+                                              <span>{panel.visualDescription}</span>
+                                            </div>
+                                            {panel.dialogue?.map((dialogue: any, dialogueIndex: number) => (
+                                              <div key={dialogueIndex} className="flex items-center gap-2">
+                                                <MessageSquare className="h-3 w-3" />
+                                                <span><strong>{dialogue.characterName}:</strong> "{dialogue.text}"</span>
+                                              </div>
+                                            ))}
+                                            {panel.soundEffects && (
+                                              <div className="flex items-center gap-2">
+                                                <Volume2 className="h-3 w-3" />
+                                                <span>SFX: {panel.soundEffects}</span>
+                                              </div>
+                                            )}
+                                            {panel.timing && (
+                                              <div className="flex items-center gap-2">
+                                                <Clock className="h-3 w-3" />
+                                                <span>Timing: {panel.timing}</span>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </CollapsibleContent>
+                                      </Collapsible>
+                                    ))}
+                                  </div>
+                                </div>
+                              </CollapsibleContent>
+                            </Collapsible>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+              
               <FormField
                 control={form.control}
                 name="script"
