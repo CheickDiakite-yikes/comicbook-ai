@@ -4,6 +4,10 @@ import {
   characters,
   pages,
   panels,
+  structuredScripts,
+  scriptPages,
+  scriptPanels,
+  scriptDialogue,
   type User,
   type UpsertUser,
   type Project,
@@ -14,10 +18,21 @@ import {
   type InsertPage,
   type Panel,
   type InsertPanel,
+  type StructuredScript,
+  type InsertStructuredScript,
+  type ScriptPage,
+  type InsertScriptPage,
+  type ScriptPanel,
+  type InsertScriptPanel,
+  type ScriptDialogue,
+  type InsertScriptDialogue,
+  type FullStructuredScript,
+  type ScriptPageWithPanels,
+  type ScriptPanelWithDialogue,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -50,6 +65,30 @@ export interface IStorage {
   getPagePanels(pageId: string): Promise<Panel[]>;
   updatePanel(id: string, updates: Partial<InsertPanel>): Promise<Panel | undefined>;
   deletePanel(id: string): Promise<boolean>;
+
+  // Structured Script operations
+  createStructuredScript(script: InsertStructuredScript): Promise<StructuredScript>;
+  getProjectStructuredScript(projectId: string): Promise<FullStructuredScript | undefined>;
+  updateStructuredScript(id: string, updates: Partial<InsertStructuredScript>): Promise<StructuredScript | undefined>;
+  deleteStructuredScript(id: string): Promise<boolean>;
+
+  // Script Page operations
+  createScriptPage(page: InsertScriptPage): Promise<ScriptPage>;
+  getScriptPages(scriptId: string): Promise<ScriptPageWithPanels[]>;
+  updateScriptPage(id: string, updates: Partial<InsertScriptPage>): Promise<ScriptPage | undefined>;
+  deleteScriptPage(id: string): Promise<boolean>;
+
+  // Script Panel operations
+  createScriptPanel(panel: InsertScriptPanel): Promise<ScriptPanel>;
+  getScriptPanels(pageId: string): Promise<ScriptPanelWithDialogue[]>;
+  updateScriptPanel(id: string, updates: Partial<InsertScriptPanel>): Promise<ScriptPanel | undefined>;
+  deleteScriptPanel(id: string): Promise<boolean>;
+
+  // Script Dialogue operations
+  createScriptDialogue(dialogue: InsertScriptDialogue): Promise<ScriptDialogue>;
+  getScriptDialogue(panelId: string): Promise<ScriptDialogue[]>;
+  updateScriptDialogue(id: string, updates: Partial<InsertScriptDialogue>): Promise<ScriptDialogue | undefined>;
+  deleteScriptDialogue(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -431,6 +470,191 @@ export class DatabaseStorage implements IStorage {
 
   async deletePanel(id: string): Promise<boolean> {
     const result = await db.delete(panels).where(eq(panels.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Structured Script operations
+  async createStructuredScript(scriptData: InsertStructuredScript): Promise<StructuredScript> {
+    const [script] = await db.insert(structuredScripts).values(scriptData).returning();
+    return script;
+  }
+
+  async getProjectStructuredScript(projectId: string): Promise<FullStructuredScript | undefined> {
+    // Get the active structured script for the project
+    const [script] = await db
+      .select()
+      .from(structuredScripts)
+      .where(and(eq(structuredScripts.projectId, projectId), eq(structuredScripts.isActive, true)))
+      .orderBy(desc(structuredScripts.createdAt));
+
+    if (!script) return undefined;
+
+    // Get all pages with panels and dialogue
+    const pages = await this.getScriptPages(script.id);
+
+    return {
+      ...script,
+      pages,
+    };
+  }
+
+  async updateStructuredScript(id: string, updates: Partial<InsertStructuredScript>): Promise<StructuredScript | undefined> {
+    const [script] = await db
+      .update(structuredScripts)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(structuredScripts.id, id))
+      .returning();
+    return script || undefined;
+  }
+
+  async deleteStructuredScript(id: string): Promise<boolean> {
+    try {
+      // Delete in cascade order: dialogue -> panels -> pages -> script
+      const pages = await db.select().from(scriptPages).where(eq(scriptPages.structuredScriptId, id));
+      
+      for (const page of pages) {
+        const panels = await db.select().from(scriptPanels).where(eq(scriptPanels.scriptPageId, page.id));
+        
+        for (const panel of panels) {
+          await db.delete(scriptDialogue).where(eq(scriptDialogue.scriptPanelId, panel.id));
+        }
+        
+        await db.delete(scriptPanels).where(eq(scriptPanels.scriptPageId, page.id));
+      }
+      
+      await db.delete(scriptPages).where(eq(scriptPages.structuredScriptId, id));
+      const result = await db.delete(structuredScripts).where(eq(structuredScripts.id, id));
+      return result.rowCount !== null && result.rowCount > 0;
+    } catch (error) {
+      console.error("Error deleting structured script:", error);
+      return false;
+    }
+  }
+
+  // Script Page operations
+  async createScriptPage(pageData: InsertScriptPage): Promise<ScriptPage> {
+    const [page] = await db.insert(scriptPages).values(pageData).returning();
+    return page;
+  }
+
+  async getScriptPages(scriptId: string): Promise<ScriptPageWithPanels[]> {
+    const pages = await db
+      .select()
+      .from(scriptPages)
+      .where(eq(scriptPages.structuredScriptId, scriptId))
+      .orderBy(scriptPages.pageNumber);
+
+    const pagesWithPanels: ScriptPageWithPanels[] = [];
+    
+    for (const page of pages) {
+      const panels = await this.getScriptPanels(page.id);
+      pagesWithPanels.push({
+        ...page,
+        panels,
+      });
+    }
+
+    return pagesWithPanels;
+  }
+
+  async updateScriptPage(id: string, updates: Partial<InsertScriptPage>): Promise<ScriptPage | undefined> {
+    const [page] = await db
+      .update(scriptPages)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(scriptPages.id, id))
+      .returning();
+    return page || undefined;
+  }
+
+  async deleteScriptPage(id: string): Promise<boolean> {
+    try {
+      // Delete panels and their dialogue first
+      const panels = await db.select().from(scriptPanels).where(eq(scriptPanels.scriptPageId, id));
+      
+      for (const panel of panels) {
+        await db.delete(scriptDialogue).where(eq(scriptDialogue.scriptPanelId, panel.id));
+      }
+      
+      await db.delete(scriptPanels).where(eq(scriptPanels.scriptPageId, id));
+      const result = await db.delete(scriptPages).where(eq(scriptPages.id, id));
+      return result.rowCount !== null && result.rowCount > 0;
+    } catch (error) {
+      console.error("Error deleting script page:", error);
+      return false;
+    }
+  }
+
+  // Script Panel operations
+  async createScriptPanel(panelData: InsertScriptPanel): Promise<ScriptPanel> {
+    const [panel] = await db.insert(scriptPanels).values(panelData).returning();
+    return panel;
+  }
+
+  async getScriptPanels(pageId: string): Promise<ScriptPanelWithDialogue[]> {
+    const panels = await db
+      .select()
+      .from(scriptPanels)
+      .where(eq(scriptPanels.scriptPageId, pageId))
+      .orderBy(scriptPanels.panelNumber);
+
+    const panelsWithDialogue: ScriptPanelWithDialogue[] = [];
+    
+    for (const panel of panels) {
+      const dialogue = await this.getScriptDialogue(panel.id);
+      panelsWithDialogue.push({
+        ...panel,
+        dialogue,
+      });
+    }
+
+    return panelsWithDialogue;
+  }
+
+  async updateScriptPanel(id: string, updates: Partial<InsertScriptPanel>): Promise<ScriptPanel | undefined> {
+    const [panel] = await db
+      .update(scriptPanels)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(scriptPanels.id, id))
+      .returning();
+    return panel || undefined;
+  }
+
+  async deleteScriptPanel(id: string): Promise<boolean> {
+    try {
+      await db.delete(scriptDialogue).where(eq(scriptDialogue.scriptPanelId, id));
+      const result = await db.delete(scriptPanels).where(eq(scriptPanels.id, id));
+      return result.rowCount !== null && result.rowCount > 0;
+    } catch (error) {
+      console.error("Error deleting script panel:", error);
+      return false;
+    }
+  }
+
+  // Script Dialogue operations
+  async createScriptDialogue(dialogueData: InsertScriptDialogue): Promise<ScriptDialogue> {
+    const [dialogue] = await db.insert(scriptDialogue).values(dialogueData).returning();
+    return dialogue;
+  }
+
+  async getScriptDialogue(panelId: string): Promise<ScriptDialogue[]> {
+    return await db
+      .select()
+      .from(scriptDialogue)
+      .where(eq(scriptDialogue.scriptPanelId, panelId))
+      .orderBy(scriptDialogue.orderIndex);
+  }
+
+  async updateScriptDialogue(id: string, updates: Partial<InsertScriptDialogue>): Promise<ScriptDialogue | undefined> {
+    const [dialogue] = await db
+      .update(scriptDialogue)
+      .set(updates)
+      .where(eq(scriptDialogue.id, id))
+      .returning();
+    return dialogue || undefined;
+  }
+
+  async deleteScriptDialogue(id: string): Promise<boolean> {
+    const result = await db.delete(scriptDialogue).where(eq(scriptDialogue.id, id));
     return result.rowCount !== null && result.rowCount > 0;
   }
 }
