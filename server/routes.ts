@@ -316,13 +316,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...panelContext,
         fullPage: true,
         layoutTemplate,
-        // Add missing properties that buildBackgroundPrompt expects
-        aspectRatio: 1.5, // Standard comic panel ratio
-        panelType: "standard",
+        // Use actual page canvas aspect ratio: 8.5/11 ≈ 0.772 for standard comic page
+        aspectRatio: 8.5 / 11, // Correct comic page aspect ratio
+        panelType: "page-background",
         panelNumber: 1,
         dimensions: {
-          width: 400,
-          height: 300
+          width: 850, // Standard comic page proportions
+          height: 1100
         }
       } : panelContext;
 

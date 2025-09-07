@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { aiService } from "@/lib/ai-service";
 import { comicLayouts } from "@/lib/comic-layouts";
+import { getPageAspectRatio, PAGE_ASPECT_RATIOS, calculateOptimalDimensions, getOptimalImageCSS } from "@/lib/aspect-ratio-utils";
 import type { Project, Page, Panel } from "@shared/schema";
 
 export default function Editor() {
@@ -193,13 +194,20 @@ export default function Editor() {
       const layout = comicLayouts.find(l => l.id === currentLayout);
       if (!layout) throw new Error("Layout not found");
       
+      // Calculate precise page canvas aspect ratio and dimensions
+      const pageAspectRatio = getPageAspectRatio(isMobile);
+      const optimalDimensions = calculateOptimalDimensions(pageAspectRatio, 1200000); // Higher resolution for page backgrounds
+      
       const response = await apiRequest("POST", "/api/generate-background", {
         projectId: project.id,
         pageId: currentPage.id,
         layoutTemplate: currentLayout,
         panelContext: {
           fullPage: true,
-          panelCount: layout.panelCount
+          panelCount: layout.panelCount,
+          aspectRatio: pageAspectRatio,
+          dimensions: optimalDimensions,
+          panelType: "page-background"
         }
       });
       
@@ -400,9 +408,7 @@ export default function Editor() {
                       aspectRatio: isMobile ? "0.85" : "8.5/11",
                       minHeight: isMobile ? "85vh" : "auto",
                       backgroundImage: pageBackground ? `url(${pageBackground})` : undefined,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      backgroundRepeat: 'no-repeat'
+                      ...getOptimalImageCSS(getPageAspectRatio(isMobile))
                     }}
                   >
                     <ComicPageLayout 

@@ -432,8 +432,11 @@ export class GeminiService {
     if (request.panelContext) {
       const aspectRatio = request.panelContext.aspectRatio;
       const panelType = request.panelContext.panelType;
+      const dimensions = request.panelContext.dimensions;
       
-      if (panelType === "wide-cinematic" || panelType === "wide") {
+      if (panelType === "page-background") {
+        prompt += "Full comic page background composition, portrait orientation, suitable for comic book page layout. ";
+      } else if (panelType === "wide-cinematic" || panelType === "wide") {
         prompt += "Wide cinematic background composition, panoramic view. ";
       } else if (panelType === "tall-vertical") {
         prompt += "Vertical background composition, suitable for portrait orientation. ";
@@ -441,11 +444,18 @@ export class GeminiService {
         prompt += "Balanced square background composition. ";
       }
       
-      // Add aspect ratio if available, with fallback to standard ratio
+      // Add specific aspect ratio guidance for better image generation
       if (aspectRatio && typeof aspectRatio === 'number' && !isNaN(aspectRatio)) {
-        prompt += `Optimized for aspect ratio ${aspectRatio.toFixed(2)}:1. `;
-      } else {
-        prompt += "Standard comic panel aspect ratio. ";
+        if (panelType === "page-background") {
+          prompt += `Portrait page format optimized for aspect ratio ${aspectRatio.toFixed(3)}:1 (comic book page proportions). `;
+        } else {
+          prompt += `Panel format optimized for aspect ratio ${aspectRatio.toFixed(2)}:1. `;
+        }
+      }
+      
+      // Add dimension context for better AI understanding
+      if (dimensions && dimensions.width && dimensions.height) {
+        prompt += `Target dimensions: ${dimensions.width}x${dimensions.height} pixels. `;
       }
     }
 
