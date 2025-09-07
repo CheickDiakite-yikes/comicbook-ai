@@ -119,9 +119,24 @@ export function getOptimalImageCSS(containerAspectRatio: number, imageAspectRati
 
 /**
  * Enhanced panel context generator for AI requests
+ * @param panel - Panel dimensions as fractions of page (0-1 values)
+ * @param layoutId - The layout template ID
+ * @param panelNumber - The panel number in the layout
+ * @param pageWidth - Actual page width in pixels (default 850)
+ * @param pageHeight - Actual page height in pixels (default 1100)
  */
-export function generateEnhancedPanelContext(panel: { width: number; height: number }, layoutId: string, panelNumber: number) {
-  const aspectRatioInfo = getPanelAspectRatioInfo(panel.width, panel.height);
+export function generateEnhancedPanelContext(
+  panel: { width: number; height: number }, 
+  layoutId: string, 
+  panelNumber: number,
+  pageWidth: number = 850,
+  pageHeight: number = 1100
+) {
+  // Calculate actual pixel dimensions from fractional values
+  const actualWidth = Math.round(panel.width * pageWidth);
+  const actualHeight = Math.round(panel.height * pageHeight);
+  
+  const aspectRatioInfo = getPanelAspectRatioInfo(actualWidth, actualHeight);
   const optimalDimensions = calculateOptimalDimensions(aspectRatioInfo.ratio);
 
   return {
@@ -131,8 +146,8 @@ export function generateEnhancedPanelContext(panel: { width: number; height: num
     orientation: aspectRatioInfo.orientation,
     panelType: aspectRatioInfo.type,
     dimensions: {
-      width: panel.width,
-      height: panel.height,
+      width: actualWidth,  // Actual pixel width for processing
+      height: actualHeight, // Actual pixel height for processing
       optimal: optimalDimensions
     }
   };
