@@ -87,9 +87,45 @@ export default function PanelEditor({
       
       return response as any;
     },
-    onSuccess: (result: any) => {
-      if (result.status === "completed" && result.imageUrl && selectedPanel && onImageGenerated) {
-        onImageGenerated(selectedPanel, result.imageUrl);
+    onSuccess: async (result: any) => {
+      if (result.status === "completed" && result.imageUrl && selectedPanel && currentPage) {
+        // Save image to database
+        try {
+          // First check if panel exists, if not create it
+          const panels = await apiRequest("GET", `/api/pages/${currentPage.id}/panels`);
+          const existingPanel = panels.find((p: any) => p.panelNumber === selectedPanel);
+          
+          if (existingPanel) {
+            // Update existing panel
+            await apiRequest("PUT", `/api/panels/${existingPanel.id}`, {
+              imageUrl: result.imageUrl,
+              prompt: prompt,
+              isGenerated: true,
+              generationStatus: "completed"
+            });
+          } else {
+            // Create new panel
+            await apiRequest("POST", `/api/pages/${currentPage.id}/panels`, {
+              panelNumber: selectedPanel,
+              imageUrl: result.imageUrl,
+              prompt: prompt,
+              isGenerated: true,
+              generationStatus: "completed"
+            });
+          }
+          
+          // Update client state
+          if (onImageGenerated) {
+            onImageGenerated(selectedPanel, result.imageUrl);
+          }
+        } catch (error) {
+          console.error("Failed to save panel to database:", error);
+          toast({
+            title: "Warning",
+            description: "Image generated but failed to save to database.",
+            variant: "destructive",
+          });
+        }
       }
       
       toast({
@@ -182,9 +218,39 @@ export default function PanelEditor({
       
       return response.json();
     },
-    onSuccess: (result) => {
-      if (result.status === "completed" && result.imageUrl && selectedPanel && onImageGenerated) {
-        onImageGenerated(selectedPanel, result.imageUrl);
+    onSuccess: async (result) => {
+      if (result.status === "completed" && result.imageUrl && selectedPanel && currentPage) {
+        // Save regenerated image to database
+        try {
+          const panels = await apiRequest("GET", `/api/pages/${currentPage.id}/panels`);
+          const existingPanel = panels.find((p: any) => p.panelNumber === selectedPanel);
+          
+          if (existingPanel) {
+            // Update existing panel
+            await apiRequest("PUT", `/api/panels/${existingPanel.id}`, {
+              imageUrl: result.imageUrl,
+              prompt: prompt + " (regeneration)",
+              isGenerated: true,
+              generationStatus: "completed"
+            });
+          } else {
+            // Create new panel
+            await apiRequest("POST", `/api/pages/${currentPage.id}/panels`, {
+              panelNumber: selectedPanel,
+              imageUrl: result.imageUrl,
+              prompt: prompt + " (regeneration)",
+              isGenerated: true,
+              generationStatus: "completed"
+            });
+          }
+          
+          // Update client state
+          if (onImageGenerated) {
+            onImageGenerated(selectedPanel, result.imageUrl);
+          }
+        } catch (error) {
+          console.error("Failed to save regenerated panel to database:", error);
+        }
       }
       
       toast({
