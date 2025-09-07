@@ -184,6 +184,30 @@ export const insertPanelSchema = createInsertSchema(panels).omit({
   updatedAt: true,
 });
 
+// Structured Scripts insert schemas
+export const insertStructuredScriptSchema = createInsertSchema(structuredScripts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertScriptPageSchema = createInsertSchema(scriptPages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertScriptPanelSchema = createInsertSchema(scriptPanels).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertScriptDialogueSchema = createInsertSchema(scriptDialogue).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -195,3 +219,26 @@ export type InsertPage = z.infer<typeof insertPageSchema>;
 export type Page = typeof pages.$inferSelect;
 export type InsertPanel = z.infer<typeof insertPanelSchema>;
 export type Panel = typeof panels.$inferSelect;
+
+// Structured Script types
+export type StructuredScript = typeof structuredScripts.$inferSelect;
+export type InsertStructuredScript = z.infer<typeof insertStructuredScriptSchema>;
+export type ScriptPage = typeof scriptPages.$inferSelect;
+export type InsertScriptPage = z.infer<typeof insertScriptPageSchema>;
+export type ScriptPanel = typeof scriptPanels.$inferSelect;
+export type InsertScriptPanel = z.infer<typeof insertScriptPanelSchema>;
+export type ScriptDialogue = typeof scriptDialogue.$inferSelect;
+export type InsertScriptDialogue = z.infer<typeof insertScriptDialogueSchema>;
+
+// Composite types for working with structured scripts
+export interface FullStructuredScript extends StructuredScript {
+  pages: Array<ScriptPageWithPanels>;
+}
+
+export interface ScriptPageWithPanels extends ScriptPage {
+  panels: Array<ScriptPanelWithDialogue>;
+}
+
+export interface ScriptPanelWithDialogue extends ScriptPanel {
+  dialogue: Array<ScriptDialogue>;
+}
