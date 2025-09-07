@@ -333,7 +333,35 @@ export default function Editor() {
         let description = `Scene ${i} of ${project.title}`;
         
         if (structuredScript?.pages && Array.isArray(structuredScript.pages)) {
-          const scriptPage = structuredScript.pages.find((p: any) => p.pageNumber === pageToUse.pageNumber);
+          // DEBUG: Log the page numbers to see what's available
+          console.log("Available script pages:", structuredScript.pages.map((p: any) => ({
+            pageNumber: p.pageNumber, 
+            title: p.title,
+            type: typeof p.pageNumber
+          })));
+          console.log("Looking for page:", pageToUse.pageNumber, "type:", typeof pageToUse.pageNumber);
+          
+          // Try multiple matching strategies to find the script page
+          let scriptPage = structuredScript.pages.find((p: any) => p.pageNumber === pageToUse.pageNumber);
+          
+          // If not found, try string/number conversion
+          if (!scriptPage) {
+            scriptPage = structuredScript.pages.find((p: any) => 
+              String(p.pageNumber) === String(pageToUse.pageNumber)
+            );
+          }
+          
+          // If still not found, try array index-based matching (0-indexed vs 1-indexed)
+          if (!scriptPage && typeof pageToUse.pageNumber === 'number') {
+            scriptPage = structuredScript.pages[pageToUse.pageNumber - 1];
+          }
+          
+          console.log("Found script page:", scriptPage ? {
+            pageNumber: scriptPage.pageNumber,
+            title: scriptPage.title,
+            panelCount: scriptPage.panels?.length || 0
+          } : "NOT FOUND");
+          
           if (scriptPage?.panels && Array.isArray(scriptPage.panels)) {
             const scriptPanel = scriptPage.panels.find((p: any) => p.panelNumber === i);
             if (scriptPanel) {
