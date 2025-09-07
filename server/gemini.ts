@@ -393,7 +393,7 @@ export class GeminiService {
     projectContext: GenerateImageRequest["projectContext"];
     panelContext?: GenerateImageRequest["panelContext"];
   }): string {
-    let prompt = "Create a subtle comic panel background that sets the scene without being distracting. ";
+    let prompt = "Generate a FULL-BLEED background artwork with NO borders, NO padding, NO white space. The background must extend completely edge-to-edge. Create a subtle comic panel background that sets the scene without being distracting. ";
 
     // Genre-based background suggestions
     if (request.projectContext.genre) {
@@ -466,7 +466,10 @@ export class GeminiService {
   }
 
   private buildContextualPrompt(request: GenerateImageRequest): string {
-    let prompt = `Create a high-quality comic panel illustration: ${request.prompt}`;
+    // Start with critical edge-to-edge instructions
+    let prompt = `CRITICAL REQUIREMENTS: Generate a FULL-BLEED comic panel artwork that extends completely edge-to-edge with NO white borders, NO padding, NO margins, NO frame. The artwork must fill the ENTIRE canvas from edge to edge. 
+
+Create a high-quality comic panel illustration: ${request.prompt}`;
 
     // Add panel dimension context for better composition
     if (request.panelContext) {
@@ -550,8 +553,10 @@ export class GeminiService {
 
     // Add consistency and quality instructions with speech bubble guidance
     prompt += ". Continue the narrative flow naturally from previous events. Maintain character visual consistency with previous panels";
-    prompt += ". CRITICAL: Keep all speech bubbles, text, and important visual elements completely within the panel boundaries";
-    prompt += ". Create a detailed, high-quality comic book illustration that fills the entire frame without cropping important content";
+    prompt += ". CRITICAL: Keep all speech bubbles, text, and important visual elements completely within the artwork";
+    prompt += ". ABSOLUTELY NO WHITE BORDERS OR PADDING - the artwork must extend fully to all four edges (top, bottom, left, right)";
+    prompt += ". Generate professional comic book artwork that bleeds to the edges like printed comics";
+    prompt += ". Fill 100% of the canvas area with actual artwork, no empty space or borders";
 
     return prompt;
   }
