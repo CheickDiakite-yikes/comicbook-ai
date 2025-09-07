@@ -466,7 +466,7 @@ export class GeminiService {
   }
 
   private buildContextualPrompt(request: GenerateImageRequest): string {
-    let prompt = `Create a comic panel image: ${request.prompt}`;
+    let prompt = `Create a high-quality comic panel illustration: ${request.prompt}`;
 
     // Add panel dimension context for better composition
     if (request.panelContext) {

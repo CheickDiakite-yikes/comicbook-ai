@@ -244,12 +244,12 @@ export default function Editor() {
       const layout = comicLayouts.find(l => l.id === currentLayout);
       if (!layout) throw new Error("Layout not found");
       
-      // Create panel descriptions based on project script or generate them
+      // Create clean panel descriptions without meta-information that appears in artwork
       const panelDescriptions = [];
       for (let i = 1; i <= layout.panelCount; i++) {
         panelDescriptions.push({
           panelNumber: i,
-          description: `Panel ${i}: Scene continues from the story of ${project.title}. ${project.description || 'Continue the narrative flow.'}`,
+          description: `Scene continues from the story of ${project.title}. ${project.description || 'Continue the narrative flow with appropriate visual storytelling.'}`,
         });
       }
       
