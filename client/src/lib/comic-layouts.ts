@@ -25,10 +25,10 @@ export const comicLayouts: ComicLayout[] = [
       <rect x="105" y="105" width="85" height="85" fill="none" stroke="#666" stroke-width="2"/>
     </svg>`,
     panels: [
-      { x: 0, y: 0, width: 0.45, height: 0.45 },       // 1:1 (Google native)
-      { x: 0.55, y: 0, width: 0.45, height: 0.45 },     // 1:1 (Google native)
-      { x: 0, y: 0.55, width: 0.45, height: 0.45 },     // 1:1 (Google native)
-      { x: 0.55, y: 0.55, width: 0.45, height: 0.45 },  // 1:1 (Google native)
+      { x: 0.025, y: 0.025, width: 0.46, height: 0.46 },    // 1:1 (Google native)
+      { x: 0.515, y: 0.025, width: 0.46, height: 0.46 },   // 1:1 (Google native)
+      { x: 0.025, y: 0.515, width: 0.46, height: 0.46 },   // 1:1 (Google native)
+      { x: 0.515, y: 0.515, width: 0.46, height: 0.46 },   // 1:1 (Google native)
     ],
   },
   {
@@ -42,9 +42,9 @@ export const comicLayouts: ComicLayout[] = [
       <rect x="105" y="70" width="85" height="85" fill="none" stroke="#666" stroke-width="2"/>
     </svg>`,
     panels: [
-      { x: 0, y: 0, width: 0.9, height: 0.253 },        // 16:9 (Google native)
-      { x: 0, y: 0.35, width: 0.45, height: 0.45 },     // 1:1 (Google native)
-      { x: 0.55, y: 0.35, width: 0.45, height: 0.45 },  // 1:1 (Google native)
+      { x: 0.025, y: 0.02, width: 0.95, height: 0.3 },     // 16:9 (Google native)
+      { x: 0.025, y: 0.35, width: 0.46, height: 0.46 },   // 1:1 (Google native)
+      { x: 0.515, y: 0.35, width: 0.46, height: 0.46 },   // 1:1 (Google native)
     ],
   },
   {
@@ -58,9 +58,9 @@ export const comicLayouts: ComicLayout[] = [
       <rect x="10" y="120" width="180" height="45" fill="none" stroke="#666" stroke-width="2"/>
     </svg>`,
     panels: [
-      { x: 0, y: 0, width: 0.9, height: 0.27 },         // 4:3 (Google native)
-      { x: 0, y: 0.32, width: 0.9, height: 0.27 },      // 4:3 (Google native)
-      { x: 0, y: 0.64, width: 0.9, height: 0.27 },      // 4:3 (Google native)
+      { x: 0.025, y: 0.02, width: 0.95, height: 0.3 },    // 4:3 (Google native)
+      { x: 0.025, y: 0.34, width: 0.95, height: 0.3 },   // 4:3 (Google native)
+      { x: 0.025, y: 0.66, width: 0.95, height: 0.3 },   // 4:3 (Google native)
     ],
   },
   {
@@ -74,9 +74,9 @@ export const comicLayouts: ComicLayout[] = [
       <rect x="136" y="10" width="54" height="72" fill="none" stroke="#666" stroke-width="2"/>
     </svg>`,
     panels: [
-      { x: 0, y: 0, width: 0.3, height: 0.4 },          // 3:4 (Google native)
-      { x: 0.35, y: 0, width: 0.3, height: 0.4 },       // 3:4 (Google native)
-      { x: 0.7, y: 0, width: 0.3, height: 0.4 },        // 3:4 (Google native)
+      { x: 0.025, y: 0.02, width: 0.305, height: 0.6 },   // 3:4 (Google native)
+      { x: 0.3475, y: 0.02, width: 0.305, height: 0.6 }, // 3:4 (Google native)
+      { x: 0.67, y: 0.02, width: 0.305, height: 0.6 },   // 3:4 (Google native)
     ],
   },
   {
@@ -89,8 +89,8 @@ export const comicLayouts: ComicLayout[] = [
       <rect x="105" y="10" width="85" height="151" fill="none" stroke="#666" stroke-width="2"/>
     </svg>`,
     panels: [
-      { x: 0, y: 0, width: 0.45, height: 0.8 },         // 9:16 (Google native)
-      { x: 0.55, y: 0, width: 0.45, height: 0.8 },      // 9:16 (Google native)
+      { x: 0.025, y: 0.02, width: 0.46, height: 0.94 },   // 9:16 (Google native)
+      { x: 0.515, y: 0.02, width: 0.46, height: 0.94 },  // 9:16 (Google native)
     ],
   },
   {
@@ -105,10 +105,10 @@ export const comicLayouts: ComicLayout[] = [
       <rect x="105" y="105" width="85" height="85" fill="none" stroke="#666" stroke-width="2"/>
     </svg>`,
     panels: [
-      { x: 0, y: 0, width: 0.45, height: 0.45 },       // 1:1 square
-      { x: 0.55, y: 0, width: 0.45, height: 0.45 },     // 1:1 square
-      { x: 0, y: 0.55, width: 0.45, height: 0.45 },     // 1:1 square
-      { x: 0.55, y: 0.55, width: 0.45, height: 0.45 },  // 1:1 square
+      { x: 0.025, y: 0.025, width: 0.46, height: 0.46 },   // 1:1 square
+      { x: 0.515, y: 0.025, width: 0.46, height: 0.46 },  // 1:1 square
+      { x: 0.025, y: 0.515, width: 0.46, height: 0.46 },  // 1:1 square
+      { x: 0.515, y: 0.515, width: 0.46, height: 0.46 },  // 1:1 square
     ],
   },
   {
@@ -123,10 +123,10 @@ export const comicLayouts: ComicLayout[] = [
       <rect x="10" y="160" width="85" height="24" fill="none" stroke="#666" stroke-width="2"/>
     </svg>`,
     panels: [
-      { x: 0, y: 0, width: 0.9, height: 0.27 },         // 4:3 (Google native)
-      { x: 0, y: 0.32, width: 0.45, height: 0.45 },     // 1:1 (Google native)
-      { x: 0.55, y: 0.32, width: 0.45, height: 0.6 },   // 3:4 (Google native)
-      { x: 0, y: 0.82, width: 0.45, height: 0.127 },    // 16:9 (Google native)
+      { x: 0.025, y: 0.02, width: 0.95, height: 0.25 },   // 4:3 (Google native)
+      { x: 0.025, y: 0.3, width: 0.46, height: 0.46 },   // 1:1 (Google native)
+      { x: 0.515, y: 0.3, width: 0.46, height: 0.62 },   // 3:4 (Google native)
+      { x: 0.025, y: 0.79, width: 0.46, height: 0.17 },  // 16:9 (Google native)
     ],
   },
   {
@@ -138,7 +138,7 @@ export const comicLayouts: ComicLayout[] = [
       <rect x="10" y="10" width="180" height="180" fill="none" stroke="#666" stroke-width="2"/>
     </svg>`,
     panels: [
-      { x: 0, y: 0, width: 0.9, height: 0.9 },
+      { x: 0.025, y: 0.02, width: 0.95, height: 0.94 },   // Full splash
     ],
   },
 ];
