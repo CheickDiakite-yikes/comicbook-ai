@@ -63,7 +63,11 @@ export default function Editor() {
     if (currentPage?.id) {
       // CRITICAL FIX: Restore the saved layout template from database
       if (currentPage.layoutTemplate) {
+        console.log(`🔄 LAYOUT RESTORE: Page ${currentPage.id} loading layout: "${currentPage.layoutTemplate}"`);
         setCurrentLayout(currentPage.layoutTemplate);
+      } else {
+        console.log(`⚠️ LAYOUT MISSING: Page ${currentPage.id} has no layoutTemplate, using default`);
+        setCurrentLayout("classic-grid");
       }
       
       const loadPanelData = async () => {
