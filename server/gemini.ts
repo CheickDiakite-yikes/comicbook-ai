@@ -440,7 +440,12 @@ export class GeminiService {
         prompt += "Balanced square background composition. ";
       }
       
-      prompt += `Optimized for aspect ratio ${aspectRatio.toFixed(2)}:1. `;
+      // Add aspect ratio if available, with fallback to standard ratio
+      if (aspectRatio && typeof aspectRatio === 'number') {
+        prompt += `Optimized for aspect ratio ${aspectRatio.toFixed(2)}:1. `;
+      } else {
+        prompt += "Standard comic panel aspect ratio. ";
+      }
     }
 
     // Quality and style instructions
@@ -464,8 +469,10 @@ export class GeminiService {
         prompt += " (square composition, balanced framing)";
       }
       
-      // Add aspect ratio hint for better fit
-      prompt += ` (aspect ratio ${aspectRatio.toFixed(2)}:1)`;
+      // Add aspect ratio hint for better fit, with null check
+      if (aspectRatio && typeof aspectRatio === 'number') {
+        prompt += ` (aspect ratio ${aspectRatio.toFixed(2)}:1)`;
+      }
     }
 
     // Add art style context
