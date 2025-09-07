@@ -488,6 +488,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate complete character with AI
+  app.post("/api/projects/:projectId/generate-character", isAuthenticated, async (req: any, res) => {
+    try {
+      const project = await storage.getProject(req.params.projectId);
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      const { roleType } = req.body; // Optional role hint like "hero", "villain", "sidekick"
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+      
+      // Generate a complete character profile using structured output
+      const prompt = `Generate a complete character for the ${project.genre || 'comic'} story "${project.title}".
+      ${project.description ? `Story context: ${project.description}` : ''}
+      ${roleType ? `Character should be a ${roleType}.` : ''}
+      
+      Create a well-rounded character that fits this world. Make them interesting and unique.
+      
+      Respond with a JSON object containing:
+      {
+        "name": "Character's full name",
+        "role": "Their role/position (protagonist, antagonist, mentor, etc.)",
+        "bio": "2-3 sentence character biography including personality, background, and motivations",
+        "visualDescriptors": "Detailed physical description for an artist including appearance, clothing, and distinctive features"
+      }`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-pro",
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              role: { type: "string" },
+              bio: { type: "string" },
+              visualDescriptors: { type: "string" }
+            },
+            required: ["name", "role", "bio", "visualDescriptors"]
+          }
+        },
+        contents: prompt,
+      });
+
+      const characterData = JSON.parse(response.text || "{}");
+      
+      // Validate the generated data
+      if (!characterData.name || !characterData.role || !characterData.bio || !characterData.visualDescriptors) {
+        throw new Error("Incomplete character data generated");
+      }
+
+      res.json(characterData);
+    } catch (error) {
+      console.error("Error generating character:", error);
+      res.status(500).json({ message: "Failed to generate character" });
+    }
+  });
+
   // Structured Script API endpoints
   
   // Get project's structured script
