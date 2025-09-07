@@ -259,6 +259,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Background Generation route
+  app.post("/api/generate-background", isAuthenticated, async (req: any, res) => {
+    try {
+      const { panelId, projectId, panelContext } = req.body;
+      
+      if (!panelId || !projectId) {
+        return res.status(400).json({ message: "Panel ID and Project ID are required" });
+      }
+
+      const project = await storage.getProject(projectId);
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      const projectContext = {
+        title: project.title,
+        genre: project.genre || undefined,
+        description: project.description || undefined,
+        artStyle: project.artStyle || undefined,
+      };
+
+      const result = await geminiService.generatePanelBackground({
+        panelId,
+        projectContext,
+        panelContext,
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Background generation error:", error);
+      res.status(500).json({ message: "Failed to generate background" });
+    }
+  });
+
   app.post("/api/generate-full-page", isAuthenticated, async (req: any, res) => {
     try {
       const { projectContext, pageScript, panelLayout } = req.body;

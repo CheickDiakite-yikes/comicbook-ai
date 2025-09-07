@@ -157,6 +157,69 @@ export class GeminiService {
   /**
    * Generate multiple panel images for a full page
    */
+  async generatePanelBackground(request: {
+    panelId: number;
+    projectContext: GenerateImageRequest["projectContext"];
+    panelContext?: GenerateImageRequest["panelContext"];
+  }): Promise<GenerateImageResponse> {
+    try {
+      // Build background-specific prompt
+      const backgroundPrompt = this.buildBackgroundPrompt(request);
+      
+      console.log(`Generating background for panel ${request.panelId} with prompt: ${backgroundPrompt}`);
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-image-preview",
+        contents: backgroundPrompt,
+      });
+
+      // Process response (same as generatePanelImage)
+      if (!response.candidates || !response.candidates[0]?.content?.parts) {
+        throw new Error("No valid response received from Gemini");
+      }
+      
+      for (const part of response.candidates[0].content.parts) {
+        if (part.text) {
+          console.log("Generated background text:", part.text);
+        } else if (part.inlineData) {
+          const imageData = part.inlineData.data;
+          if (!imageData) {
+            throw new Error("No background image data received");
+          }
+          const buffer = Buffer.from(imageData, "base64");
+          const filename = `background_${request.panelId}_${Date.now()}.png`;
+          const imagePath = path.join(process.cwd(), "public", "generated", filename);
+          
+          // Ensure directory exists
+          const dir = path.dirname(imagePath);
+          if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+          }
+          
+          fs.writeFileSync(imagePath, buffer);
+          
+          return {
+            imageUrl: `/generated/${filename}`,
+            status: "completed",
+            panelId: request.panelId,
+            generationId: Date.now().toString(),
+          };
+        }
+      }
+
+      throw new Error("No background image data received from Gemini");
+    } catch (error) {
+      console.error("Error generating panel background:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate background";
+      return {
+        imageUrl: "",
+        status: "failed",
+        panelId: request.panelId,
+        error: errorMessage,
+      };
+    }
+  }
+
   async generateFullPage(
     projectContext: GenerateImageRequest["projectContext"],
     pageScript: string,
@@ -226,6 +289,67 @@ export class GeminiService {
   /**
    * Build a context-aware prompt for image generation
    */
+  private buildBackgroundPrompt(request: {
+    panelId: number;
+    projectContext: GenerateImageRequest["projectContext"];
+    panelContext?: GenerateImageRequest["panelContext"];
+  }): string {
+    let prompt = "Create a subtle comic panel background that sets the scene without being distracting. ";
+
+    // Genre-based background suggestions
+    if (request.projectContext.genre) {
+      const genre = request.projectContext.genre.toLowerCase();
+      if (genre.includes("romance")) {
+        prompt += "Soft romantic setting with gentle flowers, gardens, or dreamy landscapes. ";
+      } else if (genre.includes("adventure")) {
+        prompt += "Epic landscape or terrain that suggests adventure and exploration. ";
+      } else if (genre.includes("mystery")) {
+        prompt += "Atmospheric background with shadows and intriguing environments. ";
+      } else if (genre.includes("fantasy")) {
+        prompt += "Magical or fantastical environment with ethereal elements. ";
+      } else {
+        prompt += "Appropriate environmental setting that matches the story mood. ";
+      }
+    }
+
+    // Story context-based backgrounds
+    if (request.projectContext.description) {
+      const description = request.projectContext.description.toLowerCase();
+      if (description.includes("bee")) {
+        prompt += "Flower fields, meadows, or garden settings with soft natural elements. ";
+      } else if (description.includes("city") || description.includes("urban")) {
+        prompt += "Urban environments, city streets, or architectural backgrounds. ";
+      } else if (description.includes("forest") || description.includes("nature")) {
+        prompt += "Natural forest or woodland settings. ";
+      }
+    }
+
+    // Art style context
+    if (request.projectContext.artStyle) {
+      prompt += `Rendered in ${request.projectContext.artStyle} art style. `;
+    }
+
+    // Panel composition context
+    if (request.panelContext) {
+      const { aspectRatio, panelType } = request.panelContext;
+      
+      if (panelType === "wide-cinematic" || panelType === "wide") {
+        prompt += "Wide cinematic background composition, panoramic view. ";
+      } else if (panelType === "tall-vertical") {
+        prompt += "Vertical background composition, suitable for portrait orientation. ";
+      } else if (panelType === "square") {
+        prompt += "Balanced square background composition. ";
+      }
+      
+      prompt += `Optimized for aspect ratio ${aspectRatio.toFixed(2)}:1. `;
+    }
+
+    // Quality and style instructions
+    prompt += "Keep background subtle and atmospheric, not overpowering. No characters or foreground objects. Focus on environmental mood and atmosphere. High-quality comic book illustration style.";
+
+    return prompt;
+  }
+
   private buildContextualPrompt(request: GenerateImageRequest): string {
     let prompt = `Create a comic panel image: ${request.prompt}`;
 
