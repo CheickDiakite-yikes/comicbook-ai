@@ -373,8 +373,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deletePage(id: string): Promise<boolean> {
-    const result = await db.delete(pages).where(eq(pages.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    try {
+      // First delete all panels associated with this page
+      await db.delete(panels).where(eq(panels.pageId, id));
+      
+      // Then delete the page itself
+      const result = await db.delete(pages).where(eq(pages.id, id));
+      return result.rowCount !== null && result.rowCount > 0;
+    } catch (error) {
+      console.error("Error deleting page and associated panels:", error);
+      return false;
+    }
   }
 
   // Panel operations
