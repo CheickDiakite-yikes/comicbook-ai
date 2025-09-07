@@ -110,26 +110,13 @@ class AIService {
     panelLayout: Array<{ panelNumber: number; description: string }>
   ): Promise<Array<GenerateImageResponse>> {
     try {
-      const results: Array<GenerateImageResponse> = [];
-      
-      // Generate each panel in sequence to maintain consistency
-      for (const panel of panelLayout) {
-        const request: GenerateImageRequest = {
-          prompt: panel.description,
-          panelId: panel.panelNumber,
-          projectContext,
-          previousPanelsContext: results.map((r, index) => ({
-            panelNumber: index + 1,
-            prompt: panelLayout[index]?.description || "",
-            imageUrl: r.imageUrl,
-          })),
-        };
+      const response = await apiRequest("POST", `${this.baseUrl}/generate-full-page`, {
+        projectContext,
+        pageScript,
+        panelLayout,
+      });
 
-        const result = await this.generatePanelImage(request);
-        results.push(result);
-      }
-
-      return results;
+      return await response.json();
     } catch (error) {
       console.error("Failed to generate full page:", error);
       throw new Error("Failed to generate full page. Please try again.");
@@ -141,8 +128,6 @@ class AIService {
    */
   async generateScript(request: GenerateScriptRequest): Promise<GenerateScriptResponse> {
     try {
-      // In a real implementation, this would call the Nano Banana API
-      // For now, we'll create a structured response based on the input
       const response = await apiRequest("POST", `${this.baseUrl}/generate-script`, request);
       return await response.json();
     } catch (error) {

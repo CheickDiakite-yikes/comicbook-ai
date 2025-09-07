@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { insertProjectSchema, insertCharacterSchema, insertPageSchema, insertPanelSchema } from "@shared/schema";
+import { geminiService } from "./gemini";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -218,24 +219,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI Generation endpoint
+  // AI Generation endpoints
   app.post("/api/generate-image", isAuthenticated, async (req: any, res) => {
     try {
-      const { prompt, panelId, projectContext, characterContext } = req.body;
+      const { prompt, panelId, projectContext, characterContext, styleOptions } = req.body;
       
-      // Mock AI generation - in production, this would call Nano Banana API
-      // Simulate processing time
-      setTimeout(() => {
-        const mockImageUrl = `https://picsum.photos/400/300?random=${Date.now()}`;
-        res.json({ 
-          imageUrl: mockImageUrl,
-          status: "completed",
-          panelId 
-        });
-      }, 2000);
+      const result = await geminiService.generatePanelImage({
+        prompt,
+        panelId,
+        projectContext,
+        characterContext,
+        styleOptions,
+      });
+      
+      res.json(result);
     } catch (error) {
       console.error("Error generating image:", error);
-      res.status(500).json({ message: "Failed to generate image" });
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate image";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  app.post("/api/generate-full-page", isAuthenticated, async (req: any, res) => {
+    try {
+      const { projectContext, pageScript, panelLayout } = req.body;
+      
+      const results = await geminiService.generateFullPage(
+        projectContext,
+        pageScript,
+        panelLayout
+      );
+      
+      res.json(results);
+    } catch (error) {
+      console.error("Error generating full page:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate full page";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  app.post("/api/generate-script", isAuthenticated, async (req: any, res) => {
+    try {
+      const scriptRequest = req.body;
+      
+      const result = await geminiService.generateScript(scriptRequest);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error generating script:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate script";
+      res.status(500).json({ message: errorMessage });
     }
   });
 
