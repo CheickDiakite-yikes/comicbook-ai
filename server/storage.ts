@@ -297,6 +297,71 @@ export class MemStorage implements IStorage {
   async deletePanel(id: string): Promise<boolean> {
     return this.panels.delete(id);
   }
+
+  // Structured Script operations - Not implemented in MemStorage
+  async createStructuredScript(script: InsertStructuredScript): Promise<StructuredScript> {
+    throw new Error("Structured scripts not implemented in MemStorage");
+  }
+
+  async getProjectStructuredScript(projectId: string): Promise<FullStructuredScript | undefined> {
+    throw new Error("Structured scripts not implemented in MemStorage");
+  }
+
+  async updateStructuredScript(id: string, updates: Partial<InsertStructuredScript>): Promise<StructuredScript | undefined> {
+    throw new Error("Structured scripts not implemented in MemStorage");
+  }
+
+  async deleteStructuredScript(id: string): Promise<boolean> {
+    throw new Error("Structured scripts not implemented in MemStorage");
+  }
+
+  async createScriptPage(page: InsertScriptPage): Promise<ScriptPage> {
+    throw new Error("Structured scripts not implemented in MemStorage");
+  }
+
+  async getScriptPages(scriptId: string): Promise<ScriptPageWithPanels[]> {
+    throw new Error("Structured scripts not implemented in MemStorage");
+  }
+
+  async updateScriptPage(id: string, updates: Partial<InsertScriptPage>): Promise<ScriptPage | undefined> {
+    throw new Error("Structured scripts not implemented in MemStorage");
+  }
+
+  async deleteScriptPage(id: string): Promise<boolean> {
+    throw new Error("Structured scripts not implemented in MemStorage");
+  }
+
+  async createScriptPanel(panel: InsertScriptPanel): Promise<ScriptPanel> {
+    throw new Error("Structured scripts not implemented in MemStorage");
+  }
+
+  async getScriptPanels(pageId: string): Promise<ScriptPanelWithDialogue[]> {
+    throw new Error("Structured scripts not implemented in MemStorage");
+  }
+
+  async updateScriptPanel(id: string, updates: Partial<InsertScriptPanel>): Promise<ScriptPanel | undefined> {
+    throw new Error("Structured scripts not implemented in MemStorage");
+  }
+
+  async deleteScriptPanel(id: string): Promise<boolean> {
+    throw new Error("Structured scripts not implemented in MemStorage");
+  }
+
+  async createScriptDialogue(dialogue: InsertScriptDialogue): Promise<ScriptDialogue> {
+    throw new Error("Structured scripts not implemented in MemStorage");
+  }
+
+  async getScriptDialogue(panelId: string): Promise<ScriptDialogue[]> {
+    throw new Error("Structured scripts not implemented in MemStorage");
+  }
+
+  async updateScriptDialogue(id: string, updates: Partial<InsertScriptDialogue>): Promise<ScriptDialogue | undefined> {
+    throw new Error("Structured scripts not implemented in MemStorage");
+  }
+
+  async deleteScriptDialogue(id: string): Promise<boolean> {
+    throw new Error("Structured scripts not implemented in MemStorage");
+  }
 }
 
 // Database storage implementation

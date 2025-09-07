@@ -488,6 +488,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Structured Script API endpoints
+  
+  // Get project's structured script
+  app.get("/api/projects/:projectId/structured-script", isAuthenticated, async (req: any, res) => {
+    try {
+      const { projectId } = req.params;
+      const script = await storage.getProjectStructuredScript(projectId);
+      res.json(script || null);
+    } catch (error) {
+      console.error("Error fetching structured script:", error);
+      res.status(500).json({ message: "Failed to fetch structured script" });
+    }
+  });
+
+  // Create or update structured script for a project
+  app.post("/api/projects/:projectId/structured-script", isAuthenticated, async (req: any, res) => {
+    try {
+      const { projectId } = req.params;
+      const { title, logline } = req.body;
+      
+      // Check if script already exists
+      const existingScript = await storage.getProjectStructuredScript(projectId);
+      
+      if (existingScript) {
+        // Update existing script
+        const updatedScript = await storage.updateStructuredScript(existingScript.id, {
+          title,
+          logline,
+        });
+        res.json(updatedScript);
+      } else {
+        // Create new script
+        const newScript = await storage.createStructuredScript({
+          projectId,
+          title,
+          logline,
+        });
+        res.json(newScript);
+      }
+    } catch (error) {
+      console.error("Error creating/updating structured script:", error);
+      res.status(500).json({ message: "Failed to create/update structured script" });
+    }
+  });
+
+  // Create script page
+  app.post("/api/structured-scripts/:scriptId/pages", isAuthenticated, async (req: any, res) => {
+    try {
+      const { scriptId } = req.params;
+      const pageData = req.body;
+      
+      const page = await storage.createScriptPage({
+        structuredScriptId: scriptId,
+        ...pageData,
+      });
+      res.json(page);
+    } catch (error) {
+      console.error("Error creating script page:", error);
+      res.status(500).json({ message: "Failed to create script page" });
+    }
+  });
+
+  // Get script pages
+  app.get("/api/structured-scripts/:scriptId/pages", isAuthenticated, async (req: any, res) => {
+    try {
+      const { scriptId } = req.params;
+      const pages = await storage.getScriptPages(scriptId);
+      res.json(pages);
+    } catch (error) {
+      console.error("Error fetching script pages:", error);
+      res.status(500).json({ message: "Failed to fetch script pages" });
+    }
+  });
+
+  // Create script panel
+  app.post("/api/script-pages/:pageId/panels", isAuthenticated, async (req: any, res) => {
+    try {
+      const { pageId } = req.params;
+      const panelData = req.body;
+      
+      const panel = await storage.createScriptPanel({
+        scriptPageId: pageId,
+        ...panelData,
+      });
+      res.json(panel);
+    } catch (error) {
+      console.error("Error creating script panel:", error);
+      res.status(500).json({ message: "Failed to create script panel" });
+    }
+  });
+
+  // Create script dialogue
+  app.post("/api/script-panels/:panelId/dialogue", isAuthenticated, async (req: any, res) => {
+    try {
+      const { panelId } = req.params;
+      const dialogueData = req.body;
+      
+      const dialogue = await storage.createScriptDialogue({
+        scriptPanelId: panelId,
+        ...dialogueData,
+      });
+      res.json(dialogue);
+    } catch (error) {
+      console.error("Error creating script dialogue:", error);
+      res.status(500).json({ message: "Failed to create script dialogue" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
