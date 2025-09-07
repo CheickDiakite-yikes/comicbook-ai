@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import * as fs from "fs";
 import * as path from "path";
+import { imageProcessor } from "./image-processor";
 
 // Initialize Gemini AI client
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
