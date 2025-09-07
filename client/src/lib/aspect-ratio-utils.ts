@@ -17,21 +17,22 @@ export function calculatePanelAspectRatio(width: number, height: number): number
 }
 
 /**
- * Determine panel type based on aspect ratio optimized for standard comic formats
+ * Determine panel type based on Google's natively supported aspect ratios
  */
 export function determinePanelType(aspectRatio: number): string {
-  // Match to standard comic ratios for better AI generation
-  if (Math.abs(aspectRatio - 1.778) < 0.1) return "cinematic-16-9";  // 16:9
-  if (Math.abs(aspectRatio - 1.618) < 0.1) return "golden-ratio";    // Golden ratio
-  if (Math.abs(aspectRatio - 1.5) < 0.1) return "standard-3-2";     // 3:2 
-  if (Math.abs(aspectRatio - 1.0) < 0.1) return "perfect-square";   // 1:1
-  if (Math.abs(aspectRatio - 0.667) < 0.1) return "standard-2-3";   // 2:3
+  // Match to Google's natively supported ratios for optimal AI generation
+  if (Math.abs(aspectRatio - (16/9)) < 0.05) return "google-16-9";    // 16:9 Widescreen
+  if (Math.abs(aspectRatio - (4/3)) < 0.05) return "google-4-3";      // 4:3 Fullscreen  
+  if (Math.abs(aspectRatio - 1.0) < 0.05) return "google-1-1";        // 1:1 Square
+  if (Math.abs(aspectRatio - (3/4)) < 0.05) return "google-3-4";      // 3:4 Portrait
+  if (Math.abs(aspectRatio - (9/16)) < 0.05) return "google-9-16";    // 9:16 Tall Portrait
   
-  // Fallbacks for non-standard ratios
-  if (aspectRatio > 2.0) return "ultra-wide";
-  if (aspectRatio > 1.2) return "landscape";
-  if (aspectRatio < 0.8) return "portrait";
-  return "near-square";
+  // Fallbacks - try to map to closest Google ratio
+  if (aspectRatio > 1.5) return "google-16-9";     // Use 16:9 for wide panels
+  if (aspectRatio > 1.1) return "google-4-3";      // Use 4:3 for landscape
+  if (aspectRatio > 0.9) return "google-1-1";      // Use 1:1 for near-square
+  if (aspectRatio > 0.6) return "google-3-4";      // Use 3:4 for portrait
+  return "google-9-16";                             // Use 9:16 for tall panels
 }
 
 /**

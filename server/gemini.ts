@@ -610,25 +610,36 @@ export class GeminiService {
   }
 
   private buildContextualPrompt(request: GenerateImageRequest): string {
-    // Start with aspect ratio specifications - CRITICAL for proper panel fitting
+    // Start with Google's native aspect ratio specifications for optimal generation
     let prompt = "";
     
     if (request.panelContext?.aspectRatio) {
       const aspectRatio = request.panelContext.aspectRatio;
       
-      // Convert decimal aspect ratio to readable format
-      if (aspectRatio > 2.0) {
-        prompt += `ULTRA-WIDE PANORAMIC IMAGE: Create an ultra-wide ${aspectRatio.toFixed(1)}:1 aspect ratio image. `;
-      } else if (aspectRatio > 1.5) {
-        prompt += `WIDE CINEMATIC IMAGE: Create a ${aspectRatio.toFixed(1)}:1 landscape aspect ratio image. `;
-      } else if (aspectRatio > 1.2) {
-        prompt += `LANDSCAPE IMAGE: Create a ${aspectRatio.toFixed(1)}:1 landscape format image. `;
-      } else if (aspectRatio > 0.8) {
-        prompt += `SQUARE FORMAT IMAGE: Create a 1:1 square aspect ratio image. `;
-      } else if (aspectRatio > 0.6) {
-        prompt += `PORTRAIT IMAGE: Create a ${(1/aspectRatio).toFixed(1)}:1 portrait format image. `;
+      // Use Google's natively supported aspect ratios for best results
+      if (Math.abs(aspectRatio - (16/9)) < 0.05) {
+        prompt += `16:9 WIDESCREEN: Create a 16:9 widescreen aspect ratio image. `;
+      } else if (Math.abs(aspectRatio - (4/3)) < 0.05) {
+        prompt += `4:3 FULLSCREEN: Create a 4:3 fullscreen aspect ratio image. `;
+      } else if (Math.abs(aspectRatio - 1.0) < 0.05) {
+        prompt += `1:1 SQUARE: Create a 1:1 square aspect ratio image. `;
+      } else if (Math.abs(aspectRatio - (3/4)) < 0.05) {
+        prompt += `3:4 PORTRAIT: Create a 3:4 portrait aspect ratio image. `;
+      } else if (Math.abs(aspectRatio - (9/16)) < 0.05) {
+        prompt += `9:16 VERTICAL: Create a 9:16 tall portrait aspect ratio image. `;
       } else {
-        prompt += `TALL VERTICAL IMAGE: Create a tall ${(1/aspectRatio).toFixed(1)}:1 vertical aspect ratio image. `;
+        // Fallback - map to closest Google ratio
+        if (aspectRatio > 1.5) {
+          prompt += `16:9 WIDESCREEN: Create a 16:9 widescreen aspect ratio image. `;
+        } else if (aspectRatio > 1.1) {
+          prompt += `4:3 FULLSCREEN: Create a 4:3 fullscreen aspect ratio image. `;
+        } else if (aspectRatio > 0.9) {
+          prompt += `1:1 SQUARE: Create a 1:1 square aspect ratio image. `;
+        } else if (aspectRatio > 0.6) {
+          prompt += `3:4 PORTRAIT: Create a 3:4 portrait aspect ratio image. `;
+        } else {
+          prompt += `9:16 VERTICAL: Create a 9:16 tall portrait aspect ratio image. `;
+        }
       }
     }
     
