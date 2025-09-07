@@ -332,6 +332,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         panelContext: enhancedPanelContext,
       });
 
+      // If this is page-level background generation and successful, save to database
+      if (pageId && result.status === "completed" && result.imageUrl) {
+        try {
+          await storage.updatePageBackground(pageId, result.imageUrl);
+          console.log(`Page background saved to database for page ${pageId}: ${result.imageUrl}`);
+        } catch (dbError) {
+          console.error("Failed to save page background to database:", dbError);
+          // Don't fail the response since image generation was successful
+        }
+      }
+
       res.json(result);
     } catch (error) {
       console.error("Background generation error:", error);

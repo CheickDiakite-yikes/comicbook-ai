@@ -58,7 +58,7 @@ export default function Editor() {
 
   const currentPage = pages[currentPageIndex] || null;
 
-  // Load existing panel data when page changes
+  // Load existing panel data and page background when page changes
   useEffect(() => {
     if (currentPage?.id) {
       const loadPanelData = async () => {
@@ -72,11 +72,17 @@ export default function Editor() {
             if (panel.imageUrl) {
               imageMap[panel.panelNumber] = panel.imageUrl;
             }
-            // Note: backgroundUrl would be added here when we extend the schema
           });
           
           setGeneratedImages(imageMap);
           setGeneratedBackgrounds(backgroundMap);
+          
+          // Load page background if it exists
+          if (currentPage.backgroundImageUrl) {
+            setPageBackground(currentPage.backgroundImageUrl);
+          } else {
+            setPageBackground(null);
+          }
         } catch (error) {
           console.error("Failed to load panel data:", error);
         }
@@ -87,6 +93,7 @@ export default function Editor() {
       // Clear images when no page is selected
       setGeneratedImages({});
       setGeneratedBackgrounds({});
+      setPageBackground(null);
     }
   }, [currentPage?.id]);
   

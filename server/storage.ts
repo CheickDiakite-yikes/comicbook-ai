@@ -372,6 +372,15 @@ export class DatabaseStorage implements IStorage {
     return page || undefined;
   }
 
+  async updatePageBackground(pageId: string, backgroundImageUrl: string): Promise<Page | undefined> {
+    const [page] = await db
+      .update(pages)
+      .set({ backgroundImageUrl, updatedAt: new Date() })
+      .where(eq(pages.id, pageId))
+      .returning();
+    return page || undefined;
+  }
+
   async deletePage(id: string): Promise<boolean> {
     try {
       // First delete all panels associated with this page
