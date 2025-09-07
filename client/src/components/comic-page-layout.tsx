@@ -1,4 +1,5 @@
 import { comicLayouts } from "@/lib/comic-layouts";
+import { getPanelAspectRatioInfo, getOptimalImageCSS } from "@/lib/aspect-ratio-utils";
 
 interface ComicPageLayoutProps {
   layoutId: string;
@@ -28,6 +29,10 @@ export default function ComicPageLayout({
         const hasImage = generatedImages[panelNumber];
         const hasBackground = generatedBackgrounds[panelNumber];
         
+        // Calculate optimal CSS sizing based on panel dimensions
+        const panelAspectRatio = panel.width / panel.height;
+        const optimalCSS = getOptimalImageCSS(panelAspectRatio);
+        
         return (
           <div
             key={panelNumber}
@@ -51,6 +56,10 @@ export default function ComicPageLayout({
                   src={hasImage}
                   alt={`Generated panel ${panelNumber}`}
                   className="w-full h-full object-cover"
+                  style={{
+                    objectFit: panelAspectRatio > 2 || panelAspectRatio < 0.5 ? 'contain' : 'cover',
+                    objectPosition: 'center'
+                  }}
                   onError={() => {
                     console.error(`Failed to load image for panel ${panelNumber}`);
                   }}
@@ -64,8 +73,7 @@ export default function ComicPageLayout({
                 className="w-full h-full flex items-center justify-center p-2 relative overflow-hidden rounded-lg"
                 style={{
                   backgroundImage: hasBackground ? `url(${hasBackground})` : undefined,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
+                  ...optimalCSS,
                   backgroundColor: hasBackground ? 'transparent' : undefined
                 }}
               >
