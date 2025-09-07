@@ -51,14 +51,16 @@ export default function ComicPageLayout({
             data-testid={`panel-${panelNumber}`}
           >
             {hasImage ? (
-              <div className="w-full h-full relative overflow-hidden rounded-lg">
+              <div className="w-full h-full relative overflow-hidden rounded-lg bg-gray-100">
                 <img
                   src={hasImage}
                   alt={`Generated panel ${panelNumber}`}
-                  className="w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full"
                   style={{
-                    objectFit: panelAspectRatio > 2 || panelAspectRatio < 0.5 ? 'contain' : 'cover',
-                    objectPosition: 'center'
+                    objectFit: 'cover',
+                    objectPosition: 'center',
+                    minWidth: '100%',
+                    minHeight: '100%'
                   }}
                   onError={() => {
                     console.error(`Failed to load image for panel ${panelNumber}`);

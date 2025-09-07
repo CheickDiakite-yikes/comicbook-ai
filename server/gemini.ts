@@ -459,8 +459,10 @@ export class GeminiService {
       }
     }
 
-    // Quality and style instructions
-    prompt += "Keep background subtle and atmospheric, not overpowering. No characters or foreground objects. Focus on environmental mood and atmosphere. High-quality comic book illustration style.";
+    // Quality and style instructions with edge-to-edge emphasis
+    prompt += "Keep background subtle and atmospheric, not overpowering. No characters or foreground objects. Focus on environmental mood and atmosphere. ";
+    prompt += "CRITICAL: Generate edge-to-edge artwork with NO white borders - fill the entire canvas completely. ";
+    prompt += "High-quality comic book illustration style with full-bleed artwork.";
 
     return prompt;
   }

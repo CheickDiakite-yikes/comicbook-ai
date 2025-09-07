@@ -93,33 +93,13 @@ export function calculateOptimalDimensions(aspectRatio: number, targetArea = 100
 
 /**
  * Generate CSS properties for optimal image fitting
- * Returns different strategies based on the aspect ratio match
+ * Always use cover to fill panels completely, accepting slight cropping
  */
 export function getOptimalImageCSS(containerAspectRatio: number, imageAspectRatio?: number) {
-  // If we don't know the image aspect ratio, use cover as fallback
-  if (!imageAspectRatio) {
-    return {
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundRepeat: 'no-repeat'
-    };
-  }
-
-  const aspectRatioDiff = Math.abs(containerAspectRatio - imageAspectRatio);
-  
-  // If aspect ratios are very close (within 5%), use cover for slight cropping
-  if (aspectRatioDiff < 0.05) {
-    return {
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundRepeat: 'no-repeat'
-    };
-  }
-  
-  // If image is much wider/taller than container, use contain to prevent cropping
-  // This will show the full image but may leave some white space
+  // Always use cover to ensure full panel coverage
+  // This may crop slightly but eliminates white space
   return {
-    backgroundSize: 'contain',
+    backgroundSize: 'cover',
     backgroundPosition: 'center',
     backgroundRepeat: 'no-repeat'
   };
