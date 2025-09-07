@@ -8,7 +8,8 @@ import LayoutChangeModal from "@/components/layout-change-modal";
 import ComicPageLayout from "@/components/comic-page-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Save, Download, ChevronLeft, ChevronRight, Wand2, Loader2, Plus, Edit } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { ArrowLeft, Save, Download, ChevronLeft, ChevronRight, Wand2, Loader2, Plus, Edit, Trash2, Cloud } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { aiService } from "@/lib/ai-service";
@@ -30,6 +31,7 @@ export default function Editor() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [panelEditorOpen, setPanelEditorOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
   // Detect mobile screen size
   useEffect(() => {
@@ -142,6 +144,80 @@ export default function Editor() {
       toast({
         title: "Error",
         description: "Failed to create new page. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deletePageMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentPage?.id) throw new Error("No page to delete");
+      
+      // Delete the page (this will also delete associated panels)
+      await apiRequest("DELETE", `/api/pages/${currentPage.id}`);
+      
+      return currentPage.id;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "pages"] });
+      
+      // Navigate to previous page or first page
+      const newPageIndex = currentPageIndex > 0 ? currentPageIndex - 1 : 0;
+      setCurrentPageIndex(newPageIndex);
+      
+      // Clear local state
+      setGeneratedImages({});
+      setGeneratedBackgrounds({});
+      setSelectedPanel(null);
+      
+      toast({
+        title: "Page deleted",
+        description: "Page and all its content have been removed.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete page. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const generateBackgroundForPageMutation = useMutation({
+    mutationFn: async () => {
+      if (!project?.id || !currentPage?.id) throw new Error("No project or page selected");
+      
+      const layout = comicLayouts.find(l => l.id === currentLayout);
+      if (!layout) throw new Error("Layout not found");
+      
+      const result = await apiRequest("POST", "/api/generate-background", {
+        projectId: project.id,
+        pageId: currentPage.id,
+        layoutTemplate: currentLayout,
+        panelContext: {
+          fullPage: true,
+          panelCount: layout.panelCount
+        }
+      });
+      
+      return result;
+    },
+    onSuccess: (result: any) => {
+      if (result.status === "completed" && result.imageUrl) {
+        toast({
+          title: "Page Background Generated!",
+          description: "Beautiful story-themed background created for this page.",
+        });
+      } else {
+        throw new Error(result.error || "Failed to generate page background");
+      }
+    },
+    onError: (error) => {
+      console.error("Page background generation failed:", error);
+      toast({
+        title: "Background Generation Failed",
+        description: "Failed to generate page background. Please try again.",
         variant: "destructive",
       });
     },
@@ -391,38 +467,74 @@ export default function Editor() {
                         </div>
                         
                         {/* Action Buttons */}
-                        <div className={`flex ${isMobile ? 'justify-center space-x-2' : 'items-center space-x-2'}`}>
-                          <Button 
-                            className={`bg-chart-1 text-white hover:bg-chart-1/90 min-h-[44px] ${isMobile ? 'flex-1' : ''}`}
-                            onClick={() => generatePageMutation.mutate()}
-                            disabled={isGeneratingFullPage}
-                            data-testid="button-generate-page"
-                          >
-                            {isGeneratingFullPage ? (
-                              <>
-                                <Loader2 className="mr-1 sm:mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-                                <span className="hidden sm:inline">Generating...</span>
-                              </>
-                            ) : (
-                              <>
-                                <Wand2 className="mr-1 sm:mr-2 h-4 w-4" aria-hidden="true" />
-                                <span className="hidden sm:inline">Generate Full Page</span>
-                                <span className="sm:hidden">Generate</span>
-                              </>
+                        <div className={`${isMobile ? 'space-y-2' : 'flex items-center space-x-2'}`}>
+                          {/* Main Actions Row */}
+                          <div className={`flex ${isMobile ? 'justify-center space-x-2' : 'items-center space-x-2'}`}>
+                            <Button 
+                              className={`bg-chart-1 text-white hover:bg-chart-1/90 min-h-[44px] ${isMobile ? 'flex-1' : ''}`}
+                              onClick={() => generatePageMutation.mutate()}
+                              disabled={isGeneratingFullPage}
+                              data-testid="button-generate-page"
+                            >
+                              {isGeneratingFullPage ? (
+                                <>
+                                  <Loader2 className="mr-1 sm:mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                                  <span className="hidden sm:inline">Generating...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Wand2 className="mr-1 sm:mr-2 h-4 w-4" aria-hidden="true" />
+                                  <span className="hidden sm:inline">Generate Full Page</span>
+                                  <span className="sm:hidden">Generate</span>
+                                </>
+                              )}
+                            </Button>
+                            <Button 
+                              variant="secondary" 
+                              onClick={() => setShowLayoutModal(true)}
+                              className="min-h-[44px]"
+                              data-testid="button-change-layout"
+                            >
+                              <svg className="mr-1 sm:mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M3 3h18v18H3V3zm16 16V5H5v14h14zM7 7h2v2H7V7zm4 0h2v2h-2V7zm4 0h2v2h-2V7zM7 11h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2zM7 15h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2z"/>
+                              </svg>
+                              <span className="hidden sm:inline">Change Layout</span>
+                              <span className="sm:hidden">Layout</span>
+                            </Button>
+                          </div>
+                          
+                          {/* Secondary Actions Row */}
+                          <div className={`flex ${isMobile ? 'justify-center space-x-2' : 'items-center space-x-2'}`}>
+                            <Button 
+                              variant="outline"
+                              onClick={() => generateBackgroundForPageMutation.mutate()}
+                              disabled={generateBackgroundForPageMutation.isPending}
+                              className="min-h-[44px] bg-gradient-to-r from-emerald-50 to-cyan-50 dark:from-emerald-900/20 dark:to-cyan-900/20 border-emerald-200 dark:border-emerald-700 hover:from-emerald-100 hover:to-cyan-100 dark:hover:from-emerald-800/30 dark:hover:to-cyan-800/30 font-medium text-emerald-700 dark:text-emerald-300"
+                              data-testid="button-generate-page-background"
+                            >
+                              <Cloud className="mr-1 sm:mr-2 h-4 w-4" aria-hidden="true" />
+                              {generateBackgroundForPageMutation.isPending ? (
+                                <span className="hidden sm:inline">Creating Background...</span>
+                              ) : (
+                                <>
+                                  <span className="hidden sm:inline">🎨 Generate Page Background</span>
+                                  <span className="sm:hidden">Background</span>
+                                </>
+                              )}
+                            </Button>
+                            {pages && pages.length > 1 && (
+                              <Button 
+                                variant="destructive"
+                                onClick={() => setShowDeleteConfirm(true)}
+                                className="min-h-[44px]"
+                                data-testid="button-delete-page"
+                              >
+                                <Trash2 className="mr-1 sm:mr-2 h-4 w-4" aria-hidden="true" />
+                                <span className="hidden sm:inline">Delete Page</span>
+                                <span className="sm:hidden">Delete</span>
+                              </Button>
                             )}
-                          </Button>
-                          <Button 
-                            variant="secondary" 
-                            onClick={() => setShowLayoutModal(true)}
-                            className="min-h-[44px]"
-                            data-testid="button-change-layout"
-                          >
-                            <svg className="mr-1 sm:mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                              <path d="M3 3h18v18H3V3zm16 16V5H5v14h14zM7 7h2v2H7V7zm4 0h2v2h-2V7zm4 0h2v2h-2V7zM7 11h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2zM7 15h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2z"/>
-                            </svg>
-                            <span className="hidden sm:inline">Change Layout</span>
-                            <span className="sm:hidden">Layout</span>
-                          </Button>
+                          </div>
                         </div>
                       </div>
                     </CardContent>
@@ -459,6 +571,31 @@ export default function Editor() {
         currentLayout={currentLayout}
         onLayoutChange={handleLayoutChange}
       />
+
+      {/* Delete Page Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete This Page?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete Page {(currentPage?.pageNumber || currentPageIndex + 1)} and all its content including generated panels and artwork. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                deletePageMutation.mutate();
+                setShowDeleteConfirm(false);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="confirm-delete-page"
+            >
+              Delete Page
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
