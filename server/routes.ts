@@ -176,6 +176,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete page route
+  app.delete("/api/pages/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const page = await storage.getPage(req.params.id);
+      if (!page) {
+        return res.status(404).json({ message: "Page not found" });
+      }
+
+      const project = await storage.getProject(page.projectId);
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      const success = await storage.deletePage(req.params.id);
+      if (success) {
+        res.json({ success: true, message: "Page deleted successfully" });
+      } else {
+        res.status(404).json({ message: "Page not found" });
+      }
+    } catch (error) {
+      console.error("Error deleting page:", error);
+      res.status(500).json({ message: "Failed to delete page" });
+    }
+  });
+
   // Panel routes
   app.post("/api/pages/:pageId/panels", isAuthenticated, async (req: any, res) => {
     try {
@@ -259,16 +285,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Background Generation route
+  // Background Generation route - enhanced for both panel and page-level generation
   app.post("/api/generate-background", isAuthenticated, async (req: any, res) => {
     try {
-      const { panelId, projectId, panelContext } = req.body;
+      const { panelId, projectId, pageId, layoutTemplate, panelContext } = req.body;
       
-      if (!panelId || !projectId) {
-        return res.status(400).json({ message: "Panel ID and Project ID are required" });
+      // Support both panel-level and page-level background generation
+      const actualProjectId = projectId || (pageId ? (await storage.getPage(pageId))?.projectId : null);
+      const actualPanelId = panelId || 1; // Default to panel 1 for page-level generation
+      
+      if (!actualProjectId) {
+        return res.status(400).json({ message: "Project ID is required (either directly or via page)" });
       }
 
-      const project = await storage.getProject(projectId);
+      const project = await storage.getProject(actualProjectId);
       const userId = getUserId(req.user);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
@@ -281,10 +311,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         artStyle: project.artStyle || undefined,
       };
 
+      // For page-level generation, enhance context with layout info
+      const enhancedPanelContext = pageId && layoutTemplate ? {
+        ...panelContext,
+        fullPage: true,
+        layoutTemplate
+      } : panelContext;
+
       const result = await geminiService.generatePanelBackground({
-        panelId,
+        panelId: actualPanelId,
         projectContext,
-        panelContext,
+        panelContext: enhancedPanelContext,
       });
 
       res.json(result);
