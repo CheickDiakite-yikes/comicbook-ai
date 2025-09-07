@@ -29,8 +29,34 @@ export default function Dashboard() {
     queryKey: ["/api/projects"],
   });
 
-  const totalPages = projects.reduce((acc, project) => acc + (project.description?.length || 0), 0);
-  const totalCharacters = projects.length * 2; // Mock calculation
+  // Fetch actual page counts for each project
+  const { data: allPagesData = [] } = useQuery({
+    queryKey: ["/api/all-pages"],
+    queryFn: async () => {
+      const allPages = [];
+      for (const project of projects) {
+        try {
+          const pages = await fetch(`/api/projects/${project.id}/pages`).then(res => res.json());
+          allPages.push(...pages.map((page: any) => ({ ...page, projectId: project.id })));
+        } catch (error) {
+          console.error(`Failed to fetch pages for project ${project.id}:`, error);
+        }
+      }
+      return allPages;
+    },
+    enabled: projects.length > 0,
+  });
+
+  // Helper function to get page count for a specific project
+  const getProjectPageCount = (projectId: string) => {
+    return allPagesData.filter((page: any) => page.projectId === projectId).length;
+  };
+
+  const totalPages = allPagesData.length;
+  const totalCharacters = projects.reduce((acc, project) => {
+    const projectPages = allPagesData.filter((page: any) => page.projectId === project.id);
+    return acc + projectPages.length * 3; // Estimate 3 characters per page
+  }, 0);
 
   return (
     <div className="min-h-screen bg-background" style={{ paddingTop: 'var(--safe-top)' }}>
@@ -145,7 +171,9 @@ export default function Dashboard() {
                             <svg className="h-10 w-10 sm:h-12 sm:w-12 text-chart-1 mx-auto mb-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                             </svg>
-                            <p className="text-sm text-muted-foreground">0 pages created</p>
+                            <p className="text-sm text-muted-foreground">
+                              {getProjectPageCount(project.id)} pages created
+                            </p>
                           </div>
                         </div>
                         <div className="p-4 text-left">

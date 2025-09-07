@@ -42,12 +42,25 @@ export default function Editor() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  const { data: project } = useQuery<Project>({
+    queryKey: ["/api/projects", projectId],
+    enabled: !!projectId,
+  });
+
+  const { data: pages = [] } = useQuery<Page[]>({
+    queryKey: ["/api/projects", projectId, "pages"],
+    enabled: !!projectId,
+  });
+
+  const currentPage = pages[currentPageIndex] || null;
+
   // Load existing panel data when page changes
   useEffect(() => {
     if (currentPage?.id) {
       const loadPanelData = async () => {
         try {
-          const panelsData = await apiRequest("GET", `/api/pages/${currentPage.id}/panels`);
+          const response = await fetch(`/api/pages/${currentPage.id}/panels`);
+          const panelsData = await response.json();
           const imageMap: {[key: number]: string} = {};
           const backgroundMap: {[key: number]: string} = {};
           
@@ -80,18 +93,6 @@ export default function Editor() {
       setPanelEditorOpen(false);
     }
   }, [isMobile]);
-
-  const { data: project } = useQuery<Project>({
-    queryKey: ["/api/projects", projectId],
-    enabled: !!projectId,
-  });
-
-  const { data: pages = [] } = useQuery<Page[]>({
-    queryKey: ["/api/projects", projectId, "pages"],
-    enabled: !!projectId,
-  });
-
-  const currentPage = pages[currentPageIndex];
 
   const { data: panels = [] } = useQuery<Panel[]>({
     queryKey: ["/api/pages", currentPage?.id, "panels"],
