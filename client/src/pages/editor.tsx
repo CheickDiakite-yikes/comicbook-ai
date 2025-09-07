@@ -704,7 +704,7 @@ export default function Editor() {
                   <TabsContent value="script" className="space-y-4">
                     <StructuredScriptViewer 
                       projectId={projectId!} 
-                      currentPageNumber={currentPage?.pageNumber}
+                      currentPageNumber={currentPageIndex + 1}
                     />
                   </TabsContent>
                 </Tabs>
