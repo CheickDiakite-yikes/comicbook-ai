@@ -518,22 +518,40 @@ export class GeminiService {
       prompt += `. Color palette: ${request.styleOptions.colorPalette.join(", ")}`;
     }
 
-    // Add cross-page narrative context for continuity
+    // Add cross-page narrative context for continuity without panel numbering
     if (request.crossPageContext && request.crossPageContext.length > 0) {
       const narrativeContext = request.crossPageContext
         .map(page => {
           const panelSummaries = page.panels
-            .map(panel => `Panel ${panel.panelNumber}: ${panel.prompt}`)
+            .map(panel => panel.prompt.replace(/^Panel \d+:\s*/i, ''))
             .join(", ");
-          return `Page ${page.pageNumber}: ${panelSummaries}`;
+          return `Previous page content: ${panelSummaries}`;
         })
         .join(". ");
       
       prompt += `. Previous story context: ${narrativeContext}`;
     }
 
-    // Add consistency and quality instructions
-    prompt += ". Continue the narrative flow naturally from previous events. Maintain character visual consistency with previous panels. Create a detailed, high-quality comic book illustration.";
+    // Add aspect ratio and composition guidance for perfect panel fitting
+    if (request.panelContext) {
+      const { aspectRatio, panelType } = request.panelContext;
+      if (aspectRatio && typeof aspectRatio === 'number') {
+        prompt += `. IMPORTANT: Compose the entire illustration to exactly fit aspect ratio ${aspectRatio.toFixed(2)}:1 with no wasted space`;
+        
+        if (aspectRatio > 1.3) {
+          prompt += ". Use wide horizontal composition, ensure speech bubbles and important elements stay within the central area";
+        } else if (aspectRatio < 0.8) {
+          prompt += ". Use vertical composition, stack elements vertically, keep speech bubbles in upper portion";
+        } else {
+          prompt += ". Use balanced square composition, center important elements and speech bubbles";
+        }
+      }
+    }
+
+    // Add consistency and quality instructions with speech bubble guidance
+    prompt += ". Continue the narrative flow naturally from previous events. Maintain character visual consistency with previous panels";
+    prompt += ". CRITICAL: Keep all speech bubbles, text, and important visual elements completely within the panel boundaries";
+    prompt += ". Create a detailed, high-quality comic book illustration that fills the entire frame without cropping important content";
 
     return prompt;
   }
