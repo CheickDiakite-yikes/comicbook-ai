@@ -643,21 +643,24 @@ export class GeminiService {
       }
     }
     
+    // CRITICAL TEXT SAFETY INSTRUCTIONS - MUST COME FIRST!
+    prompt += `🎯 TEXT SAFE ZONE RULE: ALL speech bubbles and text MUST be positioned at least 15% away from ALL edges (top, bottom, left, right). Keep text in the CENTER 70% of the panel. Never place speech bubbles near panel boundaries! `;
+    
     prompt += `FULL-BLEED comic panel artwork with NO white borders, NO padding, NO frames. `;
     prompt += `The artwork must completely fill the ${request.panelContext?.aspectRatio ? `${request.panelContext.aspectRatio.toFixed(1)}:1` : ''} format from edge to edge. `;
     
     prompt += `Create a high-quality comic panel illustration: ${request.prompt}`;
 
-    // Add specific composition guidance based on panel shape
+    // Add specific composition guidance based on panel shape with enhanced text placement
     if (request.panelContext) {
       const { aspectRatio, panelType } = request.panelContext;
       
       if (aspectRatio && aspectRatio > 1.5) {
-        prompt += ". Use wide horizontal composition with elements spread across the frame. Position speech bubbles in the upper-center area to avoid cropping.";
+        prompt += ". WIDE PANEL: Use horizontal composition. 🔴 CRITICAL: Position ALL speech bubbles in the CENTER horizontal strip (avoid left/right edges). Place text in the MIDDLE 60% of the panel width.";
       } else if (aspectRatio && aspectRatio < 0.8) {
-        prompt += ". Use vertical composition with elements stacked vertically. Place speech bubbles in the upper third of the frame.";
+        prompt += ". TALL PANEL: Use vertical composition. 🔴 CRITICAL: Position ALL speech bubbles in the CENTER vertical area (avoid top/bottom edges). Keep text in the MIDDLE 60% of the panel height.";
       } else {
-        prompt += ". Use balanced square composition with centered elements and speech bubbles in the upper-center area.";
+        prompt += ". SQUARE PANEL: Use balanced composition. 🔴 CRITICAL: Position ALL speech bubbles in the CENTER SAFE ZONE - at least 20% away from all four edges.";
       }
     }
 
@@ -721,9 +724,9 @@ export class GeminiService {
       }
     }
 
-    // Add consistency and quality instructions with speech bubble guidance
+    // Add consistency and quality instructions with ENHANCED speech bubble guidance
     prompt += ". Continue the narrative flow naturally from previous events. Maintain character visual consistency with previous panels";
-    prompt += ". CRITICAL: Keep all speech bubbles, text, and important visual elements completely within the artwork";
+    prompt += ". 🚨 SPEECH BUBBLE PLACEMENT RULES: 1) Keep ALL text 15% away from edges 2) Center speech bubbles in SAFE ZONES 3) Use the middle 70% of panel area for text 4) Never cut off words or speech bubbles";
     prompt += ". ABSOLUTELY NO WHITE BORDERS OR PADDING - the artwork must extend fully to all four edges (top, bottom, left, right)";
     prompt += ". Generate professional comic book artwork that bleeds to the edges like printed comics";
     prompt += ". Fill 100% of the canvas area with actual artwork, no empty space or borders";
