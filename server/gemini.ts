@@ -652,15 +652,57 @@ export class GeminiService {
         areaPixels: request.panelContext.dimensions.width * request.panelContext.dimensions.height
       };
       
-      // Import functions for adaptive speech bubble optimization
-      const { generateSpeechBubbleInstructions } = require("../client/src/lib/speech-bubble-optimizer");
-      const adaptiveInstructions = generateSpeechBubbleInstructions(dimensions);
+      // Generate adaptive speech bubble instructions based on panel size
+      const areaPixels = dimensions.areaPixels;
+      const smallestDimension = Math.min(dimensions.widthPx, dimensions.heightPx);
       
-      // Debug logging to track adaptive system performance
-      console.log(`📐 ADAPTIVE SPEECH BUBBLE SYSTEM: Panel ${request.panelId}`);
-      console.log(`   Dimensions: ${dimensions.widthPx}×${dimensions.heightPx}px (${dimensions.areaPixels.toLocaleString()} pixels)`);
-      console.log(`   Aspect Ratio: ${dimensions.aspectRatio.toFixed(2)}:1`);
-      console.log(`   Instructions: ${adaptiveInstructions.substring(0, 150)}...`);
+      let safeZonePercentage = 70;
+      let edgeMarginPercentage = 15;
+      let textScaleRecommendation = 'large';
+      
+      if (areaPixels >= 400000) {
+        // LARGE PANELS - Plenty of space
+        safeZonePercentage = 70;
+        edgeMarginPercentage = 15;
+        textScaleRecommendation = 'large';
+      } else if (areaPixels >= 200000 && smallestDimension >= 350) {
+        // MEDIUM PANELS - Good space
+        safeZonePercentage = 80;
+        edgeMarginPercentage = 10;
+        textScaleRecommendation = 'medium';
+      } else if (areaPixels >= 100000 && smallestDimension >= 250) {
+        // SMALL PANELS - Limited space
+        safeZonePercentage = 88;
+        edgeMarginPercentage = 6;
+        textScaleRecommendation = 'small';
+      } else {
+        // TINY PANELS - Minimal space
+        safeZonePercentage = 94;
+        edgeMarginPercentage = 3;
+        textScaleRecommendation = 'minimal';
+      }
+      
+      // Generate adaptive instructions
+      let adaptiveInstructions = `🎯 ADAPTIVE TEXT SAFE ZONE (${dimensions.widthPx}×${dimensions.heightPx}px): `;
+      adaptiveInstructions += `Keep ALL speech bubbles in the CENTER ${safeZonePercentage}% of the panel. `;
+      adaptiveInstructions += `EDGE MARGIN: Keep ALL text ${edgeMarginPercentage}% away from ALL edges. `;
+      adaptiveInstructions += `TEXT SCALE: ${textScaleRecommendation.toUpperCase()} text recommended for optimal readability. `;
+      
+      // Add aspect ratio specific guidance
+      if (dimensions.aspectRatio > 2.0) {
+        adaptiveInstructions += `ULTRA-WIDE PANEL: Position speech bubbles in HORIZONTAL CENTER STRIP (middle 60% of height). `;
+      } else if (dimensions.aspectRatio > 1.5) {
+        adaptiveInstructions += `WIDE PANEL: Center speech bubbles HORIZONTALLY in the middle 65% of width. `;
+      } else if (dimensions.aspectRatio < 0.6) {
+        adaptiveInstructions += `TALL PANEL: Position speech bubbles in UPPER-MIDDLE section (avoid bottom 20%). `;
+      } else if (dimensions.aspectRatio < 0.8) {
+        adaptiveInstructions += `PORTRAIT PANEL: Center speech bubbles both horizontally and vertically. `;
+      } else {
+        adaptiveInstructions += `SQUARE PANEL: Center speech bubbles in the absolute CENTER of the panel. `;
+      }
+      
+      // Debug logging
+      console.log(`📐 ADAPTIVE SPEECH BUBBLE: Panel ${request.panelId} (${dimensions.widthPx}×${dimensions.heightPx}px, ${safeZonePercentage}% safe zone)`);
       
       prompt += adaptiveInstructions;
     } else {
@@ -682,12 +724,8 @@ export class GeminiService {
         areaPixels: request.panelContext.dimensions.width * request.panelContext.dimensions.height
       };
       
-      // Import functions for aspect ratio guidance
-      const { getAspectRatioGuidance, calculateOptimalSafeZone } = require("../client/src/lib/speech-bubble-optimizer");
-      const safeZone = calculateOptimalSafeZone(dimensions);
-      const aspectGuidance = getAspectRatioGuidance(request.panelContext.aspectRatio, safeZone);
-      
-      prompt += `. ${aspectGuidance}`;
+      // This section is now handled above in the adaptive instructions
+      // No additional aspect ratio guidance needed
     }
 
     // Add art style context
