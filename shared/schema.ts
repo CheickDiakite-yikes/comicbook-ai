@@ -72,6 +72,7 @@ export const pages = pgTable("pages", {
   projectId: varchar("project_id").notNull().references(() => projects.id),
   pageNumber: integer("page_number").notNull(),
   layoutTemplate: varchar("layout_template").notNull(),
+  backgroundImageUrl: varchar("background_image_url"), // URL to generated page background
   panels: jsonb("panels"), // JSON array of panel objects
   scriptSnippet: text("script_snippet"),
   createdAt: timestamp("created_at").defaultNow(),
