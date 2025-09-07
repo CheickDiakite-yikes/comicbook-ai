@@ -207,15 +207,6 @@ export default function Editor() {
       return result;
     },
     onSuccess: (result: any) => {
-      // Enhanced frontend logging for debugging
-      console.log("=== FRONTEND SUCCESS RESULT ===");
-      console.log("Full result object:", result);
-      console.log("Result keys:", Object.keys(result));
-      console.log("Status:", result.status);
-      console.log("ImageURL:", result.imageUrl);
-      console.log("Error field:", result.error);
-      console.log("=== END FRONTEND SUCCESS ===");
-      
       if (result.status === "completed" && result.imageUrl) {
         // Set the page background for the canvas
         setPageBackground(result.imageUrl);
@@ -229,12 +220,6 @@ export default function Editor() {
       }
     },
     onError: (error) => {
-      console.error("=== FRONTEND ERROR DEBUG ===");
-      console.error("Error object:", error);
-      console.error("Error message:", error?.message);
-      console.error("Error keys:", error ? Object.keys(error) : 'null');
-      console.error("=== END FRONTEND ERROR ===");
-      
       toast({
         title: "Background Generation Failed",
         description: error?.message || "Failed to generate page background. Please try again.",
