@@ -92,9 +92,14 @@ export default function Editor() {
       });
       return newPage as unknown as Page;
     },
-    onSuccess: (newPage: Page) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "pages"] });
-      setCurrentPageIndex(pages.length); // Go to the new page
+    onSuccess: async (newPage: Page) => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "pages"] });
+      
+      // Navigate to the newly created page (which will be the last page)
+      // Since we just added a page, the new index will be current pages.length
+      const newPageIndex = pages.length; // This will be correct after invalidation
+      setCurrentPageIndex(newPageIndex);
+      
       toast({
         title: "New page created",
         description: `Page ${newPage.pageNumber} has been added to your comic.`,
