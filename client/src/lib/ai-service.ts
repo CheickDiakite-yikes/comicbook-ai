@@ -149,7 +149,7 @@ class AIService {
   async generateScript(request: GenerateScriptRequest): Promise<GenerateScriptResponse> {
     try {
       const response = await apiRequest("POST", `${this.baseUrl}/generate-script`, request);
-      return await response.json();
+      return response as unknown as GenerateScriptResponse;
     } catch (error) {
       console.error("Failed to generate script:", error);
       throw new Error("Failed to generate script. Please try again.");
@@ -167,7 +167,12 @@ class AIService {
   }> {
     try {
       const response = await apiRequest("GET", `${this.baseUrl}/generation-status/${generationId}`);
-      return await response.json();
+      return response as unknown as {
+        status: "pending" | "generating" | "completed" | "failed";
+        progress?: number;
+        result?: GenerateImageResponse;
+        error?: string;
+      };
     } catch (error) {
       console.error("Failed to get generation status:", error);
       throw new Error("Failed to get generation status.");
