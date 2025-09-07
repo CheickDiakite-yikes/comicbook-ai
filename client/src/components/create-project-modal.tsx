@@ -95,6 +95,32 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
         });
       }
       
+      // Generate structured script if description is provided
+      if (data.description) {
+        try {
+          const characterData = validCharacters.map(char => ({
+            name: char.name,
+            role: char.role,
+            bio: char.bio,
+            visualDescriptors: char.visualDescriptors || ""
+          }));
+          
+          await apiRequest("POST", `/api/projects/${project.id}/generate-structured-script`, {
+            title: data.title,
+            description: data.description,
+            genre: data.genre,
+            characters: characterData,
+            settings: [{ name: "Metro City", description: "A bustling metropolis with towering skyscrapers and busy streets." }],
+            pageCount: 5,
+            tone: data.genre,
+            logline: data.description
+          });
+        } catch (scriptError) {
+          console.error("Failed to generate structured script:", scriptError);
+          // Don't fail the entire project creation if script generation fails
+        }
+      }
+      
       return project;
     },
     onSuccess: (project) => {
@@ -143,22 +169,30 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
         return;
       }
 
-      const scriptResult = await aiService.generateScript({
-        title: formValues.title,
-        genre: formValues.genre || "Adventure",
-        description: formValues.description,
-        characters: characters.filter(char => char.name && char.role),
-        settings: [{ name: "Metro City", description: "A bustling metropolis with towering skyscrapers and busy streets." }],
-        pageCount: 5,
-        tone: formValues.genre || "Adventure",
-      });
+      // For script preview, we'll create a simple preview text
+      // The actual structured script will be generated when the project is created
+      const previewText = `# ${formValues.title} - Script Preview
 
-      // Update the script field with the generated content
-      form.setValue("script", scriptResult.script);
+This will generate a complete structured script with:
+✓ Rich metadata for each panel (camera angles, shot types, mood)
+✓ Character dialogue with placement and tone
+✓ Visual descriptions and sound effects
+✓ Collapsible page/panel organization
+✓ Scene settings and character emotions
+
+The full enhanced script will be available in the editor after project creation.
+
+**Story:** ${formValues.description}
+**Genre:** ${formValues.genre}
+**Characters:** ${characters.filter(char => char.name && char.role).map(c => c.name).join(", ")}
+**Pages:** 5 pages with multiple panels each`;
+
+      // Update the script field with preview text
+      form.setValue("script", previewText);
       
       toast({
-        title: "Script Generated!",
-        description: "A story script has been generated for your comic project.",
+        title: "Script Preview Generated!",
+        description: "Create the project to generate the full structured script with rich metadata.",
       });
     } catch (error) {
       console.error("Error generating script:", error);
