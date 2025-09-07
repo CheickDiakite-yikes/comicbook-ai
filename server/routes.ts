@@ -332,6 +332,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         panelContext: enhancedPanelContext,
       });
 
+      // Enhanced result logging for debugging
+      console.log("=== BACKGROUND GENERATION RESULT ===");
+      console.log("Result:", JSON.stringify(result, null, 2));
+      console.log("Result status:", result.status);
+      console.log("Result imageUrl:", result.imageUrl);
+      console.log("=== END RESULT DEBUG ===");
+
       res.json(result);
     } catch (error) {
       console.error("Background generation error:", error);

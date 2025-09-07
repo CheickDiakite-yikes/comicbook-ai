@@ -204,20 +204,34 @@ export default function Editor() {
       return result;
     },
     onSuccess: (result: any) => {
+      // Enhanced frontend logging for debugging
+      console.log("=== FRONTEND SUCCESS RESULT ===");
+      console.log("Full result object:", result);
+      console.log("Result keys:", Object.keys(result));
+      console.log("Status:", result.status);
+      console.log("ImageURL:", result.imageUrl);
+      console.log("Error field:", result.error);
+      console.log("=== END FRONTEND SUCCESS ===");
+      
       if (result.status === "completed" && result.imageUrl) {
         toast({
           title: "Page Background Generated!",
           description: "Beautiful story-themed background created for this page.",
         });
       } else {
-        throw new Error(result.error || "Failed to generate page background");
+        throw new Error(result.error || `Failed to generate page background - Status: ${result.status}, URL: ${result.imageUrl}`);
       }
     },
     onError: (error) => {
-      console.error("Page background generation failed:", error);
+      console.error("=== FRONTEND ERROR DEBUG ===");
+      console.error("Error object:", error);
+      console.error("Error message:", error?.message);
+      console.error("Error keys:", error ? Object.keys(error) : 'null');
+      console.error("=== END FRONTEND ERROR ===");
+      
       toast({
         title: "Background Generation Failed",
-        description: "Failed to generate page background. Please try again.",
+        description: error?.message || "Failed to generate page background. Please try again.",
         variant: "destructive",
       });
     },

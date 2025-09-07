@@ -187,6 +187,30 @@ export class GeminiService {
         },
       });
 
+      // COMPREHENSIVE DEBUGGING - Log the entire response structure
+      console.log("=== FULL GEMINI RESPONSE DEBUG ===");
+      console.log("Response object keys:", Object.keys(response));
+      console.log("Response.candidates:", response.candidates?.length || 0);
+      
+      if (response.candidates && response.candidates[0]) {
+        console.log("Candidate[0] keys:", Object.keys(response.candidates[0]));
+        console.log("Candidate[0].content keys:", response.candidates[0].content ? Object.keys(response.candidates[0].content) : "no content");
+        
+        if (response.candidates[0].content?.parts) {
+          console.log("Parts count:", response.candidates[0].content.parts.length);
+          response.candidates[0].content.parts.forEach((part, index) => {
+            console.log(`Part ${index} keys:`, Object.keys(part));
+            console.log(`Part ${index} has text:`, !!part.text);
+            console.log(`Part ${index} has inlineData:`, !!part.inlineData);
+            if (part.inlineData) {
+              console.log(`Part ${index} inlineData keys:`, Object.keys(part.inlineData));
+              console.log(`Part ${index} inlineData.data length:`, part.inlineData.data?.length || 0);
+            }
+          });
+        }
+      }
+      console.log("=== END RESPONSE DEBUG ===");
+      
       // Process response (same as generatePanelImage)
       if (!response.candidates || !response.candidates[0]?.content?.parts) {
         throw new Error("No valid response received from Gemini");
