@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Wand2, RotateCcw, MessageSquare, Cloud, Palette, BookOpen, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { calculatePanelAspectRatio, determinePanelType } from "@/lib/ai-service";
 import { comicLayouts } from "@/lib/comic-layouts";
+import { generateEnhancedPanelContext, getPanelAspectRatioInfo, calculateOptimalDimensions } from "@/lib/aspect-ratio-utils";
 import type { Project, Page } from "@shared/schema";
 
 interface PanelEditorProps {
@@ -48,25 +48,13 @@ export default function PanelEditor({
     mutationFn: async () => {
       if (!selectedPanel) throw new Error("No panel selected");
       
-      // Get panel context for size-aware generation
+      // Get enhanced panel context for size-aware generation
       const layout = comicLayouts.find(l => l.id === currentLayout);
       let panelContext = undefined;
       
       if (layout && selectedPanel <= layout.panels.length) {
         const panel = layout.panels[selectedPanel - 1];
-        const aspectRatio = calculatePanelAspectRatio(panel.width, panel.height);
-        const panelType = determinePanelType(aspectRatio);
-        
-        panelContext = {
-          layoutTemplate: currentLayout,
-          panelNumber: selectedPanel,
-          aspectRatio,
-          dimensions: {
-            width: panel.width,
-            height: panel.height
-          },
-          panelType
-        };
+        panelContext = generateEnhancedPanelContext(panel, currentLayout, selectedPanel);
       }
       
       const response = await apiRequest("POST", "/api/generate-image", {
@@ -162,19 +150,13 @@ export default function PanelEditor({
       const panelData = layout.panels[selectedPanel - 1];
       if (!panelData) throw new Error("Panel data not found");
       
-      // Calculate panel context
-      const aspectRatio = panelData.width / panelData.height;
-      let panelType = "square";
-      if (aspectRatio > 1.5) panelType = "wide-cinematic";
-      else if (aspectRatio < 0.7) panelType = "tall-vertical";
+      // Calculate enhanced panel context with precise dimensions
+      const enhancedContext = generateEnhancedPanelContext(panelData, currentLayout, selectedPanel);
       
       const result = await apiRequest("POST", "/api/generate-background", {
         panelId: selectedPanel,
         projectId: project.id,
-        panelContext: {
-          aspectRatio,
-          panelType
-        }
+        panelContext: enhancedContext
       });
       
       return result;
