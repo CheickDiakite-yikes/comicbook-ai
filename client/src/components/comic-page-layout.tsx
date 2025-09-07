@@ -3,17 +3,21 @@ import { comicLayouts } from "@/lib/comic-layouts";
 interface ComicPageLayoutProps {
   layoutId: string;
   generatedImages: {[key: number]: string};
+  generatedBackgrounds?: {[key: number]: string};
   selectedPanel: number | null;
   onPanelClick: (panelId: number) => void;
   onImageUpdate: (panelId: number, imageUrl: string) => void;
+  onBackgroundUpdate?: (panelId: number, backgroundUrl: string) => void;
 }
 
 export default function ComicPageLayout({ 
   layoutId, 
   generatedImages, 
+  generatedBackgrounds = {},
   selectedPanel, 
   onPanelClick,
-  onImageUpdate 
+  onImageUpdate,
+  onBackgroundUpdate
 }: ComicPageLayoutProps) {
   const layout = comicLayouts.find(l => l.id === layoutId) || comicLayouts[0];
   
@@ -22,6 +26,7 @@ export default function ComicPageLayout({
       {layout.panels.map((panel, index) => {
         const panelNumber = index + 1;
         const hasImage = generatedImages[panelNumber];
+        const hasBackground = generatedBackgrounds[panelNumber];
         
         return (
           <div
@@ -55,10 +60,23 @@ export default function ComicPageLayout({
                 </div>
               </div>
             ) : (
-              <div className="w-full h-full flex items-center justify-center p-2">
-                <p className="text-xs text-muted-foreground text-center">
+              <div 
+                className="w-full h-full flex items-center justify-center p-2 relative overflow-hidden rounded-lg"
+                style={{
+                  backgroundImage: hasBackground ? `url(${hasBackground})` : undefined,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundColor: hasBackground ? 'transparent' : undefined
+                }}
+              >
+                {hasBackground && (
+                  <div className="absolute inset-0 bg-black/10 rounded-lg" />
+                )}
+                <p className={`text-xs text-center z-10 ${
+                  hasBackground ? 'text-white drop-shadow-lg font-medium' : 'text-muted-foreground'
+                }`}>
                   Panel {panelNumber}<br/>
-                  Click to select
+                  {hasBackground ? 'Background ready' : 'Click to select'}
                 </p>
               </div>
             )}

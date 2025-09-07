@@ -18,17 +18,31 @@ interface PanelEditorProps {
   currentPage?: Page;
   currentLayout: string;
   onImageGenerated?: (panelId: number, imageUrl: string) => void;
+  onBackgroundGenerated?: (panelId: number, backgroundUrl: string) => void;
+  generatedBackground?: string;
   isOpen?: boolean;
   onClose?: () => void;
   isMobile?: boolean;
 }
 
-export default function PanelEditor({ selectedPanel, project, currentPage, currentLayout, onImageGenerated, isOpen = true, onClose, isMobile = false }: PanelEditorProps) {
+export default function PanelEditor({ 
+  selectedPanel, 
+  project, 
+  currentPage, 
+  currentLayout, 
+  onImageGenerated, 
+  onBackgroundGenerated,
+  generatedBackground,
+  isOpen = true, 
+  onClose, 
+  isMobile = false 
+}: PanelEditorProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [prompt, setPrompt] = useState("A superhero flies over a bustling city at sunset, cape flowing in the wind...");
   const [dialogueText, setDialogueText] = useState("");
   const [artStyle, setArtStyle] = useState("Comic Book (Classic)");
+  const [isGeneratingBackground, setIsGeneratingBackground] = useState(false);
 
   const generatePanelMutation = useMutation({
     mutationFn: async () => {
@@ -91,6 +105,59 @@ export default function PanelEditor({ selectedPanel, project, currentPage, curre
         description: "Failed to generate panel. Please try again.",
         variant: "destructive",
       });
+    },
+  });
+
+  // Background generation mutation
+  const generateBackgroundMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedPanel || !project?.id) throw new Error("No panel or project selected");
+      
+      setIsGeneratingBackground(true);
+      
+      const layout = comicLayouts.find(l => l.id === currentLayout);
+      if (!layout) throw new Error("Layout not found");
+      
+      const panelData = layout.panels[selectedPanel - 1];
+      if (!panelData) throw new Error("Panel data not found");
+      
+      // Calculate panel context
+      const aspectRatio = panelData.width / panelData.height;
+      let panelType = "square";
+      if (aspectRatio > 1.5) panelType = "wide-cinematic";
+      else if (aspectRatio < 0.7) panelType = "tall-vertical";
+      
+      const result = await apiRequest("POST", "/api/generate-background", {
+        panelId: selectedPanel,
+        projectId: project.id,
+        panelContext: {
+          aspectRatio,
+          panelType
+        }
+      });
+      
+      return result;
+    },
+    onSuccess: (result: any) => {
+      if (result.status === "completed" && result.imageUrl && onBackgroundGenerated) {
+        onBackgroundGenerated(selectedPanel!, result.imageUrl);
+        toast({
+          title: "Background Generated!",
+          description: "Panel background has been created successfully.",
+        });
+      } else {
+        throw new Error(result.error || "Failed to generate background");
+      }
+      setIsGeneratingBackground(false);
+    },
+    onError: (error) => {
+      console.error("Background generation failed:", error);
+      toast({
+        title: "Background Generation Failed",
+        description: "Failed to generate background. Please try again.",
+        variant: "destructive",
+      });
+      setIsGeneratingBackground(false);
     },
   });
 
@@ -217,6 +284,15 @@ export default function PanelEditor({ selectedPanel, project, currentPage, curre
               >
                 <RotateCcw className="mr-1 h-4 w-4" />
                 {regeneratePanelMutation.isPending ? "Regenerating..." : "Regenerate"}
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => generateBackgroundMutation.mutate()}
+                disabled={!selectedPanel || isGeneratingBackground || !!generatedBackground}
+                data-testid="button-generate-background"
+              >
+                <Cloud className="mr-1 h-4 w-4" />
+                {isGeneratingBackground ? "Creating..." : generatedBackground ? "Background Ready" : "Generate Background"}
               </Button>
             </div>
           </div>

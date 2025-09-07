@@ -25,6 +25,7 @@ export default function Editor() {
   const [currentLayout, setCurrentLayout] = useState("classic-grid");
   const [showLayoutModal, setShowLayoutModal] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<{[key: number]: string}>({});
+  const [generatedBackgrounds, setGeneratedBackgrounds] = useState<{[key: number]: string}>({});
   const [isGeneratingFullPage, setIsGeneratingFullPage] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [panelEditorOpen, setPanelEditorOpen] = useState(false);
@@ -289,6 +290,7 @@ export default function Editor() {
                     <ComicPageLayout 
                       layoutId={currentLayout}
                       generatedImages={generatedImages}
+                      generatedBackgrounds={generatedBackgrounds}
                       selectedPanel={selectedPanel}
                       onPanelClick={(panelId) => {
                         setSelectedPanel(panelId);
@@ -298,6 +300,9 @@ export default function Editor() {
                       }}
                       onImageUpdate={(panelId, imageUrl) => {
                         setGeneratedImages(prev => ({ ...prev, [panelId]: imageUrl }));
+                      }}
+                      onBackgroundUpdate={(panelId, backgroundUrl) => {
+                        setGeneratedBackgrounds(prev => ({ ...prev, [panelId]: backgroundUrl }));
                       }}
                     />
                   </div>
@@ -403,6 +408,10 @@ export default function Editor() {
               onImageGenerated={(panelId, imageUrl) => {
                 setGeneratedImages(prev => ({ ...prev, [panelId]: imageUrl }));
               }}
+              onBackgroundGenerated={(panelId, backgroundUrl) => {
+                setGeneratedBackgrounds(prev => ({ ...prev, [panelId]: backgroundUrl }));
+              }}
+              generatedBackground={selectedPanel ? generatedBackgrounds[selectedPanel] : undefined}
               isOpen={isMobile ? panelEditorOpen : true}
               onClose={isMobile ? () => setPanelEditorOpen(false) : undefined}
               isMobile={isMobile}
