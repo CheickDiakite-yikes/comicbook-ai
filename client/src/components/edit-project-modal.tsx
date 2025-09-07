@@ -15,6 +15,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { aiService } from "@/lib/ai-service";
 import { X, Palette, BookOpen, Users, Wand2, Upload, Plus, Edit, Trash2 } from "lucide-react";
 import type { Project, Character } from "@shared/schema";
+import StructuredScriptViewer from "./structured-script-viewer";
 
 interface EditProjectModalProps {
   open: boolean;
@@ -72,6 +73,14 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
   const [newCharacter, setNewCharacter] = useState({ name: "", role: "", bio: "", visualDescriptors: "" });
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
   const [showCharacterForm, setShowCharacterForm] = useState(false);
+  
+  // Check if project has a structured script
+  const { data: structuredScript } = useQuery({
+    queryKey: ["/api/projects", project.id, "structured-script"],
+    enabled: open && !!project.id,
+    retry: false,
+  });
+  
   // aiService is imported as a singleton
 
   const form = useForm<ProjectFormData>({
@@ -840,50 +849,68 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
                   </CardContent>
                 </Card>
 
-                {/* Script Content */}
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="script"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Script</FormLabel>
-                            <FormControl>
-                              <Textarea 
-                                placeholder="Write your comic script or story outline here..."
-                                className="min-h-[200px]"
-                                {...field}
-                                data-testid="textarea-script"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="canonRules"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Story Rules & Canon</FormLabel>
-                            <FormControl>
-                              <Textarea 
-                                placeholder="Define important rules, character traits, world-building details that should remain consistent..."
-                                className="min-h-[120px]"
-                                {...field}
-                                data-testid="textarea-canon-rules"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
+                {/* Enhanced Script Preview */}
+                {structuredScript ? (
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="mb-4">
+                        <h3 className="font-semibold text-lg flex items-center gap-2">
+                          <BookOpen className="h-5 w-5" />
+                          Enhanced Script Preview
+                        </h3>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Your AI-generated structured script with detailed metadata for comic creation.
+                        </p>
+                      </div>
+                      <StructuredScriptViewer projectId={project.id} />
+                    </CardContent>
+                  </Card>
+                ) : (
+                  /* Fallback to basic script editing if no structured script */
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="space-y-4">
+                        <FormField
+                          control={form.control}
+                          name="script"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Script</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="Write your comic script or story outline here, or generate an AI script above..."
+                                  className="min-h-[200px]"
+                                  {...field}
+                                  data-testid="textarea-script"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="canonRules"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Story Rules & Canon</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="Define important rules, character traits, world-building details that should remain consistent..."
+                                  className="min-h-[120px]"
+                                  {...field}
+                                  data-testid="textarea-canon-rules"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             )}
 
