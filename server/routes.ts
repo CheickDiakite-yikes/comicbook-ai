@@ -341,13 +341,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/generate-full-page", isAuthenticated, async (req: any, res) => {
     try {
-      const { projectContext, pageScript, panelLayout } = req.body;
+      const { projectContext, pageScript, panelLayout, currentPageId } = req.body;
+      
+      // Ensure we have all required data for database persistence
+      if (!currentPageId) {
+        return res.status(400).json({ message: "currentPageId is required for panel persistence" });
+      }
       
       const results = await geminiService.generateFullPage(
         projectContext,
         pageScript,
         panelLayout,
-        req.body.currentPageId,
+        currentPageId,
         storage
       );
       

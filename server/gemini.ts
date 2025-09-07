@@ -268,6 +268,39 @@ export class GeminiService {
 
         const result = await this.generatePanelImage(request);
         results.push(result);
+        
+        // CRITICAL FIX: Save panel data to database after successful generation
+        if (result.status === "completed" && currentPageId && storage) {
+          try {
+            // Check if panel already exists
+            const existingPanels = await storage.getPagePanels(currentPageId);
+            const existingPanel = existingPanels.find((p: any) => p.panelNumber === panel.panelNumber);
+            
+            if (existingPanel) {
+              // Update existing panel
+              await storage.updatePanel(existingPanel.id, {
+                imageUrl: result.imageUrl,
+                prompt: panel.description,
+                isGenerated: true,
+                generationStatus: "completed"
+              });
+              console.log(`Updated panel ${panel.panelNumber} in database`);
+            } else {
+              // Create new panel
+              await storage.createPanel({
+                pageId: currentPageId,
+                panelNumber: panel.panelNumber,
+                prompt: panel.description,
+                imageUrl: result.imageUrl,
+                isGenerated: true,
+                generationStatus: "completed"
+              });
+              console.log(`Created new panel ${panel.panelNumber} in database`);
+            }
+          } catch (dbError) {
+            console.error(`Failed to save panel ${panel.panelNumber} to database:`, dbError);
+          }
+        }
 
         // Small delay to prevent rate limiting
         await new Promise(resolve => setTimeout(resolve, 1000));
