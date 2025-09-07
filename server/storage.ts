@@ -422,8 +422,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteProject(id: string): Promise<boolean> {
-    const result = await db.delete(projects).where(eq(projects.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    try {
+      // Delete associated structured scripts first to avoid foreign key constraints
+      const structuredScript = await this.getProjectStructuredScript(id);
+      if (structuredScript) {
+        await this.deleteStructuredScript(structuredScript.id);
+      }
+      
+      // Delete all characters associated with this project
+      await db.delete(characters).where(eq(characters.projectId, id));
+      
+      // Delete all pages and panels for this project
+      const projectPages = await db.select().from(pages).where(eq(pages.projectId, id));
+      for (const page of projectPages) {
+        await db.delete(panels).where(eq(panels.pageId, page.id));
+      }
+      await db.delete(pages).where(eq(pages.projectId, id));
+      
+      // Finally delete the project
+      const result = await db.delete(projects).where(eq(projects.id, id));
+      return result.rowCount !== null && result.rowCount > 0;
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      return false;
+    }
   }
 
   // Character operations

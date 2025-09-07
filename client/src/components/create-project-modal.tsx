@@ -118,7 +118,7 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
             genre: data.genre,
             characters: characterData,
             settings: [{ name: "Metro City", description: "A bustling metropolis with towering skyscrapers and busy streets." }],
-            pageCount: 5,
+            pageCount: 12,
             tone: data.genre,
             logline: data.description
           });
@@ -208,7 +208,7 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
             genre: formValues.genre,
             characters: characterData,
             settings: [{ name: "Metro City", description: "A bustling metropolis with towering skyscrapers and busy streets." }],
-            pageCount: 5,
+            pageCount: 12,
             tone: formValues.genre,
             logline: formValues.description
           }),

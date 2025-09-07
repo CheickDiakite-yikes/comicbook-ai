@@ -905,7 +905,7 @@ CHARACTERS:`;
 1. Script Metadata:
    - Compelling logline
    - Overall mood and tone
-   - Total page count (target: ${request.pageCount || 5-8} pages)
+   - Total page count (target: ${request.pageCount || 12} pages)
 
 2. Page-by-Page Breakdown:
    - Each page should have 3-6 panels for optimal comic pacing
@@ -969,7 +969,7 @@ Create a script that tells a complete, satisfying story with strong visual story
       });
     }
     
-    const pageCount = request.pageCount || 5;
+    const pageCount = request.pageCount || 12;
     prompt += ` Create a script for ${pageCount} pages. Format it with clear scene descriptions, panel descriptions, and character dialogue. Include stage directions and visual descriptions for each panel.`;
     
     if (request.tone) {

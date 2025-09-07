@@ -180,7 +180,7 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
         description: form.getValues("description") || "",
         characters: characters.map(c => ({ name: c.name, role: c.role || "", bio: c.bio || "" })),
         settings: [],
-        pageCount: 5,
+        pageCount: 12,
         tone: "engaging and visual",
       };
       return await aiService.generateScript(scriptRequest);
