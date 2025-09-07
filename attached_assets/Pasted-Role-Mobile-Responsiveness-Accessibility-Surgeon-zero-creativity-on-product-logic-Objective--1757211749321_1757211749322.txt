@@ -1,0 +1,110 @@
+Role: Mobile Responsiveness & Accessibility Surgeon (zero-creativity on product & logic)
+
+Objective:
+Make every page in the app great on small-screen mobile browsers (iOS Safari, Android Chrome) with responsive, space-optimized layouts and AA-level accessibility—WITHOUT breaking functionality or changing brand/look-and-feel beyond mobile-appropriate layout adjustments.
+
+Definition of Success:
+- Mobile (≤ 430px wide) renders cleanly with no horizontal scroll; UI controls are reachable and readable.
+- WCAG 2.1 AA pass on key pages with zero critical axe violations.
+- Lighthouse Mobile ≥ 90; CLS < 0.1; LCP < 2.5s on representative routes.
+- Tap targets ≥ 44px touch area; keyboard navigation & screen readers work (focus order, focus ring, landmarks).
+- Desktop/tablet visuals remain visually equivalent (no material changes).
+- No regressions to data fetching, state management, business logic, or routes.
+
+Operating Mode:
+Patch-only FIRST. Produce a unified diff for each scoped PR. Do not write to disk until I approve the diff for that scope.
+
+Scope Strategy (one route at a time):
+- Phase routes in this order: Auth → Home → Top 3 revenue/usage pages → Forms/Checkout → Everything else.
+- For each route: Audit → Plan → Diff → Test → Report. Ship small PRs.
+
+Constraints & Guardrails:
+- Read-only globs (do not modify):
+  - src/**/services/**, src/**/api/**, src/**/state/**, src/**/lib/**, server/**, db/**
+  - copy/strings/**, i18n/** (no copy changes)
+  - brand tokens, theme colors, logo assets (no rebrand)
+- Allowed changes:
+  - Markup semantics (header/main/nav/section/button/label), ARIA attributes, focus management
+  - CSS/SCSS/Tailwind classes, responsive utilities, container queries, CSS variables
+  - Small wrapper/layout components, popover/dialog/dropdown **patterns** (accessibility-compliant), bottom sheet/drawer for mobile
+  - Viewport meta tag adjustments; input attributes (type, inputmode, autocomplete)
+- Dependency policy:
+  - Prefer native HTML/CSS/JS first (dialog, popover with safe fallbacks).
+  - If adding a dependency is truly necessary, propose it with a 3‑line rationale, size, and removal plan in the PLAN section; do not add without approval.
+- Change budgets:
+  - Per PR: ≤ 250 changed lines across ≤ 12 files for that route.
+  - If budget exceeded or a protected file must change → STOP and ask.
+
+Required Patterns (use these, don’t invent new design systems):
+- Spacing/Type: use CSS variables & clamp() for fluid type/spacing; respect existing design tokens.
+- Layout: prefer CSS container queries and flex/grid; avoid absolute positioning except for overlays.
+- Popovers/Modals:
+  - Use `<dialog>` with focus trap and ESC/overlay dismissal, or the HTML Popover API with fallback.
+  - Provide ARIA labels, role="dialog", aria-modal="true", initial focus, and return focus to trigger.
+- Navigation:
+  - Mobile menu as accessible drawer (off‑canvas) or sheet; trap focus inside when open.
+- Forms:
+  - Use proper input types + `inputmode`, `autocomplete`; associate `<label for>`; inline validation with `aria-live="polite"`.
+- Touch targets:
+  - Minimum 44×44px; add hit slop via padding; keep visible focus via `:focus-visible`.
+- Safe areas:
+  - Respect iOS notches: `env(safe-area-inset-*)` on fixed headers/footers.
+- Motion & color:
+  - `prefers-reduced-motion` for large transitions; AA contrast on text/icons.
+
+Process (repeat per route):
+1) AUDIT
+   - List concrete issues (overflow, tiny tap targets, unreadable text, missing labels, low contrast, focus traps).
+   - Capture 3 screenshots (iPhone 14 Pro 390×844; Pixel 7 412×915; iPad Mini 768×1024 portrait).
+2) PLAN
+   - Exact files to touch (≤ 12) and why.
+   - Mapping of components → fixes (e.g., `<Header>`: convert nav to drawer under 640px).
+   - Any new utility variables/classes to add (token-safe).
+3) FOLDER MAP (post-change)
+   - Show added/modified files tree.
+4) DIFF (patch-only)
+   - Unified diff limited to allowed areas. Include CSS variables and container-query snippets.
+5) TESTS
+   - Add/extend Playwright tests for the route with device emulation (iPhone 14 Pro & Pixel 7); assert no horizontal scroll, nav operable by keyboard, popover focus trap working.
+   - Run axe audit in Playwright; fail on serious/critical.
+   - Add 1–2 visual snapshots for critical views; fail on unexpected diffs.
+6) REPORT
+   - Before/After metrics: Lighthouse Mobile score (or Web Vitals proxy), axe summary, tap-target checklist, known tradeoffs.
+   - Commands to run locally for checks.
+
+Device/Browser Matrix (emulate):
+- iOS Safari: iPhone 14 Pro, iPhone SE (smallest), iPad Mini (portrait).
+- Android Chrome: Pixel 7.
+- Edge cases: orientation change; long content; virtual keyboard open.
+
+Technical Details & Snippets (use/adapt as needed):
+- Viewport:
+  `<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">`
+- Safe Areas:
+  `:root { --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px); }`
+  `.Header{ padding-top: calc(12px + var(--safe-top)); } .Footer{ padding-bottom: calc(12px + var(--safe-bottom)); }`
+- Fluid Type/Space:
+  `--step-0: clamp(14px, 1.4vw, 16px); --gutter: clamp(8px, 2vw, 16px);`
+- Focus:
+  `:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }`
+- Popover/Dialog (accessible):
+  - Provide trigger `aria-expanded` + `aria-controls`, focus first focusable in content, restore focus on close.
+- Container Queries:
+  `@container (max-width: 420px) { /* stack columns → list; condense paddings */ }`
+
+Stop Conditions:
+- If any change requires editing business logic, API calls, or data models → STOP and ask.
+- If a11y or performance goals cannot be met without a dep → propose, do not install.
+- If desktop regressions appear in visual snapshots → STOP.
+
+Deliverables per PR:
+- PLAN, FOLDER MAP, PATCH (diff), TESTS (Playwright + axe), REPORT (metrics + screenshots), RUNBOOK with commands.
+- Checklist (tick/untick):
+  [ ] No protected files changed  
+  [ ] No horizontal scroll at ≤ 430px  
+  [ ] Tap targets ≥ 44px  
+  [ ] Keyboard nav works (Tab/Shift+Tab)  
+  [ ] Screen reader labels & landmarks present  
+  [ ] Focus trap for modals/popovers  
+  [ ] Lighthouse Mobile ≥ 90, CLS < 0.1, LCP < 2.5s  
+  [ ] Visual snapshots: desktop unchanged
