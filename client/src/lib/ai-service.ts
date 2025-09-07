@@ -118,8 +118,14 @@ class AIService {
   async generateFullPage(
     projectContext: GenerateImageRequest["projectContext"],
     pageScript: string,
-    panelLayout: Array<{ panelNumber: number; description: string }>,
-    currentPageId?: string
+    panelLayout: Array<{ 
+      panelNumber: number; 
+      description: string;
+      panelContext?: any;
+      layoutInfo?: any;
+    }>,
+    currentPageId?: string,
+    layoutId?: string
   ): Promise<Array<GenerateImageResponse>> {
     try {
       const response = await apiRequest("POST", `${this.baseUrl}/generate-full-page`, {
@@ -127,9 +133,10 @@ class AIService {
         pageScript,
         panelLayout,
         currentPageId,
+        layoutId,
       });
 
-      return await response.json();
+      return response as unknown as Array<GenerateImageResponse>;
     } catch (error) {
       console.error("Failed to generate full page:", error);
       throw new Error("Failed to generate full page. Please try again.");

@@ -333,9 +333,15 @@ export class GeminiService {
   async generateFullPage(
     projectContext: GenerateImageRequest["projectContext"],
     pageScript: string,
-    panelLayout: Array<{ panelNumber: number; description: string }>,
+    panelLayout: Array<{ 
+      panelNumber: number; 
+      description: string;
+      panelContext?: any;
+      layoutInfo?: any;
+    }>,
     currentPageId?: string,
-    storage?: any
+    storage?: any,
+    layoutId?: string
   ): Promise<Array<GenerateImageResponse>> {
     const results: Array<GenerateImageResponse> = [];
     
@@ -360,6 +366,7 @@ export class GeminiService {
           prompt: panel.description,
           panelId: panel.panelNumber,
           projectContext,
+          panelContext: panel.panelContext, // Pass the panel dimensions and aspect ratio!
           previousPanelsContext: results.map((r, index) => ({
             panelNumber: index + 1,
             prompt: panelLayout[index]?.description || "",

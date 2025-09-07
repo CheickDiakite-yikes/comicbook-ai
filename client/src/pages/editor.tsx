@@ -251,12 +251,32 @@ export default function Editor() {
       const layout = comicLayouts.find(l => l.id === currentLayout);
       if (!layout) throw new Error("Layout not found");
       
-      // Create clean panel descriptions without meta-information that appears in artwork
-      const panelDescriptions = [];
+      // Create panel descriptions with proper story progression
+      const storyProgression = [
+        "Marie the bee discovers a beautiful flower garden while searching for love",
+        "She meets a handsome bee gathering pollen and feels instant attraction",
+        "They share a romantic moment dancing among the flowers",
+        "The handsome bee presents Marie with a special flower as a gift",
+        "They fly away together into the sunset, having found true love"
+      ];
+      
+      // Build panel data with dimensions and context
+      const panelsWithContext = [];
       for (let i = 1; i <= layout.panelCount; i++) {
-        panelDescriptions.push({
+        const panel = layout.panels[i - 1];
+        const panelContext = generateEnhancedPanelContext(
+          panel,
+          layout.id,
+          i,
+          850, // page width
+          1100 // page height
+        );
+        
+        panelsWithContext.push({
           panelNumber: i,
-          description: `Scene continues from the story of ${project.title}. ${project.description || 'Continue the narrative flow with appropriate visual storytelling.'}`,
+          description: storyProgression[i - 1] || `Scene ${i} of ${project.title}`,
+          panelContext: panelContext,
+          layoutInfo: panel
         });
       }
       
@@ -267,9 +287,10 @@ export default function Editor() {
           description: project.description || undefined,
           artStyle: project.artStyle || undefined,
         },
-        project.description || "",
-        panelDescriptions,
-        currentPage?.id // Pass current page ID for cross-page context
+        currentPage?.scriptSnippet || project.description || "",
+        panelsWithContext,
+        currentPage?.id,
+        currentLayout
       );
       
       // Update local state with generated images

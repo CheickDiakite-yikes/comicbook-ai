@@ -352,7 +352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/generate-full-page", isAuthenticated, async (req: any, res) => {
     try {
-      const { projectContext, pageScript, panelLayout, currentPageId } = req.body;
+      const { projectContext, pageScript, panelLayout, currentPageId, layoutId } = req.body;
       
       // Ensure we have all required data for database persistence
       if (!currentPageId) {
@@ -364,7 +364,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pageScript,
         panelLayout,
         currentPageId,
-        storage
+        storage,
+        layoutId
       );
       
       res.json(results);
