@@ -467,72 +467,66 @@ export default function Editor() {
                           )}
                         </div>
                         
-                        {/* Action Buttons */}
-                        <div className={`${isMobile ? 'space-y-2' : 'flex items-center space-x-2'}`}>
-                          {/* Main Actions Row */}
-                          <div className={`flex ${isMobile ? 'justify-center space-x-2' : 'items-center space-x-2'}`}>
+                        {/* Action Buttons - Improved Responsive Layout */}
+                        <div className="space-y-3">
+                          {/* Primary Actions Row */}
+                          <div className="flex flex-wrap gap-2 justify-center lg:justify-start">
                             <Button 
-                              className={`bg-chart-1 text-white hover:bg-chart-1/90 min-h-[44px] ${isMobile ? 'flex-1' : ''}`}
+                              className="bg-chart-1 text-white hover:bg-chart-1/90 min-h-[44px] flex-shrink-0"
                               onClick={() => generatePageMutation.mutate()}
                               disabled={isGeneratingFullPage}
                               data-testid="button-generate-page"
                             >
                               {isGeneratingFullPage ? (
                                 <>
-                                  <Loader2 className="mr-1 sm:mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-                                  <span className="hidden sm:inline">Generating...</span>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                                  <span className="whitespace-nowrap">Generating...</span>
                                 </>
                               ) : (
                                 <>
-                                  <Wand2 className="mr-1 sm:mr-2 h-4 w-4" aria-hidden="true" />
-                                  <span className="hidden sm:inline">Generate Full Page</span>
-                                  <span className="sm:hidden">Generate</span>
+                                  <Wand2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                                  <span className="whitespace-nowrap">Generate Full Page</span>
                                 </>
                               )}
                             </Button>
                             <Button 
                               variant="secondary" 
                               onClick={() => setShowLayoutModal(true)}
-                              className="min-h-[44px]"
+                              className="min-h-[44px] flex-shrink-0"
                               data-testid="button-change-layout"
                             >
-                              <svg className="mr-1 sm:mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                              <svg className="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M3 3h18v18H3V3zm16 16V5H5v14h14zM7 7h2v2H7V7zm4 0h2v2h-2V7zm4 0h2v2h-2V7zM7 11h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2zM7 15h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2z"/>
                               </svg>
-                              <span className="hidden sm:inline">Change Layout</span>
-                              <span className="sm:hidden">Layout</span>
+                              <span className="whitespace-nowrap">Change Layout</span>
                             </Button>
                           </div>
                           
                           {/* Secondary Actions Row */}
-                          <div className={`flex ${isMobile ? 'justify-center space-x-2' : 'items-center space-x-2'}`}>
+                          <div className="flex flex-wrap gap-2 justify-center lg:justify-start">
                             <Button 
                               variant="outline"
                               onClick={() => generateBackgroundForPageMutation.mutate()}
                               disabled={generateBackgroundForPageMutation.isPending}
-                              className="min-h-[44px] bg-gradient-to-r from-emerald-50 to-cyan-50 dark:from-emerald-900/20 dark:to-cyan-900/20 border-emerald-200 dark:border-emerald-700 hover:from-emerald-100 hover:to-cyan-100 dark:hover:from-emerald-800/30 dark:hover:to-cyan-800/30 font-medium text-emerald-700 dark:text-emerald-300"
+                              className="min-h-[44px] bg-gradient-to-r from-emerald-50 to-cyan-50 dark:from-emerald-900/20 dark:to-cyan-900/20 border-emerald-200 dark:border-emerald-700 hover:from-emerald-100 hover:to-cyan-100 dark:hover:from-emerald-800/30 dark:hover:to-cyan-800/30 font-medium text-emerald-700 dark:text-emerald-300 flex-shrink-0"
                               data-testid="button-generate-page-background"
                             >
-                              <Cloud className="mr-1 sm:mr-2 h-4 w-4" aria-hidden="true" />
+                              <Cloud className="mr-2 h-4 w-4" aria-hidden="true" />
                               {generateBackgroundForPageMutation.isPending ? (
-                                <span className="hidden sm:inline">Creating Background...</span>
+                                <span className="whitespace-nowrap">Creating Background...</span>
                               ) : (
-                                <>
-                                  <span className="hidden sm:inline">🎨 Generate Page Background</span>
-                                  <span className="sm:hidden">Background</span>
-                                </>
+                                <span className="whitespace-nowrap">🎨 Generate Background</span>
                               )}
                             </Button>
                             {pages && pages.length > 1 && (
                               <Button 
                                 variant="destructive"
                                 onClick={() => setShowDeleteConfirm(true)}
-                                className="min-h-[44px]"
+                                className="min-h-[44px] flex-shrink-0"
                                 data-testid="button-delete-page"
                               >
-                                <Trash2 className="mr-1 sm:mr-2 h-4 w-4" aria-hidden="true" />
-                                <span className="hidden sm:inline">Delete Page</span>
-                                <span className="sm:hidden">Delete</span>
+                                <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                                <span className="whitespace-nowrap">Delete Page</span>
                               </Button>
                             )}
                           </div>
