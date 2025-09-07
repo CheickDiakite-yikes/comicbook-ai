@@ -683,8 +683,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         projectId,
         title: structuredScriptResponse.title,
         logline: structuredScriptResponse.logline,
-        totalPages: structuredScriptResponse.totalPages,
-        overallMood: structuredScriptResponse.overallMood,
       });
       
       // Save pages with panels and dialogue
@@ -693,7 +691,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           structuredScriptId: savedScript.id,
           pageNumber: pageData.pageNumber,
           title: pageData.title,
-          overallMood: pageData.overallMood,
+          mood: pageData.mood,
           setting: pageData.setting,
           characters: pageData.characters,
           narrative: pageData.narrative,
@@ -704,14 +702,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const savedPanel = await storage.createScriptPanel({
             scriptPageId: savedPage.id,
             panelNumber: panelData.panelNumber,
-            visualDescription: panelData.visualDescription,
+            action: panelData.visualDescription || `Panel ${panelData.panelNumber} action`,
+            sceneDescription: panelData.visualDescription,
             cameraAngle: panelData.cameraAngle,
             shotType: panelData.shotType,
             mood: panelData.mood,
-            characterEmotions: panelData.characterEmotions,
             visualNotes: panelData.visualNotes,
             timing: panelData.timing,
             soundEffects: panelData.soundEffects,
+            characters: panelData.characters || [],
           });
           
           // Save dialogue for this panel
@@ -719,10 +718,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const dialogueData = panelData.dialogue[i];
             await storage.createScriptDialogue({
               scriptPanelId: savedPanel.id,
-              characterName: dialogueData.characterName,
+              character: dialogueData.characterName,
               text: dialogueData.text,
               tone: dialogueData.tone,
-              placement: dialogueData.placement,
               orderIndex: i,
             });
           }

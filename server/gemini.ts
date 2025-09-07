@@ -566,8 +566,6 @@ export class GeminiService {
             properties: {
               title: { type: "string" },
               logline: { type: "string" },
-              totalPages: { type: "number" },
-              overallMood: { type: "string" },
               pages: {
                 type: "array",
                 items: {
@@ -575,8 +573,8 @@ export class GeminiService {
                   properties: {
                     pageNumber: { type: "number" },
                     title: { type: "string" },
-                    overallMood: { type: "string" },
                     setting: { type: "string" },
+                    mood: { type: "string" },
                     characters: { type: "array", items: { type: "string" } },
                     narrative: { type: "string" },
                     panels: {
@@ -589,7 +587,13 @@ export class GeminiService {
                           cameraAngle: { type: "string" },
                           shotType: { type: "string" },
                           mood: { type: "string" },
-                          characterEmotions: { type: "object" },
+                          characterEmotions: { 
+                            type: "object",
+                            properties: {
+                              character: { type: "string" },
+                              emotion: { type: "string" }
+                            }
+                          },
                           visualNotes: { type: "string" },
                           timing: { type: "string" },
                           soundEffects: { type: "array", items: { type: "string" } },
@@ -607,15 +611,15 @@ export class GeminiService {
                             }
                           }
                         },
-                        required: ["panelNumber", "visualDescription", "cameraAngle", "shotType", "mood", "characterEmotions", "visualNotes", "timing", "soundEffects", "dialogue"]
+                        required: ["panelNumber", "visualDescription", "cameraAngle", "shotType", "mood", "visualNotes", "timing", "soundEffects", "dialogue"]
                       }
                     }
                   },
-                  required: ["pageNumber", "title", "overallMood", "setting", "characters", "narrative", "panels"]
+                  required: ["pageNumber", "title", "setting", "characters", "narrative", "panels"]
                 }
               }
             },
-            required: ["title", "logline", "totalPages", "overallMood", "pages"]
+            required: ["title", "logline", "pages"]
           }
         },
         contents: prompt,
