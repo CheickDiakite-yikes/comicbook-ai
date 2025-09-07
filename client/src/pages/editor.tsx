@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import Navigation from "@/components/navigation";
 import Sidebar from "@/components/sidebar";
@@ -8,7 +8,7 @@ import LayoutChangeModal from "@/components/layout-change-modal";
 import ComicPageLayout from "@/components/comic-page-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Save, Download, ChevronLeft, ChevronRight, Wand2, Loader2, Plus } from "lucide-react";
+import { ArrowLeft, Save, Download, ChevronLeft, ChevronRight, Wand2, Loader2, Plus, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { aiService } from "@/lib/ai-service";
@@ -26,6 +26,28 @@ export default function Editor() {
   const [showLayoutModal, setShowLayoutModal] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<{[key: number]: string}>({});
   const [isGeneratingFullPage, setIsGeneratingFullPage] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [panelEditorOpen, setPanelEditorOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
+  // Close sidebar/panel editor on mobile when screen size changes
+  useEffect(() => {
+    if (!isMobile) {
+      setSidebarOpen(false);
+      setPanelEditorOpen(false);
+    }
+  }, [isMobile]);
 
   const { data: project } = useQuery<Project>({
     queryKey: ["/api/projects", projectId],
@@ -170,151 +192,215 @@ export default function Editor() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navigation />
+    <div className="min-h-screen bg-background" style={{ paddingTop: 'var(--safe-top)' }}>
+      <Navigation 
+        onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} 
+        showMobileToggle={true} 
+      />
       
-      <div className="flex h-[calc(100vh-64px)]">
-        <Sidebar />
+      <div className="flex min-h-[calc(100vh-64px)]">
+        <Sidebar 
+          isOpen={sidebarOpen} 
+          onClose={() => setSidebarOpen(false)} 
+        />
         
         {/* Editor Header */}
-        <div className="flex-1 flex flex-col">
-          <div className="bg-card border-b border-border px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => setLocation("/")}
-                data-testid="button-back-dashboard"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <div>
-                <h1 className="text-xl font-semibold">{project.title}</h1>
-                <p className="text-sm text-muted-foreground">
-                  Page {currentPageIndex + 1} of {Math.max(pages.length, 1)}
-                </p>
+        <div className="flex-1 flex flex-col w-full lg:w-auto">
+          <header className="bg-card border-b border-border px-4 sm:px-6 py-3 sm:py-4" role="banner">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setLocation("/")}
+                  className="min-h-[44px] w-[44px] p-2"
+                  aria-label="Back to dashboard"
+                  data-testid="button-back-dashboard"
+                >
+                  <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                </Button>
+                <div className="min-w-0">
+                  <h1 className="text-lg sm:text-xl font-semibold truncate">{project?.title || 'Comic Editor'}</h1>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Page {currentPageIndex + 1} of {Math.max(pages.length, 1)}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+                {isMobile && (
+                  <Button 
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setPanelEditorOpen(true)}
+                    className="min-h-[44px] w-[44px] p-2 lg:hidden"
+                    aria-label="Open panel editor"
+                    data-testid="button-mobile-panel-editor"
+                  >
+                    <Edit className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                )}
+                <Button 
+                  variant="secondary"
+                  size={isMobile ? "sm" : "default"}
+                  onClick={() => saveProjectMutation.mutate()}
+                  disabled={saveProjectMutation.isPending}
+                  className="min-h-[44px]"
+                  data-testid="button-save"
+                >
+                  <Save className="mr-1 sm:mr-2 h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Save</span>
+                </Button>
+                <Button 
+                  size={isMobile ? "sm" : "default"}
+                  className="min-h-[44px]"
+                  data-testid="button-export"
+                >
+                  <Download className="mr-1 sm:mr-2 h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Export</span>
+                </Button>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <Button 
-                variant="secondary"
-                onClick={() => saveProjectMutation.mutate()}
-                disabled={saveProjectMutation.isPending}
-                data-testid="button-save"
-              >
-                <Save className="mr-2 h-4 w-4" />
-                Save
-              </Button>
-              <Button data-testid="button-export">
-                <Download className="mr-2 h-4 w-4" />
-                Export
-              </Button>
-            </div>
-          </div>
+          </header>
 
           <div className="flex flex-1 overflow-hidden">
-            {/* Page Editor */}
-            <div className="flex-1 p-6 overflow-y-auto">
+            {/* Main Editor Area */}
+            <main 
+              className="flex-1 p-4 sm:p-6 overflow-y-auto" 
+              style={{ paddingBottom: 'calc(1rem + var(--safe-bottom))' }}
+              role="main"
+              aria-label="Comic page editor"
+            >
               <div className="max-w-4xl mx-auto">
                 {/* Page Canvas */}
-                <div className="bg-white rounded-xl shadow-lg p-8 mb-6" style={{ aspectRatio: "8.5/11" }}>
-                  {/* Dynamic Comic Page Layout */}
-                  <ComicPageLayout 
-                    layoutId={currentLayout}
-                    generatedImages={generatedImages}
-                    selectedPanel={selectedPanel}
-                    onPanelClick={setSelectedPanel}
-                    onImageUpdate={(panelId, imageUrl) => {
-                      setGeneratedImages(prev => ({ ...prev, [panelId]: imageUrl }));
+                <section className="mb-4 sm:mb-6" aria-labelledby="canvas-heading">
+                  <h2 id="canvas-heading" className="sr-only">Comic Page Canvas</h2>
+                  <div 
+                    className="bg-white rounded-xl shadow-lg p-4 sm:p-8 w-full" 
+                    style={{ 
+                      aspectRatio: isMobile ? "0.7" : "8.5/11",
+                      maxHeight: isMobile ? "70vh" : "none"
                     }}
-                  />
-                </div>
+                  >
+                    <ComicPageLayout 
+                      layoutId={currentLayout}
+                      generatedImages={generatedImages}
+                      selectedPanel={selectedPanel}
+                      onPanelClick={(panelId) => {
+                        setSelectedPanel(panelId);
+                        if (isMobile) {
+                          setPanelEditorOpen(true);
+                        }
+                      }}
+                      onImageUpdate={(panelId, imageUrl) => {
+                        setGeneratedImages(prev => ({ ...prev, [panelId]: imageUrl }));
+                      }}
+                    />
+                  </div>
+                </section>
 
                 {/* Page Controls */}
-                <Card className="border-border">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          disabled={currentPageIndex === 0}
-                          onClick={() => setCurrentPageIndex(Math.max(0, currentPageIndex - 1))}
-                          data-testid="button-prev-page"
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        <span className="text-sm font-medium">Page {currentPageIndex + 1}</span>
-                        {currentPageIndex >= pages.length - 1 ? (
+                <section aria-labelledby="page-controls-heading">
+                  <h2 id="page-controls-heading" className="sr-only">Page Controls</h2>
+                  <Card className="border-border">
+                    <CardContent className="p-3 sm:p-4">
+                      <div className={`${isMobile ? 'space-y-3' : 'flex items-center justify-between'}`}>
+                        {/* Page Navigation */}
+                        <div className="flex items-center justify-center space-x-2">
                           <Button 
                             variant="ghost" 
                             size="sm"
-                            onClick={() => createPageMutation.mutate()}
-                            disabled={createPageMutation.isPending}
-                            data-testid="button-new-page"
+                            disabled={currentPageIndex === 0}
+                            onClick={() => setCurrentPageIndex(Math.max(0, currentPageIndex - 1))}
+                            className="min-h-[44px] w-[44px] p-2"
+                            aria-label="Previous page"
+                            data-testid="button-prev-page"
                           >
-                            {createPageMutation.isPending ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                          <span className="text-sm font-medium px-2">Page {currentPageIndex + 1}</span>
+                          {currentPageIndex >= pages.length - 1 ? (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => createPageMutation.mutate()}
+                              disabled={createPageMutation.isPending}
+                              className="min-h-[44px] w-[44px] p-2"
+                              aria-label="Add new page"
+                              data-testid="button-new-page"
+                            >
+                              {createPageMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                              ) : (
+                                <Plus className="h-4 w-4" aria-hidden="true" />
+                              )}
+                            </Button>
+                          ) : (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => setCurrentPageIndex(Math.min(pages.length - 1, currentPageIndex + 1))}
+                              className="min-h-[44px] w-[44px] p-2"
+                              aria-label="Next page"
+                              data-testid="button-next-page"
+                            >
+                              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                            </Button>
+                          )}
+                        </div>
+                        
+                        {/* Action Buttons */}
+                        <div className={`flex ${isMobile ? 'justify-center space-x-2' : 'items-center space-x-2'}`}>
+                          <Button 
+                            className={`bg-chart-1 text-white hover:bg-chart-1/90 min-h-[44px] ${isMobile ? 'flex-1' : ''}`}
+                            onClick={() => generatePageMutation.mutate()}
+                            disabled={isGeneratingFullPage}
+                            data-testid="button-generate-page"
+                          >
+                            {isGeneratingFullPage ? (
+                              <>
+                                <Loader2 className="mr-1 sm:mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                                <span className="hidden sm:inline">Generating...</span>
+                              </>
                             ) : (
-                              <Plus className="h-4 w-4" />
+                              <>
+                                <Wand2 className="mr-1 sm:mr-2 h-4 w-4" aria-hidden="true" />
+                                <span className="hidden sm:inline">Generate Full Page</span>
+                                <span className="sm:hidden">Generate</span>
+                              </>
                             )}
                           </Button>
-                        ) : (
                           <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => setCurrentPageIndex(Math.min(pages.length - 1, currentPageIndex + 1))}
-                            data-testid="button-next-page"
+                            variant="secondary" 
+                            onClick={() => setShowLayoutModal(true)}
+                            className="min-h-[44px]"
+                            data-testid="button-change-layout"
                           >
-                            <ChevronRight className="h-4 w-4" />
+                            <svg className="mr-1 sm:mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M3 3h18v18H3V3zm16 16V5H5v14h14zM7 7h2v2H7V7zm4 0h2v2h-2V7zm4 0h2v2h-2V7zM7 11h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2zM7 15h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2z"/>
+                            </svg>
+                            <span className="hidden sm:inline">Change Layout</span>
+                            <span className="sm:hidden">Layout</span>
                           </Button>
-                        )}
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Button 
-                          className="bg-chart-1 text-white hover:bg-chart-1/90"
-                          onClick={() => generatePageMutation.mutate()}
-                          disabled={isGeneratingFullPage}
-                          data-testid="button-generate-page"
-                        >
-                          {isGeneratingFullPage ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Generating...
-                            </>
-                          ) : (
-                            <>
-                              <Wand2 className="mr-2 h-4 w-4" />
-                              Generate Full Page
-                            </>
-                          )}
-                        </Button>
-                        <Button 
-                          variant="secondary" 
-                          onClick={() => setShowLayoutModal(true)}
-                          data-testid="button-change-layout"
-                        >
-                          <svg className="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M3 3h18v18H3V3zm16 16V5H5v14h14zM7 7h2v2H7V7zm4 0h2v2h-2V7zm4 0h2v2h-2V7zM7 11h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2zM7 15h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2z"/>
-                          </svg>
-                          Change Layout
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </section>
               </div>
-            </div>
+            </main>
 
-            {/* Right Sidebar - Panel Editor */}
+            {/* Panel Editor - Desktop Right Sidebar / Mobile Bottom Sheet */}
             <PanelEditor 
               selectedPanel={selectedPanel} 
-              project={project}
+              project={project || {} as any}
               currentPage={currentPage}
-          currentLayout={currentLayout}
+              currentLayout={currentLayout}
               onImageGenerated={(panelId, imageUrl) => {
                 setGeneratedImages(prev => ({ ...prev, [panelId]: imageUrl }));
               }}
+              isOpen={isMobile ? panelEditorOpen : true}
+              onClose={isMobile ? () => setPanelEditorOpen(false) : undefined}
+              isMobile={isMobile}
             />
           </div>
         </div>

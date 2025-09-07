@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Wand2, RotateCcw, MessageSquare, Cloud, Palette, BookOpen } from "lucide-react";
+import { Wand2, RotateCcw, MessageSquare, Cloud, Palette, BookOpen, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { calculatePanelAspectRatio, determinePanelType } from "@/lib/ai-service";
@@ -18,9 +18,12 @@ interface PanelEditorProps {
   currentPage?: Page;
   currentLayout: string;
   onImageGenerated?: (panelId: number, imageUrl: string) => void;
+  isOpen?: boolean;
+  onClose?: () => void;
+  isMobile?: boolean;
 }
 
-export default function PanelEditor({ selectedPanel, project, currentPage, currentLayout, onImageGenerated }: PanelEditorProps) {
+export default function PanelEditor({ selectedPanel, project, currentPage, currentLayout, onImageGenerated, isOpen = true, onClose, isMobile = false }: PanelEditorProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [prompt, setPrompt] = useState("A superhero flies over a bustling city at sunset, cape flowing in the wind...");
@@ -134,8 +137,43 @@ export default function PanelEditor({ selectedPanel, project, currentPage, curre
   });
 
   return (
-    <div className="w-80 bg-card border-l border-border p-4 overflow-y-auto">
-      <div className="space-y-6">
+    <>
+      {/* Mobile Overlay */}
+      {isMobile && isOpen && onClose && (
+        <div 
+          className="panel-editor-overlay open lg:hidden"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+      
+      {/* Panel Editor */}
+      <aside 
+        className={`
+          bg-card border-l border-border overflow-y-auto
+          ${isMobile ? `mobile-panel-editor ${isOpen ? 'open' : ''}` : 'w-80 p-4'}
+          ${!isOpen && isMobile ? 'hidden lg:block' : ''}
+        `}
+        role="complementary"
+        aria-label="Panel editing tools"
+      >
+        <div className={`space-y-6 ${isMobile ? 'p-4 space-y-4' : ''}`}>
+          {/* Mobile Header */}
+          {isMobile && onClose && (
+            <div className="flex justify-between items-center pb-4 border-b border-border lg:hidden">
+              <h2 className="font-semibold text-lg">Panel Editor</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                className="min-h-[44px] w-[44px] p-2"
+                aria-label="Close panel editor"
+                data-testid="button-close-panel-editor"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </Button>
+            </div>
+          )}
         {/* Panel Editor */}
         <div>
           <h3 className="font-semibold mb-3 flex items-center">
@@ -283,7 +321,8 @@ export default function PanelEditor({ selectedPanel, project, currentPage, curre
             </Card>
           </div>
         </div>
-      </div>
-    </div>
+        </div>
+      </aside>
+    </>
   );
 }
