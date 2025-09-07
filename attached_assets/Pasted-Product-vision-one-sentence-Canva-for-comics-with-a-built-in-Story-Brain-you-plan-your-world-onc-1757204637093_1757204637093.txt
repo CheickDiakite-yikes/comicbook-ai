@@ -1,0 +1,59 @@
+Product vision (one sentence)
+
+Canva for comics with a built‑in Story Brain: you plan your world once (characters, settings, tone), then generate each page—square by square or all at once—while the AI keeps everything consistent.
+
+What to ship first (MVP slice)
+
+1) Dashboard & project creation
+
+Project fields (Story Bible):
+
+Title, theme/genre, tone, art style tags (manga noir, watercolor, Saturday-morning-cartoon, etc.)
+
+Characters: name, role, short bio, personality, visual descriptors (hair/eyes/clothes), reference images, “always/never” traits (e.g., “always: gold locket”, “never: freckles”).
+
+Settings: name, short description, reference images, mood/palette.
+
+Canon rules: pronouns, speech quirks, color palette, time period, tech level.
+
+Script (import file, paste, or “Generate script with AI”).
+
+Script generator (optional): user provides logline + outline beats; AI returns a script formatted into scenes → pages → panels suggestions.
+
+2) Page layouts library
+
+Start with 10–20 templates (the image you shared is perfect inspiration: grids, one diagonal, a few “hero panel” options). Internally represent each template as JSON with normalized coordinates (x, y, w, h) per panel.
+
+3) Page builder
+
+Two modes (exactly as you proposed):
+
+Panel-by-panel: click a panel → type a prompt → AI composes a context-aware prompt using project canon + script + last 3 pages.
+
+One‑click page: AI reads the script passage for that page and auto‑populates all panel prompts + generates images in parallel.
+
+Editing: reroll a single panel, swap layout (with safe reposition), tweak prompt, or “lock style” so later rerolls don’t drift.
+
+Speech balloons (optional MVP): quick add; AI suggests balloon text & placement from the script, you drag to adjust.
+
+4) Export
+
+Export PNG page (with or without balloons) and PDF book.
+
+That’s enough for a compelling demo.
+
+The hard problems (and how we solve them)
+
+Character & style consistency.
+
+Create a Character Canon object for each character: descriptors + 2–5 reference images → embeddings.
+
+Our Prompt Composer injects canon descriptors every time (“Style locks”), reuses a stable seed per character when possible, and pins palettes & props.
+
+After generation, a lightweight consistency check compares the new panel against canonical embeddings; if drift > threshold, we show “Regenerate with stronger character lock”.
+
+Panel-to-panel coherence.
+
+Maintain a Page Memory: script snippet + the last 3 pages’ structured summaries (who appears, costume, lighting, time of day, emotional tone) + downscaled panel thumbnails for visual RAG.
+
+Prompt Composer pulls from Project Canon + Page Memory to build final prompts.
