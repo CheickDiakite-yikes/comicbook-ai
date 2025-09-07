@@ -277,8 +277,8 @@ export default function Editor() {
                   <div 
                     className="bg-white rounded-xl shadow-lg p-4 sm:p-8 w-full" 
                     style={{ 
-                      aspectRatio: isMobile ? "0.7" : "8.5/11",
-                      maxHeight: isMobile ? "70vh" : "none"
+                      aspectRatio: isMobile ? "0.85" : "8.5/11",
+                      minHeight: isMobile ? "85vh" : "auto"
                     }}
                   >
                     <ComicPageLayout 
