@@ -176,6 +176,7 @@ export class MemStorage implements IStorage {
       projectId: pageData.projectId,
       pageNumber: pageData.pageNumber,
       layoutTemplate: pageData.layoutTemplate,
+      backgroundImageUrl: pageData.backgroundImageUrl || null,
       panels: pageData.panels || null,
       scriptSnippet: pageData.scriptSnippet || null,
       createdAt: new Date(),
