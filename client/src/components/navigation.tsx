@@ -2,9 +2,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Moon, Palette } from "lucide-react";
 import { useState } from "react";
+import type { User } from "@shared/schema";
 
 export default function Navigation() {
-  const { user } = useAuth();
+  const { user } = useAuth() as { user: User | undefined };
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   const toggleDarkMode = () => {

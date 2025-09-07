@@ -76,7 +76,10 @@ export class MemStorage implements IStorage {
 
     const user: User = {
       id: randomUUID(),
-      ...userData,
+      email: userData.email || null,
+      firstName: userData.firstName || null,
+      lastName: userData.lastName || null,
+      profileImageUrl: userData.profileImageUrl || null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -89,7 +92,13 @@ export class MemStorage implements IStorage {
     const project: Project = {
       id: randomUUID(),
       userId,
-      ...projectData,
+      title: projectData.title,
+      description: projectData.description || null,
+      genre: projectData.genre || null,
+      artStyle: projectData.artStyle || null,
+      script: projectData.script || null,
+      settings: projectData.settings || null,
+      canonRules: projectData.canonRules || null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -126,7 +135,15 @@ export class MemStorage implements IStorage {
   async createCharacter(characterData: InsertCharacter): Promise<Character> {
     const character: Character = {
       id: randomUUID(),
-      ...characterData,
+      projectId: characterData.projectId,
+      name: characterData.name,
+      role: characterData.role || null,
+      bio: characterData.bio || null,
+      visualDescriptors: characterData.visualDescriptors || null,
+      alwaysTraits: characterData.alwaysTraits || null,
+      neverTraits: characterData.neverTraits || null,
+      referenceImageUrl: characterData.referenceImageUrl || null,
+      colorScheme: characterData.colorScheme || null,
       createdAt: new Date(),
     };
     this.characters.set(character.id, character);
@@ -154,7 +171,11 @@ export class MemStorage implements IStorage {
   async createPage(pageData: InsertPage): Promise<Page> {
     const page: Page = {
       id: randomUUID(),
-      ...pageData,
+      projectId: pageData.projectId,
+      pageNumber: pageData.pageNumber,
+      layoutTemplate: pageData.layoutTemplate,
+      panels: pageData.panels || null,
+      scriptSnippet: pageData.scriptSnippet || null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -193,7 +214,13 @@ export class MemStorage implements IStorage {
   async createPanel(panelData: InsertPanel): Promise<Panel> {
     const panel: Panel = {
       id: randomUUID(),
-      ...panelData,
+      pageId: panelData.pageId,
+      panelNumber: panelData.panelNumber,
+      prompt: panelData.prompt || null,
+      imageUrl: panelData.imageUrl || null,
+      speechBubbles: panelData.speechBubbles || null,
+      isGenerated: panelData.isGenerated || false,
+      generationStatus: panelData.generationStatus || "pending",
       createdAt: new Date(),
       updatedAt: new Date(),
     };
