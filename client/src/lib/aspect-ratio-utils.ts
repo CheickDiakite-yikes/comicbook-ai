@@ -66,28 +66,40 @@ export function getPageAspectRatio(isMobile: boolean): number {
 }
 
 /**
- * Calculate optimal dimensions for AI image generation
- * Based on aspect ratio, returns dimensions that are:
- * - Multiples of 8 (optimal for AI generation)
- * - Within reasonable size limits
- * - Maintain exact aspect ratios
+ * Calculate optimal dimensions for AI image generation with panel-specific sizing
+ * Returns dimensions optimized for comic panel aspect ratios
  */
 export function calculateOptimalDimensions(aspectRatio: number, targetArea = 1000000): { width: number; height: number } {
   // Calculate dimensions that maintain exact aspect ratio
-  const height = Math.sqrt(targetArea / aspectRatio);
-  const width = height * aspectRatio;
+  let height = Math.sqrt(targetArea / aspectRatio);
+  let width = height * aspectRatio;
+  
+  // Apply panel-specific optimizations
+  if (aspectRatio > 2.0) {
+    // Ultra-wide panels - increase resolution for detail
+    width = 1600;
+    height = width / aspectRatio;
+  } else if (aspectRatio > 1.5) {
+    // Wide cinematic panels
+    width = 1200;
+    height = width / aspectRatio;
+  } else if (aspectRatio < 0.6) {
+    // Tall vertical panels
+    height = 1200;
+    width = height * aspectRatio;
+  } else {
+    // Standard and square panels
+    width = Math.max(width, 800);
+    height = Math.max(height, 800);
+  }
   
   // Round to multiples of 8 for better AI generation
   const roundedWidth = Math.round(width / 8) * 8;
   const roundedHeight = Math.round(height / 8) * 8;
   
-  // Ensure minimum dimensions
-  const minWidth = Math.max(roundedWidth, 512);
-  const minHeight = Math.max(roundedHeight, 512);
-  
   return {
-    width: minWidth,
-    height: minHeight
+    width: roundedWidth,
+    height: roundedHeight
   };
 }
 

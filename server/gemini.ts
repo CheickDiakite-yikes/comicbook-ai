@@ -468,26 +468,43 @@ export class GeminiService {
   }
 
   private buildContextualPrompt(request: GenerateImageRequest): string {
-    // Start with critical edge-to-edge instructions
-    let prompt = `CRITICAL REQUIREMENTS: Generate a FULL-BLEED comic panel artwork that extends completely edge-to-edge with NO white borders, NO padding, NO margins, NO frame. The artwork must fill the ENTIRE canvas from edge to edge. 
+    // Start with aspect ratio specifications - CRITICAL for proper panel fitting
+    let prompt = "";
+    
+    if (request.panelContext?.aspectRatio) {
+      const aspectRatio = request.panelContext.aspectRatio;
+      
+      // Convert decimal aspect ratio to readable format
+      if (aspectRatio > 2.0) {
+        prompt += `ULTRA-WIDE PANORAMIC IMAGE: Create an ultra-wide ${aspectRatio.toFixed(1)}:1 aspect ratio image. `;
+      } else if (aspectRatio > 1.5) {
+        prompt += `WIDE CINEMATIC IMAGE: Create a ${aspectRatio.toFixed(1)}:1 landscape aspect ratio image. `;
+      } else if (aspectRatio > 1.2) {
+        prompt += `LANDSCAPE IMAGE: Create a ${aspectRatio.toFixed(1)}:1 landscape format image. `;
+      } else if (aspectRatio > 0.8) {
+        prompt += `SQUARE FORMAT IMAGE: Create a 1:1 square aspect ratio image. `;
+      } else if (aspectRatio > 0.6) {
+        prompt += `PORTRAIT IMAGE: Create a ${(1/aspectRatio).toFixed(1)}:1 portrait format image. `;
+      } else {
+        prompt += `TALL VERTICAL IMAGE: Create a tall ${(1/aspectRatio).toFixed(1)}:1 vertical aspect ratio image. `;
+      }
+    }
+    
+    prompt += `FULL-BLEED comic panel artwork with NO white borders, NO padding, NO frames. `;
+    prompt += `The artwork must completely fill the ${request.panelContext?.aspectRatio ? `${request.panelContext.aspectRatio.toFixed(1)}:1` : ''} format from edge to edge. `;
+    
+    prompt += `Create a high-quality comic panel illustration: ${request.prompt}`;
 
-Create a high-quality comic panel illustration: ${request.prompt}`;
-
-    // Add panel dimension context for better composition
+    // Add specific composition guidance based on panel shape
     if (request.panelContext) {
       const { aspectRatio, panelType } = request.panelContext;
       
-      if (panelType === "wide-cinematic" || panelType === "wide") {
-        prompt += " (wide cinematic composition, landscape orientation)";
-      } else if (panelType === "tall-vertical") {
-        prompt += " (vertical composition, portrait orientation)";
-      } else if (panelType === "square") {
-        prompt += " (square composition, balanced framing)";
-      }
-      
-      // Add aspect ratio hint for better fit, with null check
-      if (aspectRatio && typeof aspectRatio === 'number') {
-        prompt += ` (aspect ratio ${aspectRatio.toFixed(2)}:1)`;
+      if (aspectRatio && aspectRatio > 1.5) {
+        prompt += ". Use wide horizontal composition with elements spread across the frame. Position speech bubbles in the upper-center area to avoid cropping.";
+      } else if (aspectRatio && aspectRatio < 0.8) {
+        prompt += ". Use vertical composition with elements stacked vertically. Place speech bubbles in the upper third of the frame.";
+      } else {
+        prompt += ". Use balanced square composition with centered elements and speech bubbles in the upper-center area.";
       }
     }
 
@@ -537,19 +554,17 @@ Create a high-quality comic panel illustration: ${request.prompt}`;
       prompt += `. Previous story context: ${narrativeContext}`;
     }
 
-    // Add aspect ratio and composition guidance for perfect panel fitting
-    if (request.panelContext) {
-      const { aspectRatio, panelType } = request.panelContext;
-      if (aspectRatio && typeof aspectRatio === 'number') {
-        prompt += `. IMPORTANT: Compose the entire illustration to exactly fit aspect ratio ${aspectRatio.toFixed(2)}:1 with no wasted space`;
-        
-        if (aspectRatio > 1.3) {
-          prompt += ". Use wide horizontal composition, ensure speech bubbles and important elements stay within the central area";
-        } else if (aspectRatio < 0.8) {
-          prompt += ". Use vertical composition, stack elements vertically, keep speech bubbles in upper portion";
-        } else {
-          prompt += ". Use balanced square composition, center important elements and speech bubbles";
-        }
+    // Add professional composition instructions
+    if (request.panelContext?.aspectRatio) {
+      const aspectRatio = request.panelContext.aspectRatio;
+      prompt += `. CRITICAL COMPOSITION: Design the entire artwork to perfectly fit ${aspectRatio.toFixed(2)}:1 aspect ratio with zero wasted space`;
+      
+      if (aspectRatio > 1.5) {
+        prompt += ". Use WIDE ANGLE composition like a movie still - spread elements horizontally across the frame. Center speech bubbles to avoid edge cropping";
+      } else if (aspectRatio < 0.8) {
+        prompt += ". Use PORTRAIT composition with vertical stacking - arrange elements from top to bottom. Place dialogue in upper third";
+      } else {
+        prompt += ". Use BALANCED SQUARE composition - center main subjects with speech bubbles in safe zone";
       }
     }
 
