@@ -68,6 +68,7 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [isGeneratingCharacterBio, setIsGeneratingCharacterBio] = useState(false);
   const [isGeneratingCharacterVisual, setIsGeneratingCharacterVisual] = useState(false);
+  const [isGeneratingFullCharacter, setIsGeneratingFullCharacter] = useState(false);
   const [newCharacter, setNewCharacter] = useState({ name: "", role: "", bio: "", visualDescriptors: "" });
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
   const [showCharacterForm, setShowCharacterForm] = useState(false);
@@ -276,6 +277,37 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
     },
   });
 
+  // Full character generation mutation
+  const generateFullCharacterMutation = useMutation({
+    mutationFn: async (roleType?: string) => {
+      const response = await apiRequest("POST", `/api/projects/${project.id}/generate-character`, {
+        roleType: roleType || undefined
+      });
+      return response.json();
+    },
+    onSuccess: (characterData) => {
+      setNewCharacter({
+        name: characterData.name,
+        role: characterData.role,
+        bio: characterData.bio,
+        visualDescriptors: characterData.visualDescriptors
+      });
+      setIsGeneratingFullCharacter(false);
+      toast({ 
+        title: "Character Generated!", 
+        description: `${characterData.name} has been created. Review and save the character.` 
+      });
+    },
+    onError: () => {
+      setIsGeneratingFullCharacter(false);
+      toast({ 
+        title: "Error", 
+        description: "Failed to generate character. Please try again.", 
+        variant: "destructive" 
+      });
+    },
+  });
+
   const onSubmit = (data: ProjectFormData) => {
     updateProjectMutation.mutate(data);
   };
@@ -337,6 +369,11 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
       bio: characterData.bio,
       genre: form.getValues("genre") || "comic",
     });
+  };
+
+  const handleGenerateFullCharacter = (roleType?: string) => {
+    setIsGeneratingFullCharacter(true);
+    generateFullCharacterMutation.mutate(roleType);
   };
 
   return (
