@@ -49,12 +49,12 @@ export default function Editor() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const { data: project } = useQuery<Project>({
+  const { data: project, isLoading: isProjectLoading } = useQuery<Project>({
     queryKey: ["/api/projects", projectId],
     enabled: !!projectId,
   });
 
-  const { data: pages = [] } = useQuery<Page[]>({
+  const { data: pages = [], isLoading: isPagesLoading } = useQuery<Page[]>({
     queryKey: ["/api/projects", projectId, "pages"],
     enabled: !!projectId,
   });
@@ -494,7 +494,72 @@ export default function Editor() {
     });
   };
 
-  if (!project) {
+  // Show loading state while project data is being fetched
+  if (isProjectLoading || !projectId) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation onToggleSidebar={() => {}} showMobileToggle={true} />
+        <div className="flex min-h-[calc(100vh-64px)]">
+          <div className="flex-1 flex flex-col">
+            {/* Cool Comic Editor Loading Skeleton */}
+            <div className="bg-card border-b border-border px-4 sm:px-6 py-3 sm:py-4">
+              <div className="flex items-center space-x-4">
+                <div className="w-10 h-10 bg-muted rounded-lg animate-pulse" />
+                <div className="space-y-2">
+                  <div className="h-6 bg-muted rounded w-32 animate-pulse" />
+                  <div className="h-4 bg-muted rounded w-24 animate-pulse" />
+                </div>
+                <div className="ml-auto flex space-x-2">
+                  <div className="w-20 h-8 bg-muted rounded animate-pulse" />
+                  <div className="w-20 h-8 bg-muted rounded animate-pulse" />
+                </div>
+              </div>
+            </div>
+            <div className="flex-1 p-6">
+              <div className="max-w-4xl mx-auto">
+                {/* Comic Page Loading Skeleton */}
+                <div className="bg-white rounded-xl shadow-lg border-4 border-gray-200 aspect-[3/4] relative overflow-hidden">
+                  <div className="absolute inset-4 grid grid-cols-2 gap-3">
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                      <div
+                        key={i}
+                        className={`bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg border-2 border-dashed border-gray-300 relative overflow-hidden
+                          ${i === 1 ? 'col-span-2' : ''}
+                          ${i === 6 ? 'col-span-2' : ''}
+                        `}
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent -translate-x-full animate-[shimmer_2s_infinite] transform" />
+                        <div className="flex items-center justify-center h-full">
+                          <div className="text-center space-y-2 opacity-60">
+                            <div className="w-8 h-8 bg-gray-300 rounded-full mx-auto animate-pulse" />
+                            <div className="h-2 bg-gray-300 rounded w-16 animate-pulse" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Comic Book Style Loading Text */}
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <div className="bg-white/90 rounded-lg p-3 border border-gray-200">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 bg-blue-400 rounded-full animate-bounce" />
+                        <div className="w-4 h-4 bg-purple-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}} />
+                        <div className="w-4 h-4 bg-pink-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}} />
+                        <span className="text-sm font-medium text-gray-600 ml-2">Loading your comic studio...</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state only if loading is complete and no project found
+  if (!project && !isProjectLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
