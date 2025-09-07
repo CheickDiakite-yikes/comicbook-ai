@@ -1,5 +1,6 @@
 import * as client from "openid-client";
 import { Strategy, type VerifyFunction } from "openid-client/passport";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 
 import passport from "passport";
 import session from "express-session";
@@ -66,6 +67,18 @@ async function upsertUser(
   });
 }
 
+async function upsertGoogleUser(
+  profile: any
+) {
+  await storage.upsertUser({
+    id: `google-${profile.id}`,
+    email: profile.emails?.[0]?.value || null,
+    firstName: profile.name?.givenName || null,
+    lastName: profile.name?.familyName || null,
+    profileImageUrl: profile.photos?.[0]?.value || null,
+  });
+}
+
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
   app.use(getSession());
@@ -98,6 +111,28 @@ export async function setupAuth(app: Express) {
     passport.use(strategy);
   }
 
+  // Google OAuth Strategy
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    passport.use(new GoogleStrategy({
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: "/api/auth/google/callback"
+    },
+    async (accessToken: string, refreshToken: string, profile: any, done: any) => {
+      try {
+        const user = {
+          id: `google-${profile.id}`,
+          profile: profile,
+          provider: 'google'
+        };
+        await upsertGoogleUser(profile);
+        return done(null, user);
+      } catch (error) {
+        return done(error, null);
+      }
+    }));
+  }
+
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
@@ -115,6 +150,22 @@ export async function setupAuth(app: Express) {
     })(req, res, next);
   });
 
+  // Google OAuth routes
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    app.get("/api/auth/google",
+      passport.authenticate("google", {
+        scope: ["profile", "email"]
+      })
+    );
+
+    app.get("/api/auth/google/callback",
+      passport.authenticate("google", {
+        successRedirect: "/",
+        failureRedirect: "/api/login"
+      })
+    );
+  }
+
   app.get("/api/logout", (req, res) => {
     req.logout(() => {
       res.redirect(
@@ -130,7 +181,17 @@ export async function setupAuth(app: Express) {
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
 
-  if (!req.isAuthenticated() || !user.expires_at) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  // Handle Google OAuth users (simpler auth check)
+  if (user && user.provider === 'google') {
+    return next();
+  }
+
+  // Handle Replit Auth users (with token refresh)
+  if (!user.expires_at) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 

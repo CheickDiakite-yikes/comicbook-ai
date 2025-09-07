@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Palette, BookOpen, Wand2, Users } from "lucide-react";
+import { FaGoogle } from "react-icons/fa";
 
 export default function Landing() {
   return (
@@ -12,13 +13,24 @@ export default function Landing() {
           <h1 className="text-xl font-serif font-bold text-primary">ComicAI Studio</h1>
           <span className="text-xs bg-chart-3 text-white px-2 py-1 rounded-full font-mono">Beta</span>
         </div>
-        <Button 
-          onClick={() => window.location.href = '/api/login'}
-          className="bg-primary text-primary-foreground hover:bg-primary/90"
-          data-testid="button-login"
-        >
-          Sign In with Replit
-        </Button>
+        <div className="flex items-center space-x-2">
+          <Button 
+            onClick={() => window.location.href = '/api/auth/google'}
+            variant="outline"
+            className="border-border hover:bg-muted"
+            data-testid="button-google-login"
+          >
+            <FaGoogle className="mr-2 h-4 w-4 text-red-500" />
+            Google
+          </Button>
+          <Button 
+            onClick={() => window.location.href = '/api/login'}
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+            data-testid="button-replit-login"
+          >
+            Sign In with Replit
+          </Button>
+        </div>
       </nav>
 
       {/* Hero Section */}
@@ -31,15 +43,28 @@ export default function Landing() {
             The ultimate comic creation platform powered by AI. Build your story bible once, 
             then generate stunning comic pages while maintaining perfect character and style consistency.
           </p>
-          <Button 
-            size="lg"
-            onClick={() => window.location.href = '/api/login'}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 text-lg px-8 py-3"
-            data-testid="button-get-started"
-          >
-            <Wand2 className="mr-2 h-5 w-5" />
-            Get Started Free
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Button 
+              size="lg"
+              onClick={() => window.location.href = '/api/auth/google'}
+              className="bg-red-600 hover:bg-red-700 text-white text-lg px-8 py-3"
+              data-testid="button-get-started-google"
+            >
+              <FaGoogle className="mr-2 h-5 w-5" />
+              Get Started with Google
+            </Button>
+            <div className="text-muted-foreground text-sm">or</div>
+            <Button 
+              size="lg"
+              onClick={() => window.location.href = '/api/login'}
+              variant="outline"
+              className="border-primary text-primary hover:bg-primary hover:text-primary-foreground text-lg px-8 py-3"
+              data-testid="button-get-started-replit"
+            >
+              <Wand2 className="mr-2 h-5 w-5" />
+              Get Started with Replit
+            </Button>
+          </div>
         </div>
 
         {/* Features Grid */}

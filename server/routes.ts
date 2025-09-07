@@ -6,6 +6,15 @@ import { insertProjectSchema, insertCharacterSchema, insertPageSchema, insertPan
 import { geminiService } from "./gemini";
 import { z } from "zod";
 
+// Helper function to get user ID from different auth providers
+function getUserId(user: any): string {
+  if (user.provider === 'google') {
+    return user.id;
+  }
+  // Replit Auth
+  return user.claims?.sub;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
@@ -13,7 +22,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req.user);
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -25,7 +34,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Project routes
   app.post("/api/projects", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req.user);
       const projectData = insertProjectSchema.parse(req.body);
       const project = await storage.createProject(userId, projectData);
       res.json(project);
@@ -37,7 +46,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/projects", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req.user);
       const projects = await storage.getUserProjects(userId);
       res.json(projects);
     } catch (error) {
@@ -48,8 +57,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/projects/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = getUserId(req.user);
       const project = await storage.getProject(req.params.id);
-      if (!project || project.userId !== req.user.claims.sub) {
+      if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
       res.json(project);
@@ -61,8 +71,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/projects/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = getUserId(req.user);
       const project = await storage.getProject(req.params.id);
-      if (!project || project.userId !== req.user.claims.sub) {
+      if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
       
@@ -78,7 +89,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/projects/:id", isAuthenticated, async (req: any, res) => {
     try {
       const project = await storage.getProject(req.params.id);
-      if (!project || project.userId !== req.user.claims.sub) {
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
       
@@ -94,7 +106,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/projects/:projectId/characters", isAuthenticated, async (req: any, res) => {
     try {
       const project = await storage.getProject(req.params.projectId);
-      if (!project || project.userId !== req.user.claims.sub) {
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
 
@@ -113,7 +126,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/projects/:projectId/characters", isAuthenticated, async (req: any, res) => {
     try {
       const project = await storage.getProject(req.params.projectId);
-      if (!project || project.userId !== req.user.claims.sub) {
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
 
@@ -129,7 +143,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/projects/:projectId/pages", isAuthenticated, async (req: any, res) => {
     try {
       const project = await storage.getProject(req.params.projectId);
-      if (!project || project.userId !== req.user.claims.sub) {
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
 
@@ -148,7 +163,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/projects/:projectId/pages", isAuthenticated, async (req: any, res) => {
     try {
       const project = await storage.getProject(req.params.projectId);
-      if (!project || project.userId !== req.user.claims.sub) {
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
 
@@ -169,7 +185,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const project = await storage.getProject(page.projectId);
-      if (!project || project.userId !== req.user.claims.sub) {
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
 
@@ -193,7 +210,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const project = await storage.getProject(page.projectId);
-      if (!project || project.userId !== req.user.claims.sub) {
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
 
