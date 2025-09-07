@@ -6,10 +6,12 @@ import Sidebar from "@/components/sidebar";
 import PanelEditor from "@/components/panel-editor";
 import LayoutChangeModal from "@/components/layout-change-modal";
 import ComicPageLayout from "@/components/comic-page-layout";
+import StructuredScriptViewer from "@/components/structured-script-viewer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Save, Download, ChevronLeft, ChevronRight, Wand2, Loader2, Plus, Edit, Trash2, Cloud } from "lucide-react";
+import { ArrowLeft, Save, Download, ChevronLeft, ChevronRight, Wand2, Loader2, Plus, Edit, Trash2, Cloud, FileText, Layout } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { aiService } from "@/lib/ai-service";
@@ -34,6 +36,7 @@ export default function Editor() {
   const [panelEditorOpen, setPanelEditorOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [activeTab, setActiveTab] = useState<"editor" | "script">("editor");
   
   // Detect mobile screen size
   useEffect(() => {
@@ -483,88 +486,109 @@ export default function Editor() {
               aria-label="Comic page editor"
             >
               <div className="max-w-4xl mx-auto">
-                {/* Page Canvas */}
-                <section className="mb-4 sm:mb-6" aria-labelledby="canvas-heading">
-                  <h2 id="canvas-heading" className="sr-only">Comic Page Canvas</h2>
-                  <div 
-                    className="bg-white rounded-xl shadow-lg p-4 sm:p-8 w-full" 
-                    style={{ 
-                      aspectRatio: isMobile ? "0.85" : "8.5/11",
-                      minHeight: isMobile ? "85vh" : "auto",
-                      backgroundImage: pageBackground ? `url(${pageBackground})` : undefined,
-                      ...getOptimalImageCSS(getPageAspectRatio(isMobile))
-                    }}
-                  >
-                    <ComicPageLayout 
-                      layoutId={currentLayout}
-                      generatedImages={generatedImages}
-                      generatedBackgrounds={generatedBackgrounds}
-                      selectedPanel={selectedPanel}
-                      onPanelClick={(panelId) => {
-                        setSelectedPanel(panelId);
-                        if (isMobile) {
-                          setPanelEditorOpen(true);
-                        }
-                      }}
-                      onImageUpdate={(panelId, imageUrl) => {
-                        setGeneratedImages(prev => ({ ...prev, [panelId]: imageUrl }));
-                      }}
-                      onBackgroundUpdate={(panelId, backgroundUrl) => {
-                        setGeneratedBackgrounds(prev => ({ ...prev, [panelId]: backgroundUrl }));
-                      }}
-                    />
-                  </div>
-                </section>
+                {/* Tab Navigation */}
+                <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "editor" | "script")} className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 mb-6">
+                    <TabsTrigger value="editor" className="flex items-center gap-2" data-testid="tab-editor">
+                      <Layout className="h-4 w-4" />
+                      Page Editor
+                    </TabsTrigger>
+                    <TabsTrigger value="script" className="flex items-center gap-2" data-testid="tab-script">
+                      <FileText className="h-4 w-4" />
+                      Script View
+                    </TabsTrigger>
+                  </TabsList>
 
-                {/* Page Controls */}
-                <section aria-labelledby="page-controls-heading">
-                  <h2 id="page-controls-heading" className="sr-only">Page Controls</h2>
-                  <Card className="border-border">
-                    <CardContent className="p-3 sm:p-4">
-                      <div className={`${isMobile ? 'space-y-3' : 'flex items-center justify-between'}`}>
-                        {/* Page Navigation */}
-                        <div className="flex items-center justify-center space-x-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            disabled={currentPageIndex === 0}
-                            onClick={() => setCurrentPageIndex(Math.max(0, currentPageIndex - 1))}
-                            className="min-h-[44px] w-[44px] p-2"
-                            aria-label="Previous page"
-                            data-testid="button-prev-page"
-                          >
-                            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                          </Button>
-                          <span className="text-sm font-medium px-2">Page {currentPageIndex + 1}</span>
-                          {currentPageIndex >= pages.length - 1 ? (
+                  <TabsContent value="editor" className="space-y-4 sm:space-y-6">
+                    {/* Page Canvas */}
+                    <section className="mb-4 sm:mb-6" aria-labelledby="canvas-heading">
+                      <h2 id="canvas-heading" className="sr-only">Comic Page Canvas</h2>
+                      <div 
+                        className="bg-white rounded-xl shadow-lg p-4 sm:p-8 w-full" 
+                        style={{ 
+                          aspectRatio: isMobile ? "0.85" : "8.5/11",
+                          minHeight: isMobile ? "85vh" : "auto",
+                          backgroundImage: pageBackground ? `url(${pageBackground})` : undefined,
+                          ...getOptimalImageCSS(getPageAspectRatio(isMobile))
+                        }}
+                      >
+                        <ComicPageLayout 
+                          layoutId={currentLayout}
+                          generatedImages={generatedImages}
+                          generatedBackgrounds={generatedBackgrounds}
+                          selectedPanel={selectedPanel}
+                          onPanelClick={(panelId) => {
+                            setSelectedPanel(panelId);
+                            if (isMobile) {
+                              setPanelEditorOpen(true);
+                            }
+                          }}
+                          onImageUpdate={(panelId, imageUrl) => {
+                            setGeneratedImages(prev => ({ ...prev, [panelId]: imageUrl }));
+                          }}
+                          onBackgroundUpdate={(panelId, backgroundUrl) => {
+                            setGeneratedBackgrounds(prev => ({ ...prev, [panelId]: backgroundUrl }));
+                          }}
+                        />
+                      </div>
+                    </section>
+                  </TabsContent>
+
+                  <TabsContent value="script" className="space-y-4">
+                    <StructuredScriptViewer projectId={projectId!} />
+                  </TabsContent>
+                </Tabs>
+
+                {/* Page Controls - Only show in editor tab */}
+                {activeTab === "editor" && (
+                  <section aria-labelledby="page-controls-heading">
+                    <h2 id="page-controls-heading" className="sr-only">Page Controls</h2>
+                    <Card className="border-border">
+                      <CardContent className="p-3 sm:p-4">
+                        <div className={`${isMobile ? 'space-y-3' : 'flex items-center justify-between'}`}>
+                          {/* Page Navigation */}
+                          <div className="flex items-center justify-center space-x-2">
                             <Button 
                               variant="ghost" 
                               size="sm"
-                              onClick={() => createPageMutation.mutate()}
-                              disabled={createPageMutation.isPending}
+                              disabled={currentPageIndex === 0}
+                              onClick={() => setCurrentPageIndex(Math.max(0, currentPageIndex - 1))}
                               className="min-h-[44px] w-[44px] p-2"
-                              aria-label="Add new page"
-                              data-testid="button-new-page"
+                              aria-label="Previous page"
+                              data-testid="button-prev-page"
                             >
-                              {createPageMutation.isPending ? (
-                                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                              ) : (
-                                <Plus className="h-4 w-4" aria-hidden="true" />
-                              )}
+                              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                             </Button>
-                          ) : (
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => setCurrentPageIndex(Math.min(pages.length - 1, currentPageIndex + 1))}
-                              className="min-h-[44px] w-[44px] p-2"
-                              aria-label="Next page"
-                              data-testid="button-next-page"
-                            >
-                              <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                            </Button>
-                          )}
-                        </div>
+                            <span className="text-sm font-medium px-2">Page {currentPageIndex + 1}</span>
+                            {currentPageIndex >= pages.length - 1 ? (
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => createPageMutation.mutate()}
+                                disabled={createPageMutation.isPending}
+                                className="min-h-[44px] w-[44px] p-2"
+                                aria-label="Add new page"
+                                data-testid="button-new-page"
+                              >
+                                {createPageMutation.isPending ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                                ) : (
+                                  <Plus className="h-4 w-4" aria-hidden="true" />
+                                )}
+                              </Button>
+                            ) : (
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => setCurrentPageIndex(Math.min(pages.length - 1, currentPageIndex + 1))}
+                                className="min-h-[44px] w-[44px] p-2"
+                                aria-label="Next page"
+                                data-testid="button-next-page"
+                              >
+                                <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                              </Button>
+                            )}
+                          </div>
                         
                         {/* Action Buttons - Improved Responsive Layout */}
                         <div className="space-y-3">
@@ -634,6 +658,7 @@ export default function Editor() {
                     </CardContent>
                   </Card>
                 </section>
+                )}
               </div>
             </main>
 
