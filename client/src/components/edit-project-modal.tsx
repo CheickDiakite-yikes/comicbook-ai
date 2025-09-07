@@ -552,17 +552,79 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Project Characters</h3>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowCharacterForm(true)}
-                    data-testid="button-add-character"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Character
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleGenerateFullCharacter()}
+                      disabled={isGeneratingFullCharacter}
+                      data-testid="button-generate-character"
+                    >
+                      <Wand2 className="mr-2 h-4 w-4" />
+                      {isGeneratingFullCharacter ? "Generating..." : "Generate with AI"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowCharacterForm(true)}
+                      data-testid="button-add-character"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Character
+                    </Button>
+                  </div>
                 </div>
+
+                {/* Generated Character Display */}
+                {!showCharacterForm && newCharacter.name && (
+                  <Card className="border-dashed border-2 border-primary/20 bg-primary/5">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold text-primary">✨ AI Generated Character</h4>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowCharacterForm(true)}
+                            data-testid="button-edit-generated-character"
+                          >
+                            <Edit className="mr-1 h-3 w-3" />
+                            Edit
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={handleCreateCharacter}
+                            disabled={createCharacterMutation.isPending}
+                            data-testid="button-save-generated-character"
+                          >
+                            <Plus className="mr-1 h-3 w-3" />
+                            Add to Project
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm font-medium">Name: <span className="font-normal">{newCharacter.name}</span></p>
+                          <p className="text-sm font-medium">Role: <span className="font-normal">{newCharacter.role}</span></p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Bio:</p>
+                          <p className="text-sm text-muted-foreground mt-1">{newCharacter.bio}</p>
+                        </div>
+                      </div>
+                      {newCharacter.visualDescriptors && (
+                        <div className="mt-3">
+                          <p className="text-sm font-medium">Visual Description:</p>
+                          <p className="text-sm text-muted-foreground mt-1">{newCharacter.visualDescriptors}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Character Form */}
                 {showCharacterForm && (
