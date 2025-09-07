@@ -118,13 +118,15 @@ class AIService {
   async generateFullPage(
     projectContext: GenerateImageRequest["projectContext"],
     pageScript: string,
-    panelLayout: Array<{ panelNumber: number; description: string }>
+    panelLayout: Array<{ panelNumber: number; description: string }>,
+    currentPageId?: string
   ): Promise<Array<GenerateImageResponse>> {
     try {
       const response = await apiRequest("POST", `${this.baseUrl}/generate-full-page`, {
         projectContext,
         pageScript,
         panelLayout,
+        currentPageId,
       });
 
       return await response.json();
