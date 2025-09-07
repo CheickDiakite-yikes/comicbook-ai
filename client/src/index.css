@@ -135,6 +135,39 @@
   .feature-grid .grid { @apply grid-cols-1 gap-4; }
 }
 
+/* Mobile Sidebar Drawer */
+@media (max-width: 768px) {
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 40;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
+  .sidebar-overlay.open {
+    opacity: 1;
+  }
+  
+  .mobile-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    z-index: 50;
+    padding-top: var(--safe-top, 0px);
+  }
+  
+  .mobile-sidebar.open {
+    transform: translateX(0);
+  }
+}
+
 .comic-panel {
   border: 3px solid var(--secondary);
   transition: all 0.2s ease;
