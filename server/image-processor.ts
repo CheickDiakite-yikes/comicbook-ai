@@ -99,6 +99,7 @@ export class ImageProcessor {
   
   /**
    * Smart crop to remove white borders by detecting edges
+   * Enhanced with more aggressive border detection
    */
   async smartCropWhiteBorders(
     inputPath: string,
@@ -108,27 +109,28 @@ export class ImageProcessor {
     try {
       const image = sharp(inputPath);
       
-      // Use sharp's trim to remove borders matching the top-left pixel color
-      // This is effective for removing uniform borders
+      // More aggressive trim - try multiple approaches
+      // First attempt: trim with higher threshold for better border detection
       await image
         .trim({
           background: { r: 255, g: 255, b: 255 },
-          threshold: 15, // Tolerance for color matching
+          threshold: 30, // Increased threshold to catch more border variations
         })
         .toFile(outputPath);
       
-      console.log(`Smart cropped white borders from image`);
+      console.log(`Smart cropped white borders from image with threshold 30`);
       return outputPath;
     } catch (error) {
-      console.error("Error smart cropping:", error);
-      // If smart crop fails, fall back to central extraction
-      console.log("Falling back to central extraction method");
-      return this.extractCentralContent(inputPath, outputPath, 0.96);
+      console.error("Error smart cropping, trying aggressive crop:", error);
+      // If smart crop fails, use more aggressive central extraction
+      console.log("Using aggressive central extraction method");
+      return this.extractCentralContent(inputPath, outputPath, 0.92); // More aggressive crop
     }
   }
   
   /**
    * Process image for a specific panel with automatic border removal and fitting
+   * Enhanced with zoom to ensure full panel coverage
    */
   async processForComicPanel(
     inputPath: string,
@@ -139,24 +141,49 @@ export class ImageProcessor {
     try {
       const timestamp = Date.now();
       const tempPath = path.join(path.dirname(inputPath), `temp_${timestamp}.png`);
+      const tempPath2 = path.join(path.dirname(inputPath), `temp2_${timestamp}.png`);
       const finalPath = path.join(path.dirname(inputPath), `panel_${panelNumber}_processed_${timestamp}.png`);
       
-      // Step 1: Remove white borders
+      // Step 1: Remove white borders aggressively
       await this.smartCropWhiteBorders(inputPath, tempPath);
       
-      // Step 2: Resize to exact panel dimensions
-      await this.processImageForPanel(tempPath, finalPath, {
-        width: panelWidth,
-        height: panelHeight,
+      // Step 2: Apply slight zoom (105%) to ensure full coverage
+      // This helps eliminate any remaining edge artifacts
+      const zoomFactor = 1.05;
+      const zoomedWidth = Math.round(panelWidth * zoomFactor);
+      const zoomedHeight = Math.round(panelHeight * zoomFactor);
+      
+      // First resize with zoom
+      await this.processImageForPanel(tempPath, tempPath2, {
+        width: zoomedWidth,
+        height: zoomedHeight,
         fit: 'cover',
-        position: 'attention', // Smart cropping to keep important content
+        position: 'center', // Center for initial zoom
       });
       
-      // Clean up temp file
+      // Step 3: Final crop to exact panel dimensions
+      const finalImage = sharp(tempPath2);
+      const cropLeft = Math.round((zoomedWidth - panelWidth) / 2);
+      const cropTop = Math.round((zoomedHeight - panelHeight) / 2);
+      
+      await finalImage
+        .extract({
+          left: cropLeft,
+          top: cropTop,
+          width: panelWidth,
+          height: panelHeight
+        })
+        .toFile(finalPath);
+      
+      // Clean up temp files
       if (fs.existsSync(tempPath)) {
         fs.unlinkSync(tempPath);
       }
+      if (fs.existsSync(tempPath2)) {
+        fs.unlinkSync(tempPath2);
+      }
       
+      console.log(`Processed panel ${panelNumber} with zoom factor ${zoomFactor}`);
       return finalPath;
     } catch (error) {
       console.error(`Error processing image for panel ${panelNumber}:`, error);
