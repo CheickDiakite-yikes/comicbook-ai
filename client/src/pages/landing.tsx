@@ -137,11 +137,13 @@ export default function Landing() {
           <h3 id="demo-heading" className="text-2xl sm:text-3xl font-serif font-bold mb-6 sm:mb-8">See It In Action</h3>
           <div className="bg-card rounded-xl border border-border p-4 sm:p-8">
             <div className="aspect-video rounded-lg overflow-hidden border border-border">
-              <img 
-                src="/demo.gif" 
-                alt="Nerrame Demo - Comic creation platform interface walkthrough"
-                className="w-full h-full object-cover"
-                loading="lazy"
+              <iframe
+                src="https://www.youtube.com/embed/4XulgZqOhEw"
+                title="Nerrame Demo - AI-Powered Comic Creation Platform"
+                className="w-full h-full"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
               />
             </div>
             <div className="mt-4 text-center">
@@ -149,12 +151,12 @@ export default function Landing() {
                 Watch how easy it is to create comics with AI assistance
               </p>
               <a 
-                href="/demo.gif" 
+                href="https://youtu.be/4XulgZqOhEw" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="inline-flex items-center text-primary hover:text-primary/80 text-sm mt-2 underline"
               >
-                View full demo
+                Watch on YouTube
               </a>
             </div>
           </div>
