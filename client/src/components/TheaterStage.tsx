@@ -346,20 +346,7 @@ export function TheaterControls({
         />
       </div>
 
-      {/* Theater atmosphere text */}
-      <motion.div
-        className="text-yellow-400 text-sm font-bold"
-        animate={{
-          opacity: [0.7, 1, 0.7]
-        }}
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-          ease: "easeInOut"
-        }}
-      >
-        🎭 LIVE SHOW
-      </motion.div>
+      
     </motion.div>
   );
 }
