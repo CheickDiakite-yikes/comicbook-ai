@@ -314,15 +314,32 @@ export default function Dashboard() {
                         data-testid={`card-project-${project.id}`}
                       >
                         <div className="w-full">
-                          <div className="aspect-video bg-gradient-to-br from-chart-1/20 to-chart-2/20 flex items-center justify-center rounded-t-lg">
-                            <div className="text-center">
-                              <svg className="h-10 w-10 sm:h-12 sm:w-12 text-chart-1 mx-auto mb-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                              </svg>
-                              <p className="text-sm text-muted-foreground">
-                                {getProjectPageCount(project.id)} pages created
-                              </p>
-                            </div>
+                          <div className="aspect-video relative overflow-hidden rounded-t-lg">
+                            {project.coverArt ? (
+                              <div 
+                                className="w-full h-full bg-cover bg-center bg-no-repeat"
+                                style={{ backgroundImage: `url(${project.coverArt})` }}
+                                aria-label={`Cover art for ${project.title}`}
+                              >
+                                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
+                                <div className="absolute bottom-2 left-2 bg-background/90 backdrop-blur-sm rounded-md px-2 py-1">
+                                  <p className="text-xs text-foreground">
+                                    {getProjectPageCount(project.id)} pages created
+                                  </p>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="bg-gradient-to-br from-chart-1/20 to-chart-2/20 flex items-center justify-center h-full">
+                                <div className="text-center">
+                                  <svg className="h-10 w-10 sm:h-12 sm:w-12 text-chart-1 mx-auto mb-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                  </svg>
+                                  <p className="text-sm text-muted-foreground">
+                                    {getProjectPageCount(project.id)} pages created
+                                  </p>
+                                </div>
+                              </div>
+                            )}
                           </div>
                           <div className="p-4 text-left">
                             <h3 className="font-semibold text-base sm:text-lg mb-1">{project.title}</h3>
