@@ -185,9 +185,9 @@ export default function Characters() {
     <>
       <Sidebar />
       <main className="flex-1 pl-64">
-        <div className="container mx-auto pt-6 px-8 pb-8">
+        <div className="container mx-auto pt-2 px-8 pb-8">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-3xl font-bold flex items-center gap-3">
                 <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg">
@@ -229,7 +229,7 @@ export default function Characters() {
           </div>
 
           {/* Search and Stats */}
-          <div className="flex items-center gap-4 mb-8">
+          <div className="flex items-center gap-4 mb-6">
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
