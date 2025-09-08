@@ -36,6 +36,20 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// User profiles table for extended profile info
+export const userProfiles = pgTable("user_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id).unique(),
+  bio: text("bio"),
+  bannerImageUrl: varchar("banner_image_url"),
+  location: varchar("location"),
+  website: varchar("website"),
+  socialLinks: jsonb("social_links"), // JSON object for social media links
+  isPublicProfile: boolean("is_public_profile").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Comic projects table
 export const projects = pgTable("projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -47,6 +61,8 @@ export const projects = pgTable("projects", {
   script: text("script"),
   settings: jsonb("settings"), // JSON array of setting objects
   canonRules: text("canon_rules"),
+  isPublic: boolean("is_public").default(false), // Whether project is shared publicly
+  publicDescription: text("public_description"), // Optional public description for shared projects
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -151,6 +167,38 @@ export const scriptDialogue = pgTable("script_dialogue", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Project likes table
+export const projectLikes = pgTable("project_likes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => projects.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  // Ensure a user can only like a project once
+  index("unique_project_like").on(table.projectId, table.userId),
+]);
+
+// Project comments table
+export const projectComments = pgTable("project_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => projects.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  comment: text("comment").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// User follows table (for future use)
+export const userFollows = pgTable("user_follows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  followerId: varchar("follower_id").notNull().references(() => users.id),
+  followingId: varchar("following_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  // Ensure a user can only follow another user once
+  index("unique_user_follow").on(table.followerId, table.followingId),
+]);
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   id: true,
@@ -208,6 +256,29 @@ export const insertScriptDialogueSchema = createInsertSchema(scriptDialogue).omi
   createdAt: true,
 });
 
+// Social feature insert schemas
+export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertProjectLikeSchema = createInsertSchema(projectLikes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertProjectCommentSchema = createInsertSchema(projectComments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUserFollowSchema = createInsertSchema(userFollows).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -229,6 +300,16 @@ export type ScriptPanel = typeof scriptPanels.$inferSelect;
 export type InsertScriptPanel = z.infer<typeof insertScriptPanelSchema>;
 export type ScriptDialogue = typeof scriptDialogue.$inferSelect;
 export type InsertScriptDialogue = z.infer<typeof insertScriptDialogueSchema>;
+
+// Social feature types
+export type UserProfile = typeof userProfiles.$inferSelect;
+export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
+export type ProjectLike = typeof projectLikes.$inferSelect;
+export type InsertProjectLike = z.infer<typeof insertProjectLikeSchema>;
+export type ProjectComment = typeof projectComments.$inferSelect;
+export type InsertProjectComment = z.infer<typeof insertProjectCommentSchema>;
+export type UserFollow = typeof userFollows.$inferSelect;
+export type InsertUserFollow = z.infer<typeof insertUserFollowSchema>;
 
 // Composite types for working with structured scripts
 export interface FullStructuredScript extends StructuredScript {
