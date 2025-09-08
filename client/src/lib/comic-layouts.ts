@@ -141,4 +141,44 @@ export const comicLayouts: ComicLayout[] = [
       { x: 0.025, y: 0.02, width: 0.95, height: 0.94 },   // Full splash
     ],
   },
+  {
+    id: "strip-plus",
+    name: "Strip Plus",
+    description: "5 panels - horizontal flow + bottom",
+    panelCount: 5,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+      <rect x="10" y="10" width="42" height="35" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="57" y="10" width="42" height="35" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="104" y="10" width="42" height="35" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="151" y="10" width="39" height="35" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="50" width="180" height="65" fill="none" stroke="#666" stroke-width="2"/>
+    </svg>`,
+    panels: [
+      { x: 0.025, y: 0.02, width: 0.225, height: 0.25 },   // Top strip panel 1
+      { x: 0.265, y: 0.02, width: 0.225, height: 0.25 },   // Top strip panel 2
+      { x: 0.505, y: 0.02, width: 0.225, height: 0.25 },   // Top strip panel 3
+      { x: 0.745, y: 0.02, width: 0.225, height: 0.25 },   // Top strip panel 4
+      { x: 0.025, y: 0.29, width: 0.95, height: 0.68 },    // Large bottom panel
+    ],
+  },
+  {
+    id: "cross-layout",
+    name: "Cross Focus",
+    description: "5 panels - hero panel + corners",
+    panelCount: 5,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+      <rect x="10" y="10" width="180" height="50" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="70" width="42" height="42" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="57" y="70" width="86" height="120" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="148" y="70" width="42" height="42" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="117" width="42" height="73" fill="none" stroke="#666" stroke-width="2"/>
+    </svg>`,
+    panels: [
+      { x: 0.025, y: 0.02, width: 0.95, height: 0.28 },    // Top hero panel
+      { x: 0.025, y: 0.32, width: 0.225, height: 0.32 },   // Left middle
+      { x: 0.265, y: 0.32, width: 0.47, height: 0.66 },    // Center large panel
+      { x: 0.745, y: 0.32, width: 0.225, height: 0.32 },   // Right middle
+      { x: 0.025, y: 0.66, width: 0.225, height: 0.32 },   // Left bottom
+    ],
+  },
 ];
