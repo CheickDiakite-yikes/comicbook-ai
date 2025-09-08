@@ -204,7 +204,7 @@ export default function Profile() {
         />
         
         <main 
-          className={`flex-1 overflow-y-auto p-4 sm:p-6 w-full transition-all duration-300 ${sidebarCollapsed ? 'md:pl-16' : 'md:pl-64'}`}
+          className={`flex-1 overflow-y-auto p-4 sm:p-6 w-full transition-all duration-300 ${sidebarCollapsed ? 'md:pl-20' : 'md:pl-64'}`}
           style={{ paddingBottom: 'calc(1rem + var(--safe-bottom))' }}
         >
           <div className="max-w-4xl mx-auto space-y-6">

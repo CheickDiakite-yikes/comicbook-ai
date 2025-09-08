@@ -205,7 +205,7 @@ export default function Characters() {
             onClose={() => setSidebarOpen(false)}
             isCollapsed={sidebarCollapsed}
           />
-          <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'pl-16' : 'pl-64'}`}>
+          <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'md:pl-20' : 'md:pl-64'}`}>
             <div className="container mx-auto p-8">
               <div className="flex items-center justify-center h-64">
                 <div className="text-muted-foreground">Loading characters...</div>
@@ -237,7 +237,7 @@ export default function Characters() {
           onClose={() => setSidebarOpen(false)}
           isCollapsed={sidebarCollapsed}
         />
-        <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'pl-16' : 'pl-64'}`}>
+        <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'md:pl-20' : 'md:pl-64'}`}>
         <div className="px-8 py-0 pt-[10px] pb-[10px]">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">

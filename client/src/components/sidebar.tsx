@@ -74,7 +74,7 @@ export default function Sidebar({ isOpen = true, onClose, allPagesData = [], isC
           )}
           <div className="space-y-6">
             <nav className="space-y-2" role="navigation" aria-label="Main menu">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Navigation</h3>
+              {!isCollapsed && <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Navigation</h3>}
               <ul className="space-y-1" role="list">
                 <li role="listitem">
                   <Link href="/">
