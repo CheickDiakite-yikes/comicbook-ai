@@ -159,96 +159,20 @@ export default function Landing() {
             />
           </motion.div>
           <motion.div 
-            className="flex flex-col gap-4 justify-center items-center"
+            className="flex justify-center items-center"
             variants={animationVariants.slideUp}
           >
             <MobileAwareComponent
               mobileChildren={
                 <TouchFriendlyButton
-                  onClick={() => window.location.href = '/api/auth/google'}
+                  onClick={() => window.location.href = '/api/login'}
                   variant="primary"
                   size="lg"
-                  className="bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg border-2 border-red-800 w-full sm:w-auto"
-                  hapticFeedback={true}
-                >
-                  <FaGoogle className="mr-2 h-5 w-5" />
-                  Get Started with Google
-                </TouchFriendlyButton>
-              }
-            >
-              <motion.div
-                whileHover={{
-                  scale: 1.05,
-                  boxShadow: "0 20px 40px rgba(220, 38, 38, 0.4)",
-                  y: -5
-                }}
-                whileTap={{ scale: 0.95 }}
-                className="relative"
-              >
-                <Button 
-                  size="lg"
-                  onClick={() => window.location.href = '/api/auth/google'}
-                  className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white text-lg px-8 py-3 shadow-lg border-2 border-red-800 relative overflow-hidden"
-                  data-testid="button-get-started-google"
-                >
-                  <motion.div
-                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20"
-                    animate={{
-                      x: ['-100%', '100%']
-                    }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                      ease: "linear"
-                    }}
-                  />
-                  <FaGoogle className="mr-2 h-5 w-5 relative z-10" />
-                  <span className="relative z-10">Get Started with Google</span>
-                </Button>
-                
-                {/* Comic book action lines */}
-                <motion.div
-                  className="absolute inset-0 pointer-events-none"
-                  whileHover={{
-                    opacity: 1
-                  }}
-                  initial={{ opacity: 0 }}
-                >
-                  {[...Array(6)].map((_, i) => (
-                    <motion.div
-                      key={i}
-                      className="absolute bg-red-400 h-0.5 w-8"
-                      style={{
-                        transformOrigin: 'center',
-                        left: '50%',
-                        top: '50%',
-                        transform: `rotate(${i * 30}deg) translateX(60px)`
-                      }}
-                      initial={{ scaleX: 0 }}
-                      whileHover={{ scaleX: 1 }}
-                      transition={{ delay: i * 0.05 }}
-                    />
-                  ))}
-                </motion.div>
-              </motion.div>
-            </MobileAwareComponent>
-            <motion.div 
-              className="text-muted-foreground text-sm"
-              variants={animationVariants.fadeIn}
-            >
-              or
-            </motion.div>
-            <MobileAwareComponent
-              mobileChildren={
-                <TouchFriendlyButton
-                  onClick={() => window.location.href = '/api/login'}
-                  variant="secondary"
-                  size="lg"
-                  className="border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground w-full sm:w-auto"
+                  className="bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg w-full sm:w-auto"
                   hapticFeedback={true}
                 >
                   <Wand2 className="mr-2 h-5 w-5" />
-                  Get Started with Replit
+                  Get Started
                 </TouchFriendlyButton>
               }
             >
@@ -264,17 +188,16 @@ export default function Landing() {
                 <Button 
                   size="lg"
                   onClick={() => window.location.href = '/api/login'}
-                  variant="outline"
-                  className="border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground text-lg px-8 py-3 bg-gradient-to-r from-transparent to-transparent hover:from-primary hover:to-primary transition-all duration-300 relative overflow-hidden"
-                  data-testid="button-get-started-replit"
+                  className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground text-lg px-8 py-3 shadow-lg relative overflow-hidden"
+                  data-testid="button-get-started"
                 >
                   <motion.div
-                    className="absolute inset-0 bg-gradient-to-r from-transparent via-primary to-transparent opacity-10"
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20"
                     animate={{
                       x: ['-100%', '100%']
                     }}
                     transition={{
-                      duration: 3,
+                      duration: 2,
                       repeat: Infinity,
                       ease: "linear"
                     }}
@@ -292,7 +215,7 @@ export default function Landing() {
                   >
                     <Wand2 />
                   </motion.div>
-                  <span className="relative z-10">Get Started with Replit</span>
+                  <span className="relative z-10">Get Started</span>
                 </Button>
                 
                 {/* Magic sparkles on hover */}
