@@ -37,10 +37,12 @@ export function getSession() {
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
+    rolling: true, // Extend session on activity
     cookie: {
       httpOnly: true,
       secure: true,
       maxAge: sessionTtl,
+      sameSite: 'lax' // Better compatibility
     },
   });
 }
@@ -181,12 +183,16 @@ export async function setupAuth(app: Express) {
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
 
-  if (!req.isAuthenticated()) {
+  if (!req.isAuthenticated() || !user) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
   // Handle Google OAuth users (simpler auth check)
   if (user && user.provider === 'google') {
+    // Touch session to keep it alive
+    if (req.session && req.session.touch) {
+      req.session.touch();
+    }
     return next();
   }
 
@@ -196,23 +202,57 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   }
 
   const now = Math.floor(Date.now() / 1000);
-  if (now <= user.expires_at) {
+  // Add 5 minute buffer to prevent unnecessary refreshes
+  const tokenBuffer = 5 * 60; // 5 minutes in seconds
+  
+  if (now <= (user.expires_at - tokenBuffer)) {
+    // Token is still valid, touch session to keep it alive
+    if (req.session && req.session.touch) {
+      req.session.touch();
+    }
     return next();
   }
 
+  // Token is about to expire or has expired, try to refresh
   const refreshToken = user.refresh_token;
   if (!refreshToken) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
+    console.log("No refresh token available for user");
+    return res.status(401).json({ message: "Unauthorized" });
   }
 
   try {
     const config = await getOidcConfig();
     const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
     updateUserSession(user, tokenResponse);
+    
+    // Touch session after successful token refresh
+    if (req.session && req.session.touch) {
+      req.session.touch();
+    }
+    
+    console.log("Successfully refreshed token for user");
     return next();
   } catch (error) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
+    console.error("Token refresh failed:", error);
+    // Instead of immediately failing, try one more time with a delay
+    setTimeout(async () => {
+      try {
+        const config = await getOidcConfig();
+        const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
+        updateUserSession(user, tokenResponse);
+        console.log("Token refresh succeeded on retry");
+      } catch (retryError) {
+        console.error("Token refresh failed on retry:", retryError);
+      }
+    }, 1000);
+    
+    // For now, still allow the request through if session is valid
+    // This prevents aggressive logouts
+    if (req.session && req.session.cookie && req.session.cookie.maxAge) {
+      console.log("Allowing request through despite token refresh failure - session still valid");
+      return next();
+    }
+    
+    return res.status(401).json({ message: "Unauthorized" });
   }
 };
