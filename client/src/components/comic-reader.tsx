@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { X, ChevronLeft, ChevronRight, Play, Pause } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { comicLayouts } from "@/lib/comic-layouts";
 
 interface Page {
   id: string;
@@ -221,19 +222,31 @@ export function ComicReader({
         {/* Page Content */}
         <div className="relative w-full h-full bg-white rounded-lg shadow-2xl overflow-hidden">
           {currentPanels.length > 0 ? (
-            <div className="w-full h-full p-2">
-              {/* This would need to be replaced with your actual comic page layout component */}
-              <div className="grid gap-2 w-full h-full" style={{
-                gridTemplateColumns: currentPanels.length <= 2 ? 'repeat(1, 1fr)' : 
-                                    currentPanels.length <= 4 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
-                gridTemplateRows: currentPanels.length === 1 ? '1fr' :
-                                 currentPanels.length <= 2 ? 'repeat(2, 1fr)' :
-                                 currentPanels.length <= 4 ? 'repeat(2, 1fr)' : 'repeat(2, 1fr)'
-              }}>
-                {currentPanels
-                  .sort((a, b) => a.panelNumber - b.panelNumber)
-                  .map((panel) => (
-                    <div key={panel.id} className="relative rounded overflow-hidden">
+            <div className="w-full h-full relative p-1">
+              {(() => {
+                // Get the layout for this page
+                const layout = comicLayouts.find(l => l.id === currentPage?.layoutTemplate) || comicLayouts[0];
+                
+                return layout.panels.map((layoutPanel, index) => {
+                  const panelNumber = index + 1;
+                  const panel = currentPanels.find(p => p.panelNumber === panelNumber);
+                  
+                  if (!panel) {
+                    // Skip empty panel slots
+                    return null;
+                  }
+                  
+                  return (
+                    <div
+                      key={panel.id}
+                      className="absolute overflow-hidden rounded"
+                      style={{
+                        left: `${layoutPanel.x * 100}%`,
+                        top: `${layoutPanel.y * 100}%`,
+                        width: `${layoutPanel.width * 100}%`,
+                        height: `${layoutPanel.height * 100}%`,
+                      }}
+                    >
                       <img 
                         src={panel.imageUrl} 
                         alt={panel.action}
@@ -241,8 +254,9 @@ export function ComicReader({
                         draggable={false}
                       />
                     </div>
-                  ))}
-              </div>
+                  );
+                });
+              })()}
             </div>
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-500">
