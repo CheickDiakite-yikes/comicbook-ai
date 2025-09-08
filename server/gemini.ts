@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 import * as fs from "fs";
 import * as path from "path";
 import { imageProcessor } from "./image-processor";
@@ -585,8 +585,11 @@ export class GeminiService {
       console.log(`Generating cover art for project ${request.projectId} with prompt: ${coverPrompt}`);
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-image-preview",
-        contents: coverPrompt,
+        model: "gemini-2.0-flash-preview-image-generation",
+        contents: [{ role: "user", parts: [{ text: coverPrompt }] }],
+        config: {
+          responseModalities: [Modality.TEXT, Modality.IMAGE],
+        },
       });
 
       // Process the response to extract image data
