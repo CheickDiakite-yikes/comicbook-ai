@@ -22,6 +22,7 @@ function Router() {
     <Switch>
       {/* Public routes accessible to everyone */}
       <Route path="/share/:projectId" component={SharePage} />
+      <Route path="/login" component={Login} />
       
       {isLoading || !isAuthenticated ? (
         <Route path="/" component={Landing} />
