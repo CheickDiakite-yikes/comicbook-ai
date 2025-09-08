@@ -214,13 +214,20 @@ export function ComicReader({
         {/* Page Background */}
         {currentPage?.backgroundImageUrl && (
           <div 
-            className="absolute inset-0 bg-cover bg-center rounded-lg opacity-20"
+            className="absolute inset-0 bg-cover bg-center rounded-lg"
             style={{ backgroundImage: `url(${currentPage.backgroundImageUrl})` }}
           />
         )}
 
         {/* Page Content */}
         <div className="relative w-full h-full bg-white rounded-lg shadow-2xl overflow-hidden">
+          {/* Page Background Layer */}
+          {currentPage?.backgroundImageUrl && (
+            <div 
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: `url(${currentPage.backgroundImageUrl})` }}
+            />
+          )}
           {currentPanels.length > 0 ? (
             <div className="w-full h-full relative p-1">
               {(() => {
