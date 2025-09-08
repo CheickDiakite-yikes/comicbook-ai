@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Save, Download, ChevronLeft, ChevronRight, Wand2, Loader2, Plus, Edit, Trash2, Cloud, FileText, Layout, Play } from "lucide-react";
+import { ArrowLeft, Save, Download, ChevronLeft, ChevronRight, Wand2, Loader2, Plus, Edit, Trash2, Cloud, FileText, Layout, Play, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { aiService } from "@/lib/ai-service";
@@ -43,7 +43,7 @@ export default function Editor() {
     setSidebarCollapsed(!sidebarCollapsed);
   };
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [activeTab, setActiveTab] = useState<"editor" | "script">("editor");
+  const [activeTab, setActiveTab] = useState<"editor" | "script" | "animate">("editor");
   const [showComicReader, setShowComicReader] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   
@@ -867,8 +867,8 @@ export default function Editor() {
             >
               <div className="max-w-4xl mx-auto">
                 {/* Tab Navigation */}
-                <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "editor" | "script")} className="w-full">
-                  <TabsList className="grid w-full grid-cols-2 mb-6">
+                <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "editor" | "script" | "animate")} className="w-full">
+                  <TabsList className="grid w-full grid-cols-3 mb-6">
                     <TabsTrigger value="editor" className="flex items-center gap-2" data-testid="tab-editor">
                       <Layout className="h-4 w-4" />
                       Page Editor
@@ -876,6 +876,10 @@ export default function Editor() {
                     <TabsTrigger value="script" className="flex items-center gap-2" data-testid="tab-script">
                       <FileText className="h-4 w-4" />
                       Script View
+                    </TabsTrigger>
+                    <TabsTrigger value="animate" className="flex items-center gap-2" data-testid="tab-animate">
+                      <Zap className="h-4 w-4" />
+                      Animate
                     </TabsTrigger>
                   </TabsList>
 
@@ -919,6 +923,24 @@ export default function Editor() {
                       projectId={projectId!} 
                       currentPageNumber={currentPageIndex + 1}
                     />
+                  </TabsContent>
+
+                  <TabsContent value="animate" className="space-y-4">
+                    <div className="flex items-center justify-center min-h-[400px]">
+                      <div className="text-center max-w-md mx-auto p-8">
+                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 flex items-center justify-center">
+                          <Zap className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+                        </div>
+                        <h3 className="text-lg font-semibold mb-2">Panel Animation Studio</h3>
+                        <p className="text-muted-foreground mb-4">
+                          Bring your comic panels to life with smooth transitions, character movement, and dynamic effects.
+                        </p>
+                        <div className="inline-flex items-center px-3 py-1.5 rounded-full bg-muted text-sm text-muted-foreground">
+                          <Zap className="h-3 w-3 mr-1" />
+                          Coming Soon!
+                        </div>
+                      </div>
+                    </div>
                   </TabsContent>
                 </Tabs>
 
