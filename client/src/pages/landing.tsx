@@ -157,7 +157,7 @@ export default function Landing() {
             <MobileAwareComponent
               mobileChildren={
                 <TouchFriendlyButton
-                  onClick={() => window.location.href = '/api/login'}
+                  onClick={() => window.location.href = '/login'}
                   variant="primary"
                   size="lg"
                   className="bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg w-full sm:w-auto"
@@ -179,7 +179,7 @@ export default function Landing() {
               >
                 <Button 
                   size="lg"
-                  onClick={() => window.location.href = '/api/login'}
+                  onClick={() => window.location.href = '/login'}
                   className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground text-lg px-8 py-3 shadow-lg relative overflow-hidden"
                   data-testid="button-get-started"
                 >
