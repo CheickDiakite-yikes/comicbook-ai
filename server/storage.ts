@@ -834,19 +834,11 @@ export class DatabaseStorage implements IStorage {
     // Enrich with like/comment counts and current user like status
     const enrichedProjects = await Promise.all(
       publicProjects.map(async (project) => {
-        // Get likes count
-        const [likesResult] = await db
-          .select({ count: db.select().from(projectLikes).where(eq(projectLikes.projectId, project.id)).as("count") })
-          .from(projectLikes)
-          .where(eq(projectLikes.projectId, project.id));
-        const likesCount = likesResult?.count || 0;
+        // Get likes count using $count
+        const likesCount = await db.$count(projectLikes, eq(projectLikes.projectId, project.id));
 
-        // Get comments count
-        const [commentsResult] = await db
-          .select({ count: db.select().from(projectComments).where(eq(projectComments.projectId, project.id)).as("count") })
-          .from(projectComments)
-          .where(eq(projectComments.projectId, project.id));
-        const commentsCount = commentsResult?.count || 0;
+        // Get comments count using $count
+        const commentsCount = await db.$count(projectComments, eq(projectComments.projectId, project.id));
 
         return {
           ...project,
@@ -875,29 +867,17 @@ export class DatabaseStorage implements IStorage {
       .where(eq(projects.userId, userId))
       .orderBy(desc(projects.updatedAt));
 
-    // Enrich with stats
+    // Enrich with stats using simple count queries
     const enrichedProjects = await Promise.all(
       userProjects.map(async (project) => {
         // Get likes count
-        const [likesResult] = await db
-          .select({ count: db.select().from(projectLikes).where(eq(projectLikes.projectId, project.id)).as("count") })
-          .from(projectLikes)
-          .where(eq(projectLikes.projectId, project.id));
-        const likesCount = likesResult?.count || 0;
+        const likesCount = await db.$count(projectLikes, eq(projectLikes.projectId, project.id));
 
         // Get comments count
-        const [commentsResult] = await db
-          .select({ count: db.select().from(projectComments).where(eq(projectComments.projectId, project.id)).as("count") })
-          .from(projectComments)
-          .where(eq(projectComments.projectId, project.id));
-        const commentsCount = commentsResult?.count || 0;
+        const commentsCount = await db.$count(projectComments, eq(projectComments.projectId, project.id));
 
         // Get pages count
-        const [pagesResult] = await db
-          .select({ count: db.select().from(pages).where(eq(pages.projectId, project.id)).as("count") })
-          .from(pages)
-          .where(eq(pages.projectId, project.id));
-        const pagesCount = pagesResult?.count || 0;
+        const pagesCount = await db.$count(pages, eq(pages.projectId, project.id));
 
         return {
           ...project,
