@@ -202,6 +202,70 @@ export const comicLayouts: ComicLayout[] = [
     ],
   },
   {
+    id: "triangle-flow",
+    name: "Triangle Flow",
+    description: "3 panels - dynamic triangle layout",
+    panelCount: 3,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+      <rect x="60" y="10" width="80" height="50" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="70" width="85" height="120" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="105" y="70" width="85" height="120" fill="none" stroke="#666" stroke-width="2"/>
+    </svg>`,
+    panels: [
+      { x: 0.3, y: 0.02, width: 0.4, height: 0.28 },     // Top center
+      { x: 0.025, y: 0.32, width: 0.46, height: 0.66 },  // Bottom left
+      { x: 0.515, y: 0.32, width: 0.46, height: 0.66 },  // Bottom right
+    ],
+  },
+  {
+    id: "step-down",
+    name: "Step Down",
+    description: "3 panels - descending staircase",
+    panelCount: 3,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+      <rect x="10" y="10" width="60" height="60" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="80" y="40" width="60" height="60" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="40" y="110" width="150" height="80" fill="none" stroke="#666" stroke-width="2"/>
+    </svg>`,
+    panels: [
+      { x: 0.025, y: 0.02, width: 0.32, height: 0.32 },   // Top left
+      { x: 0.38, y: 0.18, width: 0.32, height: 0.32 },    // Middle right
+      { x: 0.18, y: 0.56, width: 0.8, height: 0.42 },     // Large bottom
+    ],
+  },
+  {
+    id: "spotlight",
+    name: "Spotlight",
+    description: "3 panels - center focus design",
+    panelCount: 3,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+      <rect x="10" y="10" width="180" height="40" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="60" y="60" width="80" height="80" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="150" width="180" height="40" fill="none" stroke="#666" stroke-width="2"/>
+    </svg>`,
+    panels: [
+      { x: 0.025, y: 0.02, width: 0.95, height: 0.22 },   // Top wide
+      { x: 0.28, y: 0.28, width: 0.44, height: 0.44 },    // Center square
+      { x: 0.025, y: 0.76, width: 0.95, height: 0.22 },   // Bottom wide
+    ],
+  },
+  {
+    id: "side-hero",
+    name: "Side Hero",
+    description: "3 panels - vertical hero + two stack",
+    panelCount: 3,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+      <rect x="10" y="10" width="90" height="180" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="110" y="10" width="80" height="85" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="110" y="105" width="80" height="85" fill="none" stroke="#666" stroke-width="2"/>
+    </svg>`,
+    panels: [
+      { x: 0.025, y: 0.02, width: 0.47, height: 0.96 },   // Large left
+      { x: 0.52, y: 0.02, width: 0.455, height: 0.46 },   // Top right
+      { x: 0.52, y: 0.52, width: 0.455, height: 0.46 },   // Bottom right
+    ],
+  },
+  {
     id: "brick-pattern",
     name: "Brick Pattern", 
     description: "4 panels - staggered layout",
