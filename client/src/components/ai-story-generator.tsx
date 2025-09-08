@@ -118,10 +118,10 @@ export default function AIStoryGenerator({ isOpen, onClose, onGenerate }: AIStor
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <h3 className="text-2xl font-bold mb-2">Choose Your Genres</h3>
-              <p className="text-muted-foreground">Select up to 2 genres to blend unique story elements</p>
+              <h3 className="text-lg sm:text-xl lg:text-2xl font-bold mb-2">Choose Your Genres</h3>
+              <p className="text-sm sm:text-base text-muted-foreground">Select up to 2 genres to blend unique story elements</p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-2 sm:gap-3">
               {genres.map((genre) => (
                 <Card 
                   key={genre.id}
@@ -132,11 +132,11 @@ export default function AIStoryGenerator({ isOpen, onClose, onGenerate }: AIStor
                   }`}
                   onClick={() => toggleGenre(genre.id)}
                 >
-                  <CardContent className="p-4 text-center">
-                    <div className={`text-3xl mb-2 bg-gradient-to-r ${genre.color} bg-clip-text text-transparent`}>
+                  <CardContent className="p-2 sm:p-4 text-center">
+                    <div className={`text-xl sm:text-2xl lg:text-3xl mb-1 sm:mb-2 bg-gradient-to-r ${genre.color} bg-clip-text text-transparent`}>
                       {genre.icon}
                     </div>
-                    <p className="font-medium">{genre.name}</p>
+                    <p className="text-xs sm:text-sm lg:text-base font-medium">{genre.name}</p>
                   </CardContent>
                 </Card>
               ))}
@@ -163,8 +163,8 @@ export default function AIStoryGenerator({ isOpen, onClose, onGenerate }: AIStor
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <h3 className="text-2xl font-bold mb-2">Story Length</h3>
-              <p className="text-muted-foreground">How much story do you want to tell?</p>
+              <h3 className="text-lg sm:text-xl lg:text-2xl font-bold mb-2">Story Length</h3>
+              <p className="text-sm sm:text-base text-muted-foreground">How much story do you want to tell?</p>
             </div>
             <div className="space-y-4">
               {storyLengths.map((length) => (
@@ -177,13 +177,13 @@ export default function AIStoryGenerator({ isOpen, onClose, onGenerate }: AIStor
                   }`}
                   onClick={() => setSelectedLength(length.id)}
                 >
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-4">
-                      <div className="text-primary">{length.icon}</div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-lg">{length.name}</h4>
-                        <p className="text-primary font-medium">{length.pages}</p>
-                        <p className="text-sm text-muted-foreground">{length.description}</p>
+                  <CardContent className="p-3 sm:p-6">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                      <div className="text-primary flex-shrink-0">{length.icon}</div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-sm sm:text-base lg:text-lg">{length.name}</h4>
+                        <p className="text-primary font-medium text-sm sm:text-base">{length.pages}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">{length.description}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -197,10 +197,10 @@ export default function AIStoryGenerator({ isOpen, onClose, onGenerate }: AIStor
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <h3 className="text-2xl font-bold mb-2">Art Style</h3>
-              <p className="text-muted-foreground">Choose the visual style for your comic</p>
+              <h3 className="text-lg sm:text-xl lg:text-2xl font-bold mb-2">Art Style</h3>
+              <p className="text-sm sm:text-base text-muted-foreground">Choose the visual style for your comic</p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4">
               {artStyles.map((style) => (
                 <Card 
                   key={style.id}
@@ -211,10 +211,10 @@ export default function AIStoryGenerator({ isOpen, onClose, onGenerate }: AIStor
                   }`}
                   onClick={() => setSelectedArtStyle(style.id)}
                 >
-                  <CardContent className="p-6 text-center">
-                    <div className="text-4xl mb-3">{style.icon}</div>
-                    <h4 className="font-semibold">{style.name}</h4>
-                    <p className="text-sm text-muted-foreground mt-1">{style.description}</p>
+                  <CardContent className="p-3 sm:p-6 text-center">
+                    <div className="text-2xl sm:text-3xl lg:text-4xl mb-2 sm:mb-3">{style.icon}</div>
+                    <h4 className="font-semibold text-sm sm:text-base">{style.name}</h4>
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">{style.description}</p>
                   </CardContent>
                 </Card>
               ))}
@@ -226,8 +226,8 @@ export default function AIStoryGenerator({ isOpen, onClose, onGenerate }: AIStor
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <h3 className="text-2xl font-bold mb-2">Story Tone</h3>
-              <p className="text-muted-foreground">What's the overall mood and feel?</p>
+              <h3 className="text-lg sm:text-xl lg:text-2xl font-bold mb-2">Story Tone</h3>
+              <p className="text-sm sm:text-base text-muted-foreground">What's the overall mood and feel?</p>
             </div>
             <div className="space-y-4">
               {tones.map((tone) => (
@@ -240,14 +240,14 @@ export default function AIStoryGenerator({ isOpen, onClose, onGenerate }: AIStor
                   }`}
                   onClick={() => setSelectedTone(tone.id)}
                 >
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-4">
-                      <div className={`text-2xl bg-gradient-to-r ${tone.color} bg-clip-text text-transparent`}>
+                  <CardContent className="p-3 sm:p-6">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                      <div className={`text-xl sm:text-2xl bg-gradient-to-r ${tone.color} bg-clip-text text-transparent flex-shrink-0`}>
                         {tone.icon}
                       </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-lg">{tone.name}</h4>
-                        <p className="text-sm text-muted-foreground">{tone.description}</p>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-sm sm:text-base lg:text-lg">{tone.name}</h4>
+                        <p className="text-xs sm:text-sm text-muted-foreground">{tone.description}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -263,15 +263,15 @@ export default function AIStoryGenerator({ isOpen, onClose, onGenerate }: AIStor
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <Card className="w-full max-w-2xl mx-4 shadow-2xl">
-        <CardHeader className="text-center border-b">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-2 sm:p-4">
+      <Card className="w-full max-w-sm sm:max-w-lg lg:max-w-2xl max-h-[95vh] shadow-2xl overflow-hidden">
+        <CardHeader className="text-center border-b px-3 py-3 sm:px-6 sm:py-4">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <CardTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              <CardTitle className="text-lg sm:text-xl lg:text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                 AI Story Generator
               </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                 Step {currentStep} of 4
               </p>
             </div>
@@ -279,46 +279,55 @@ export default function AIStoryGenerator({ isOpen, onClose, onGenerate }: AIStor
               <X className="h-4 w-4" />
             </Button>
           </div>
-          <Progress value={progress} className="mt-4" />
+          <Progress value={progress} className="mt-3 sm:mt-4" />
         </CardHeader>
         
-        <CardContent className="p-8">
+        <CardContent className="p-3 sm:p-6 lg:p-8 overflow-y-auto max-h-[60vh] sm:max-h-[70vh]">
           {renderStep()}
         </CardContent>
 
-        <div className="flex items-center justify-between p-6 border-t">
+        <div className="flex items-center justify-between p-3 sm:p-6 border-t">
           <Button 
             variant="outline" 
+            size="sm"
             onClick={() => setCurrentStep(Math.max(1, currentStep - 1))}
             disabled={currentStep === 1}
+            className="text-xs sm:text-sm"
           >
-            <ChevronLeft className="mr-2 h-4 w-4" />
-            Previous
+            <ChevronLeft className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Previous</span>
+            <span className="sm:hidden">Prev</span>
           </Button>
           
           {currentStep < 4 ? (
             <Button 
+              size="sm"
               onClick={() => setCurrentStep(currentStep + 1)}
               disabled={!canProceed()}
+              className="text-xs sm:text-sm"
             >
-              Next
-              <ChevronRight className="ml-2 h-4 w-4" />
+              <span className="hidden sm:inline">Next</span>
+              <span className="sm:hidden">Next</span>
+              <ChevronRight className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
           ) : (
             <Button 
+              size="sm"
               onClick={handleGenerate}
               disabled={!canProceed() || isGenerating}
-              className="bg-gradient-to-r from-primary to-accent"
+              className="bg-gradient-to-r from-primary to-accent text-xs sm:text-sm"
             >
               {isGenerating ? (
                 <>
-                  <Wand2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating Story...
+                  <Wand2 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                  <span className="hidden sm:inline">Generating Story...</span>
+                  <span className="sm:hidden">Generating...</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Generate My Story!
+                  <Sparkles className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Generate My Story!</span>
+                  <span className="sm:hidden">Generate!</span>
                 </>
               )}
             </Button>
