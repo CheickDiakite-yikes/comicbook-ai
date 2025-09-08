@@ -8,6 +8,8 @@ import { ScrollProgress } from "@/components/ScrollProgress";
 import { MagicalMascot } from "@/components/MagicalMascot";
 import { TypewriterText, AnimatedText } from "@/components/TypewriterText";
 import { MagicalBackground } from "@/components/MagicalBackground";
+import { ComicPanel, ComicSpeechBubble } from "@/components/ComicPanel";
+import { ComicBurst, ComicWOW, ComicZAP, ComicNEW } from "@/components/ComicBurst";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import { animationVariants } from "@/lib/animations";
 
@@ -293,73 +295,165 @@ export default function Landing() {
           variants={animationVariants.staggerContainer}
         >
           <h3 id="features-heading" className="sr-only">Platform Features</h3>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+            {/* Story Bible Panel */}
             <motion.div variants={animationVariants.comicZoom}>
-              <Card className="border-border hover:shadow-lg transition-shadow duration-300">
-                <CardContent className="p-4 sm:p-6 text-center">
+              <ComicPanel 
+                panelStyle="classic"
+                soundEffect="AMAZING!"
+                bgPattern="dots"
+                className="h-full"
+              >
+                <CardContent className="p-6 text-center relative">
                   <motion.div 
-                    className="w-16 h-16 bg-gradient-to-br from-chart-1 to-chart-2 rounded-xl flex items-center justify-center mx-auto mb-4"
-                    whileHover={animationVariants.float.animate}
+                    className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4 border-2 border-black shadow-lg"
+                    whileHover={{
+                      rotate: [0, -10, 10, 0],
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 0.5 }}
                   >
                     <BookOpen className="h-8 w-8 text-white" aria-hidden="true" />
                   </motion.div>
-                <h3 className="font-semibold text-lg mb-2">Story Bible</h3>
-                <p className="text-sm text-muted-foreground">
-                  Define characters, settings, and rules once. AI remembers everything.
-                </p>
+                  
+                  <h3 className="font-bold text-lg mb-2 text-black">Story Bible</h3>
+                  <p className="text-sm text-gray-700 leading-relaxed">
+                    Define characters, settings, and rules once. AI remembers everything.
+                  </p>
+                  
+                  {/* Comic speech bubble tooltip */}
+                  <div className="mt-4">
+                    <ComicSpeechBubble
+                      text="ONE & DONE!"
+                      variant="speech"
+                      color="bg-yellow-200"
+                      className="text-xs"
+                    />
+                  </div>
                 </CardContent>
-              </Card>
+              </ComicPanel>
             </motion.div>
 
+            {/* AI Generation Panel */}
             <motion.div variants={animationVariants.comicZoom}>
-              <Card className="border-border hover:shadow-lg transition-shadow duration-300">
-                <CardContent className="p-4 sm:p-6 text-center">
+              <ComicPanel 
+                panelStyle="action"
+                soundEffect="ZAP!"
+                bgPattern="lines"
+                className="h-full"
+              >
+                <CardContent className="p-6 text-center relative">
                   <motion.div 
-                    className="w-16 h-16 bg-gradient-to-br from-chart-3 to-chart-4 rounded-xl flex items-center justify-center mx-auto mb-4"
-                    whileHover={animationVariants.float.animate}
+                    className="w-16 h-16 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl flex items-center justify-center mx-auto mb-4 border-2 border-black shadow-lg relative"
+                    whileHover={{
+                      rotate: [0, 15, -15, 0],
+                      scale: 1.1
+                    }}
+                    transition={{ duration: 0.6 }}
                   >
                     <Wand2 className="h-8 w-8 text-white" aria-hidden="true" />
+                    {/* Magic sparkles */}
+                    <motion.div
+                      className="absolute -top-2 -right-2 text-yellow-400 text-lg"
+                      animate={{
+                        scale: [0, 1, 0],
+                        rotate: [0, 180, 360]
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    >
+                      ✨
+                    </motion.div>
                   </motion.div>
-                <h3 className="font-semibold text-lg mb-2">AI Generation</h3>
-                <p className="text-sm text-muted-foreground">
-                  Generate panels individually or entire pages with context awareness.
-                </p>
+                  
+                  <h3 className="font-bold text-lg mb-2 text-black">AI Generation</h3>
+                  <p className="text-sm text-gray-700 leading-relaxed">
+                    Generate panels individually or entire pages with context awareness.
+                  </p>
+                  
+                  <div className="mt-4">
+                    <ComicZAP className="mx-auto scale-75" />
+                  </div>
                 </CardContent>
-              </Card>
+              </ComicPanel>
             </motion.div>
 
+            {/* Character Consistency Panel */}
             <motion.div variants={animationVariants.comicZoom}>
-              <Card className="border-border hover:shadow-lg transition-shadow duration-300">
-                <CardContent className="p-4 sm:p-6 text-center">
+              <ComicPanel 
+                panelStyle="modern"
+                soundEffect="WOW!"
+                bgPattern="solid"
+                className="h-full"
+              >
+                <CardContent className="p-6 text-center relative">
                   <motion.div 
-                    className="w-16 h-16 bg-gradient-to-br from-chart-5 to-destructive rounded-xl flex items-center justify-center mx-auto mb-4"
-                    whileHover={animationVariants.float.animate}
+                    className="w-16 h-16 bg-gradient-to-br from-red-500 to-pink-600 rounded-xl flex items-center justify-center mx-auto mb-4 border-2 border-black shadow-lg"
+                    whileHover={{
+                      scale: [1, 1.2, 1],
+                      boxShadow: ["0 0 0 rgba(239, 68, 68, 0)", "0 0 20px rgba(239, 68, 68, 0.6)", "0 0 0 rgba(239, 68, 68, 0)"]
+                    }}
+                    transition={{ duration: 0.8 }}
                   >
                     <Users className="h-8 w-8 text-white" aria-hidden="true" />
                   </motion.div>
-                <h3 className="font-semibold text-lg mb-2">Character Consistency</h3>
-                <p className="text-sm text-muted-foreground">
-                  Characters look the same across all panels with advanced AI memory.
-                </p>
+                  
+                  <h3 className="font-bold text-lg mb-2 text-black">Character Consistency</h3>
+                  <p className="text-sm text-gray-700 leading-relaxed">
+                    Characters look the same across all panels with advanced AI memory.
+                  </p>
+                  
+                  <div className="mt-4">
+                    <ComicSpeechBubble
+                      text="PERFECT!"
+                      variant="shout"
+                      tailDirection="top-right"
+                      className="text-xs"
+                    />
+                  </div>
                 </CardContent>
-              </Card>
+              </ComicPanel>
             </motion.div>
 
+            {/* Multiple Styles Panel */}
             <motion.div variants={animationVariants.comicZoom}>
-              <Card className="border-border hover:shadow-lg transition-shadow duration-300">
-                <CardContent className="p-4 sm:p-6 text-center">
+              <ComicPanel 
+                panelStyle="thought"
+                soundEffect="CREATIVE!"
+                bgPattern="dots"
+                className="h-full"
+              >
+                <CardContent className="p-6 text-center relative">
                   <motion.div 
-                    className="w-16 h-16 bg-gradient-to-br from-chart-2 to-chart-1 rounded-xl flex items-center justify-center mx-auto mb-4"
-                    whileHover={animationVariants.float.animate}
+                    className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center mx-auto mb-4 border-2 border-black shadow-lg"
+                    whileHover={{
+                      rotate: [0, 360],
+                      background: [
+                        "linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)",
+                        "linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)",
+                        "linear-gradient(135deg, #10b981 0%, #3b82f6 100%)",
+                        "linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)"
+                      ]
+                    }}
+                    transition={{ duration: 2 }}
                   >
                     <Palette className="h-8 w-8 text-white" aria-hidden="true" />
                   </motion.div>
-                <h3 className="font-semibold text-lg mb-2">Multiple Styles</h3>
-                <p className="text-sm text-muted-foreground">
-                  From manga to western comics, choose your perfect art style.
-                </p>
+                  
+                  <h3 className="font-bold text-lg mb-2 text-black">Multiple Styles</h3>
+                  <p className="text-sm text-gray-700 leading-relaxed">
+                    From manga to western comics, choose your perfect art style.
+                  </p>
+                  
+                  <div className="mt-4 flex justify-center space-x-2">
+                    <ComicNEW className="scale-75" />
+                    <ComicWOW className="scale-75" />
+                  </div>
                 </CardContent>
-              </Card>
+              </ComicPanel>
             </motion.div>
           </div>
         </motion.section>
