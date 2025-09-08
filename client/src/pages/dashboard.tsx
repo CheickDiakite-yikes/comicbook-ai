@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Clock, Users, Settings, Trash2, Filter } from "lucide-react";
+import { Plus, Clock, Users, Settings, Trash2, Filter, Image, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { Project, Character } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
@@ -21,6 +21,7 @@ export default function Dashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true); // Start collapsed to avoid blocking content
   const [selectedGenre, setSelectedGenre] = useState<string>("all");
   const [deleteProject, setDeleteProject] = useState<Project | null>(null);
+  const [generatingCoverArt, setGeneratingCoverArt] = useState<string | null>(null);
   
   const queryClient = useQueryClient();
   
@@ -110,6 +111,34 @@ export default function Dashboard() {
         description: "There was an error deleting your project. Please try again.",
         variant: "destructive",
       });
+    }
+  });
+
+  // Generate cover art mutation
+  const generateCoverArtMutation = useMutation({
+    mutationFn: async (projectId: string) => {
+      const response = await apiRequest("POST", `/api/projects/${projectId}/generate-cover-art`, {});
+      return response.json();
+    },
+    onMutate: (projectId: string) => {
+      setGeneratingCoverArt(projectId);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      toast({
+        title: "🎨 Cover Art Generated!",
+        description: `Beautiful cover art has been created for your comic!`,
+      });
+      setGeneratingCoverArt(null);
+    },
+    onError: (error) => {
+      console.error("Failed to generate cover art:", error);
+      toast({
+        title: "Generation Failed",
+        description: "There was an error generating cover art. Please try again.",
+        variant: "destructive",
+      });
+      setGeneratingCoverArt(null);
     }
   });
 
@@ -339,6 +368,27 @@ export default function Dashboard() {
                         aria-label="Edit project"
                       >
                         <Settings className="h-4 w-4" />
+                      </Button>
+                      
+                      {/* Cover Art button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="bg-background/90 backdrop-blur-sm hover:bg-primary hover:text-primary-foreground shadow-sm border border-border/50 hover:border-primary w-8 h-8 p-0"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          generateCoverArtMutation.mutate(project.id);
+                        }}
+                        disabled={generatingCoverArt === project.id}
+                        data-testid={`button-cover-art-${project.id}`}
+                        aria-label="Generate cover art"
+                      >
+                        {generatingCoverArt === project.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Image className="h-4 w-4" />
+                        )}
                       </Button>
                       
                       {/* Delete button */}

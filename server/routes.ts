@@ -922,14 +922,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Prepare project context for cover generation
       const projectContext = {
         title: project.title,
-        genre: project.genre,
-        description: project.description,
-        artStyle: project.artStyle,
+        genre: project.genre || undefined,
+        description: project.description || undefined,
+        artStyle: project.artStyle || undefined,
         characters: characters.map(char => ({
           name: char.name,
-          role: char.role,
-          bio: char.bio,
-          visualDescriptors: char.visualDescriptors,
+          role: char.role || "",
+          bio: char.bio || "",
+          visualDescriptors: char.visualDescriptors || undefined,
         })),
         settings: project.settings || [],
       };
