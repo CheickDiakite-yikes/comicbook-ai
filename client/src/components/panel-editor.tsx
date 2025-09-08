@@ -89,6 +89,75 @@ export default function PanelEditor({
     return `Panel ${panelNum}: ${sceneContext}. Drawn in ${artStyleContext}. This is the ${panelPosition} panel of the page.`;
   };
 
+  // Auto-save panel data when prompt or dialogue changes
+  const autoSavePanelMutation = useMutation({
+    mutationFn: async (data: { prompt: string; speechBubbles?: any[] }) => {
+      if (!selectedPanel || !currentPage?.id) return;
+      
+      const speechBubbles = data.speechBubbles || (dialogueText ? [{ text: dialogueText, type: 'speech' }] : []);
+      
+      if (currentPanelData) {
+        // Update existing panel
+        return await apiRequest("PUT", `/api/panels/${currentPanelData.id}`, {
+          prompt: data.prompt,
+          speechBubbles: speechBubbles,
+        });
+      } else {
+        // Create new panel
+        return await apiRequest("POST", `/api/pages/${currentPage.id}/panels`, {
+          panelNumber: selectedPanel,
+          prompt: data.prompt,
+          speechBubbles: speechBubbles,
+          isGenerated: false,
+          generationStatus: "pending"
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/pages", currentPage?.id, "panels"] });
+    },
+    onError: (error) => {
+      console.error("Auto-save failed:", error);
+    },
+  });
+
+  // Debounced auto-save effect
+  useEffect(() => {
+    if (!selectedPanel || panelsLoading) return;
+    
+    const timeoutId = setTimeout(() => {
+      if (prompt.trim()) {
+        autoSavePanelMutation.mutate({ 
+          prompt, 
+          speechBubbles: currentPanelData?.speechBubbles || [] 
+        });
+      }
+    }, 2000); // Auto-save after 2 seconds of inactivity
+
+    return () => clearTimeout(timeoutId);
+  }, [prompt, selectedPanel, panelsLoading]);
+
+  // Add speech bubble function
+  const addSpeechBubble = (type: 'speech' | 'thought') => {
+    if (!dialogueText.trim() || !selectedPanel || !currentPage?.id) return;
+    
+    const newBubble = { text: dialogueText, type };
+    const existingBubbles = currentPanelData?.speechBubbles as Array<{text: string, type: string}> || [];
+    const updatedBubbles = [...existingBubbles, newBubble];
+    
+    autoSavePanelMutation.mutate({ 
+      prompt, 
+      speechBubbles: updatedBubbles 
+    });
+    
+    setDialogueText(""); // Clear input after adding
+    
+    toast({
+      title: "Speech bubble added",
+      description: `${type === 'speech' ? 'Speech' : 'Thought'} bubble has been added to the panel.`,
+    });
+  };
+
   const generatePanelMutation = useMutation({
     mutationFn: async () => {
       if (!selectedPanel) throw new Error("No panel selected");
@@ -364,13 +433,22 @@ export default function PanelEditor({
           </h3>
           <div className="space-y-3">
             <div>
-              <label className="text-sm font-medium block mb-2">Panel Prompt</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium">Panel Prompt</label>
+                {(prompt !== (currentPanelData?.prompt || "")) && (
+                  <span className="text-xs text-muted-foreground flex items-center">
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                    Auto-saving...
+                  </span>
+                )}
+              </div>
               <Textarea 
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 className="resize-none" 
                 rows={3} 
-                placeholder="Describe what happens in this panel..."
+                placeholder={selectedPanel ? "Describe what happens in this panel..." : "Select a panel to start editing"}
+                disabled={!selectedPanel}
                 data-testid="textarea-panel-prompt"
               />
             </div>
@@ -415,6 +493,14 @@ export default function PanelEditor({
                   👆 Select a panel above to start generating
                 </p>
               )}
+              
+              {/* Loading state for panels */}
+              {panelsLoading && selectedPanel && (
+                <p className="text-xs text-muted-foreground text-center p-2 bg-muted/50 rounded flex items-center justify-center">
+                  <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                  Loading panel data...
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -429,13 +515,16 @@ export default function PanelEditor({
             <Input 
               value={dialogueText}
               onChange={(e) => setDialogueText(e.target.value)}
-              placeholder="Add dialogue..." 
+              placeholder={selectedPanel ? "Add dialogue..." : "Select a panel first"}
+              disabled={!selectedPanel}
               data-testid="input-dialogue"
             />
             <div className="grid grid-cols-2 gap-2">
               <Button 
                 variant="outline" 
                 size="sm"
+                onClick={() => addSpeechBubble('speech')}
+                disabled={!selectedPanel || !dialogueText.trim()}
                 data-testid="button-speech-bubble"
               >
                 <MessageSquare className="mr-1 h-3 w-3" />
@@ -444,12 +533,27 @@ export default function PanelEditor({
               <Button 
                 variant="outline" 
                 size="sm"
+                onClick={() => addSpeechBubble('thought')}
+                disabled={!selectedPanel || !dialogueText.trim()}
                 data-testid="button-thought-bubble"
               >
                 <Cloud className="mr-1 h-3 w-3" />
                 Thought
               </Button>
             </div>
+            
+            {/* Show existing speech bubbles */}
+            {currentPanelData?.speechBubbles && Array.isArray(currentPanelData.speechBubbles) && currentPanelData.speechBubbles.length > 0 && (
+              <div className="mt-2 space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">Current Bubbles:</p>
+                {(currentPanelData.speechBubbles as Array<{text: string, type: string}>).map((bubble, index) => (
+                  <div key={index} className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1">
+                    <span>{bubble.text}</span>
+                    <span className="text-muted-foreground capitalize">{bubble.type || 'speech'}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -504,16 +608,37 @@ export default function PanelEditor({
             <Card className="border-border">
               <CardContent className="p-3">
                 <p className="font-medium mb-1">Active Characters</p>
-                <div className="space-y-1">
-                  <div className="flex items-center space-x-2">
-                    <span className="inline-block w-3 h-3 bg-chart-1 rounded-full"></span>
-                    <span>Main Character</span>
+                {charactersLoading ? (
+                  <div className="flex items-center space-x-2 text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span className="text-xs">Loading characters...</span>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="inline-block w-3 h-3 bg-chart-2 rounded-full"></span>
-                    <span>Supporting Character</span>
+                ) : projectCharacters.length > 0 ? (
+                  <div className="space-y-1">
+                    {projectCharacters.slice(0, 3).map((character, index) => (
+                      <div key={character.id} className="flex items-center space-x-2">
+                        <span 
+                          className={`inline-block w-3 h-3 rounded-full ${
+                            index === 0 ? 'bg-chart-1' : index === 1 ? 'bg-chart-2' : 'bg-chart-3'
+                          }`}
+                        ></span>
+                        <span className="text-sm">{character.name}</span>
+                        {character.role && (
+                          <span className="text-xs text-muted-foreground">({character.role})</span>
+                        )}
+                      </div>
+                    ))}
+                    {projectCharacters.length > 3 && (
+                      <div className="text-xs text-muted-foreground">
+                        +{projectCharacters.length - 3} more characters
+                      </div>
+                    )}
                   </div>
-                </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    No characters defined yet. Add characters to your project for better context.
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>
