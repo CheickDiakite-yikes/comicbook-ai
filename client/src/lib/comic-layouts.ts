@@ -142,6 +142,142 @@ export const comicLayouts: ComicLayout[] = [
     ],
   },
   {
+    id: "side-by-side",
+    name: "Side by Side", 
+    description: "2 panels - equal horizontal split",
+    panelCount: 2,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+      <rect x="10" y="10" width="88" height="180" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="102" y="10" width="88" height="180" fill="none" stroke="#666" stroke-width="2"/>
+    </svg>`,
+    panels: [
+      { x: 0.025, y: 0.02, width: 0.47, height: 0.96 },
+      { x: 0.505, y: 0.02, width: 0.47, height: 0.96 },
+    ],
+  },
+  {
+    id: "top-bottom",
+    name: "Top Bottom",
+    description: "2 panels - stacked vertically", 
+    panelCount: 2,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+      <rect x="10" y="10" width="180" height="88" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="102" width="180" height="88" fill="none" stroke="#666" stroke-width="2"/>
+    </svg>`,
+    panels: [
+      { x: 0.025, y: 0.02, width: 0.95, height: 0.47 },
+      { x: 0.025, y: 0.505, width: 0.95, height: 0.47 },
+    ],
+  },
+  {
+    id: "vertical-stack",
+    name: "Vertical Stack",
+    description: "3 panels - horizontal strips",
+    panelCount: 3,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+      <rect x="10" y="10" width="180" height="56" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="72" width="180" height="56" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="134" width="180" height="56" fill="none" stroke="#666" stroke-width="2"/>
+    </svg>`,
+    panels: [
+      { x: 0.025, y: 0.02, width: 0.95, height: 0.3 },
+      { x: 0.025, y: 0.34, width: 0.95, height: 0.3 },
+      { x: 0.025, y: 0.66, width: 0.95, height: 0.3 },
+    ],
+  },
+  {
+    id: "l-shape",
+    name: "L-Shape",
+    description: "3 panels - one large + two small",
+    panelCount: 3,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+      <rect x="10" y="10" width="120" height="120" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="138" y="10" width="52" height="56" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="138" y="74" width="52" height="56" fill="none" stroke="#666" stroke-width="2"/>
+    </svg>`,
+    panels: [
+      { x: 0.025, y: 0.02, width: 0.6, height: 0.62 },   // Large panel
+      { x: 0.645, y: 0.02, width: 0.33, height: 0.3 },   // Small top
+      { x: 0.645, y: 0.34, width: 0.33, height: 0.3 },   // Small bottom
+    ],
+  },
+  {
+    id: "brick-pattern",
+    name: "Brick Pattern", 
+    description: "4 panels - staggered layout",
+    panelCount: 4,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+      <rect x="10" y="10" width="88" height="56" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="102" y="10" width="88" height="56" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="35" y="72" width="60" height="118" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="105" y="72" width="85" height="118" fill="none" stroke="#666" stroke-width="2"/>
+    </svg>`,
+    panels: [
+      { x: 0.025, y: 0.02, width: 0.47, height: 0.3 },   // Top left
+      { x: 0.505, y: 0.02, width: 0.47, height: 0.3 },   // Top right
+      { x: 0.15, y: 0.34, width: 0.32, height: 0.64 },   // Bottom left (offset)
+      { x: 0.505, y: 0.34, width: 0.47, height: 0.64 },  // Bottom right
+    ],
+  },
+  {
+    id: "hero-bottom",
+    name: "Hero Bottom",
+    description: "4 panels - three small + one large",
+    panelCount: 4,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+      <rect x="10" y="10" width="56" height="56" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="72" y="10" width="56" height="56" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="134" y="10" width="56" height="56" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="72" width="180" height="118" fill="none" stroke="#666" stroke-width="2"/>
+    </svg>`,
+    panels: [
+      { x: 0.025, y: 0.02, width: 0.305, height: 0.3 },  // Top left
+      { x: 0.3475, y: 0.02, width: 0.305, height: 0.3 }, // Top center
+      { x: 0.67, y: 0.02, width: 0.305, height: 0.3 },   // Top right
+      { x: 0.025, y: 0.34, width: 0.95, height: 0.64 },  // Large bottom
+    ],
+  },
+  {
+    id: "pentagon",
+    name: "Pentagon",
+    description: "5 panels - center + four corners",
+    panelCount: 5,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+      <rect x="10" y="10" width="56" height="56" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="134" y="10" width="56" height="56" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="72" y="35" width="56" height="130" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="134" width="56" height="56" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="134" y="134" width="56" height="56" fill="none" stroke="#666" stroke-width="2"/>
+    </svg>`,
+    panels: [
+      { x: 0.025, y: 0.02, width: 0.305, height: 0.3 },   // Top left
+      { x: 0.67, y: 0.02, width: 0.305, height: 0.3 },    // Top right
+      { x: 0.3475, y: 0.15, width: 0.305, height: 0.7 },  // Center tall
+      { x: 0.025, y: 0.66, width: 0.305, height: 0.32 },  // Bottom left
+      { x: 0.67, y: 0.66, width: 0.305, height: 0.32 },   // Bottom right
+    ],
+  },
+  {
+    id: "staircase",
+    name: "Staircase",
+    description: "5 panels - stepped diagonal layout", 
+    panelCount: 5,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+      <rect x="10" y="10" width="85" height="36" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="105" y="36" width="85" height="36" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="62" width="85" height="36" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="105" y="88" width="85" height="36" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="114" width="180" height="76" fill="none" stroke="#666" stroke-width="2"/>
+    </svg>`,
+    panels: [
+      { x: 0.025, y: 0.02, width: 0.46, height: 0.2 },    // Step 1
+      { x: 0.515, y: 0.16, width: 0.46, height: 0.2 },    // Step 2 
+      { x: 0.025, y: 0.3, width: 0.46, height: 0.2 },     // Step 3
+      { x: 0.515, y: 0.44, width: 0.46, height: 0.2 },    // Step 4
+      { x: 0.025, y: 0.58, width: 0.95, height: 0.4 },    // Large bottom
+    ],
+  },
+  {
     id: "strip-plus",
     name: "Strip Plus",
     description: "5 panels - horizontal flow + bottom",
