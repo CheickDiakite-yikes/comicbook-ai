@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,8 @@ import {
   Palette,
   Clock,
   Volume2,
-  Eye
+  Eye,
+  RefreshCw
 } from "lucide-react";
 import type { FullStructuredScript } from "@shared/schema";
 
@@ -30,11 +31,18 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
   const [expandedPages, setExpandedPages] = useState<Set<string>>(new Set());
   const [expandedPanels, setExpandedPanels] = useState<Set<string>>(new Set());
   const [showAllPages, setShowAllPages] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: structuredScript, isLoading } = useQuery<FullStructuredScript | null>({
     queryKey: ["/api/projects", projectId, "structured-script"],
     retry: false,
   });
+
+  const handleRefreshScript = () => {
+    queryClient.invalidateQueries({ 
+      queryKey: ["/api/projects", projectId, "structured-script"] 
+    });
+  };
 
   // Auto-expand current page when in focused mode
   useEffect(() => {
@@ -92,6 +100,16 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
           <p className="text-muted-foreground mb-4">
             This project doesn't have a structured script yet. Generate one to see the detailed breakdown here.
           </p>
+          <Button 
+            onClick={handleRefreshScript} 
+            variant="outline" 
+            size="sm"
+            className="mt-2"
+            data-testid="button-refresh-script"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh Script Data
+          </Button>
         </CardContent>
       </Card>
     );
