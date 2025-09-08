@@ -14,7 +14,7 @@ import Navigation from "@/components/navigation";
 import Sidebar from "@/components/sidebar";
 import { Users, Plus, Edit2, Trash2, Search, UserCircle, ImageIcon } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import type { Character } from "@shared/schema";
+import type { Character, Project } from "@shared/schema";
 
 export default function Characters() {
   const { toast } = useToast();
@@ -55,6 +55,30 @@ export default function Characters() {
   // Fetch library characters
   const { data: characters = [], isLoading } = useQuery({
     queryKey: ["/api/characters/library"],
+  });
+
+  // Fetch user's projects for sidebar
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
+  });
+
+  // Fetch all pages data for the sidebar stats  
+  const { data: allPagesData = [] } = useQuery({
+    queryKey: ["/api/all-pages"],
+    queryFn: async () => {
+      const allPages = [];
+      for (const project of projects) {
+        try {
+          const response = await apiRequest("GET", `/api/projects/${project.id}/pages`, undefined);
+          const pages = await response.json();
+          allPages.push(...pages.map((page: any) => ({ ...page, projectId: project.id })));
+        } catch (error) {
+          console.error(`Failed to fetch pages for project ${project.id}:`, error);
+        }
+      }
+      return allPages;
+    },
+    enabled: projects.length > 0,
   });
 
   // Create character mutation
@@ -236,6 +260,7 @@ export default function Characters() {
         <Sidebar 
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
+          allPagesData={allPagesData}
           isCollapsed={sidebarCollapsed}
           onToggleCollapse={toggleSidebarCollapse}
         />

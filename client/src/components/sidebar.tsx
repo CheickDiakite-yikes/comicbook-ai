@@ -207,9 +207,9 @@ export default function Sidebar({ isOpen = true, onClose, allPagesData = [], isC
                 <Card className="bg-gradient-to-r from-chart-1 to-chart-2 text-white border-0">
                   <CardContent className="p-4">
                     <h3 id="ai-credits-heading" className="font-semibold text-sm">AI Credits</h3>
-                    <p className="text-xs opacity-90 mt-1">847 / 1,000 remaining</p>
+                    <p className="text-xs opacity-90 mt-1">725 / 1,000 remaining</p>
                     <div className="w-full bg-white/20 rounded-full h-2 mt-2">
-                      <div className="bg-white h-2 rounded-full" style={{ width: "84.7%" }}></div>
+                      <div className="bg-white h-2 rounded-full" style={{ width: "72.5%" }}></div>
                     </div>
                   </CardContent>
                 </Card>
@@ -218,7 +218,7 @@ export default function Sidebar({ isOpen = true, onClose, allPagesData = [], isC
             
             {isCollapsed && (
               <section className="pt-4 border-t border-border flex justify-center">
-                <div className="w-10 h-10 bg-gradient-to-r from-chart-1 to-chart-2 rounded-lg flex items-center justify-center" title="AI Credits: 847/1000">
+                <div className="w-10 h-10 bg-gradient-to-r from-chart-1 to-chart-2 rounded-lg flex items-center justify-center" title="AI Credits: 725/1000">
                   <Wand2 className="w-5 h-5 text-white" />
                 </div>
               </section>

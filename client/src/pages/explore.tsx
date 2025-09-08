@@ -48,6 +48,30 @@ export default function Explore() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Fetch user's projects for sidebar
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
+  });
+
+  // Fetch all pages data for the sidebar stats  
+  const { data: allPagesData = [] } = useQuery({
+    queryKey: ["/api/all-pages"],
+    queryFn: async () => {
+      const allPages = [];
+      for (const project of projects) {
+        try {
+          const response = await apiRequest("GET", `/api/projects/${project.id}/pages`, undefined);
+          const pages = await response.json();
+          allPages.push(...pages.map((page: any) => ({ ...page, projectId: project.id })));
+        } catch (error) {
+          console.error(`Failed to fetch pages for project ${project.id}:`, error);
+        }
+      }
+      return allPages;
+    },
+    enabled: projects.length > 0,
+  });
+
   // Fetch public projects
   const { data: publicProjects = [], isLoading } = useQuery<PublicProject[]>({
     queryKey: ["/api/explore/projects", genreFilter],
@@ -166,6 +190,7 @@ export default function Explore() {
         <Sidebar 
           isOpen={sidebarOpen} 
           onClose={() => setSidebarOpen(false)}
+          allPagesData={allPagesData}
           isCollapsed={sidebarCollapsed}
           onToggleCollapse={toggleSidebarCollapse}
         />

@@ -783,6 +783,7 @@ export default function Editor() {
         <Sidebar 
           isOpen={sidebarOpen} 
           onClose={() => setSidebarOpen(false)}
+          allPagesData={[]}
           isCollapsed={sidebarCollapsed}
           onToggleCollapse={toggleSidebarCollapse}
         />
