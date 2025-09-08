@@ -774,6 +774,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Save structured script data directly (for preserving previewed scripts)
+  app.post("/api/projects/:projectId/save-structured-script", isAuthenticated, async (req: any, res) => {
+    try {
+      const { projectId } = req.params;
+      const { title, logline, pages } = req.body;
+      
+      // Verify user owns the project
+      const project = await storage.getProject(projectId);
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Delete existing structured script if one exists
+      const existingScript = await storage.getProjectStructuredScript(projectId);
+      if (existingScript) {
+        await storage.deleteStructuredScript(existingScript.id);
+      }
+
+      // Create new structured script
+      const newScript = await storage.createStructuredScript({
+        projectId,
+        title: title || project.title,
+        logline: logline || "",
+        version: 1,
+        isActive: true,
+      });
+
+      // Save all pages, panels, and dialogue
+      for (const pageData of pages || []) {
+        const savedPage = await storage.createScriptPage({
+          structuredScriptId: newScript.id,
+          pageNumber: pageData.pageNumber,
+          title: pageData.title || "",
+          setting: pageData.setting || "",
+          mood: pageData.mood || "",
+          characters: pageData.characters || [],
+          timeOfDay: pageData.timeOfDay || "",
+          location: pageData.location || "",
+          weatherConditions: pageData.weatherConditions || "",
+        });
+
+        // Save panels for this page
+        for (const panelData of pageData.panels || []) {
+          const savedPanel = await storage.createScriptPanel({
+            scriptPageId: savedPage.id,
+            panelNumber: panelData.panelNumber,
+            sceneDescription: panelData.visualDescription || panelData.sceneDescription || "",
+            action: panelData.action || "",
+            cameraAngle: panelData.cameraAngle,
+            shotType: panelData.shotType,
+            mood: panelData.mood,
+            visualNotes: panelData.visualNotes,
+            timing: panelData.timing,
+            soundEffects: panelData.soundEffects || [],
+            characters: pageData.characters || [],
+          });
+
+          // Save dialogue for this panel
+          if (panelData.dialogue && Array.isArray(panelData.dialogue)) {
+            for (let i = 0; i < panelData.dialogue.length; i++) {
+              const dialogueData = panelData.dialogue[i];
+              await storage.createScriptDialogue({
+                scriptPanelId: savedPanel.id,
+                character: dialogueData.characterName,
+                text: dialogueData.text,
+                tone: dialogueData.tone,
+                orderIndex: i,
+              });
+            }
+          }
+        }
+      }
+
+      // Return the full structured script with all relations
+      const fullScript = await storage.getProjectStructuredScript(projectId);
+      res.json(fullScript);
+    } catch (error) {
+      console.error("Error saving structured script:", error);
+      res.status(500).json({ message: "Failed to save structured script" });
+    }
+  });
+
   // ========================================
   // Social Features API Routes
   // ========================================
