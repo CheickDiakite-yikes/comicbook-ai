@@ -1001,7 +1001,7 @@ CHARACTERS:`;
 1. Script Metadata:
    - Compelling logline
    - Overall mood and tone
-   - Optimal page count (analyze story complexity and determine appropriate length: minimum 5 pages, typically 5-15 pages depending on story scope, genre conventions, and narrative pacing needs)
+   - Optimal page count (analyze story complexity and determine appropriate length: minimum 6 pages, typically 6-30+ pages depending on story scope, genre conventions, and narrative pacing needs)
 
 2. Page-by-Page Breakdown:
    - Each page should have 1-5 panels for optimal comic pacing
@@ -1028,7 +1028,7 @@ CHARACTERS:`;
 
 GUIDELINES:
 - CRITICAL: Number panels sequentially within each page starting from 1 (Panel 1, Panel 2, Panel 3, etc.)
-- **PAGE COUNT DETERMINATION**: Analyze story needs - simple concepts (5-8 pages), complex plots (8-12 pages), epic stories (12-15+ pages). Consider genre: Action/Superhero (more pages for fights), Romance/Slice-of-life (fewer pages for character moments), Horror/Mystery (medium length for tension building).
+- **PAGE COUNT DETERMINATION**: Analyze story needs - simple concepts (6-12 pages), complex plots (12-20 pages), epic stories (20-30+ pages). Consider genre: Action/Superhero (more pages for fights), Romance/Slice-of-life (fewer pages for character moments), Horror/Mystery (medium length for tension building).
 - Make visual descriptions extremely detailed and specific
 - Include concrete visual elements AI can understand
 - Specify camera work like a film director
