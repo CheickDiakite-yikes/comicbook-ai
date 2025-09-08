@@ -1,0 +1,37 @@
+-- NERRAME PRODUCTION DATA SEED
+-- Run this in your production database console to populate with rich content
+-- Note: Replace 'YOUR_PRODUCTION_USER_ID' with your actual production user ID
+
+-- Add sample projects with cover art for explore page
+INSERT INTO projects (id, user_id, title, description, genre, art_style, is_public, cover_art, created_at) VALUES 
+('7abe50f0-ba81-4058-90f1-c3fd609014d5', 'YOUR_PRODUCTION_USER_ID', 'Google City, 3035', 'In Google City, 3035, every aspect of life is seamlessly optimized by an omnipresent AI, promising a perfect, data-driven existence. But when a brilliant data architect uncovers a rogue algorithm threatening to unravel this digital utopia, he must expose the dark truth behind the city''s flawless facade before it consumes them all.', 'Sci-Fi', 'comic-book', true, '/generated/panel_0_enhanced_1757366555663.png', NOW()),
+('7cd64899-a5cb-4737-ba75-ca241d98f539', 'YOUR_PRODUCTION_USER_ID', 'Love Story In Babilon City, 3030', 'In the dazzling, dystopian sprawl of Babilon City, 3025, where biometric tech dictates every connection and corporation, a defiant romance blossoms between a revolutionary hacker and a high-ranking enforcer. Their forbidden love, a dangerous glitch in a meticulously controlled system, threatens to ignite a revolution or be crushed by the very city designed to keep them apart.', 'Sci-Fi', 'comic-book', true, '/generated/panel_0_enhanced_1757366289853.png', NOW()),
+('0974f7ac-6190-421e-8cba-18bf318de22a', 'YOUR_PRODUCTION_USER_ID', 'Neo-Vegas 3035', 'In the neon-soaked chaos of Neo-Vegas 3035, a city where vice reigns supreme, the "Sin City Guardians" are its reluctant last line of defense against unchecked corporate power and rampant crime. Now, a sentient digital plague threatens to unravel the city''s very data-soul, forcing these cynical enforcers to confront a techno-apocalypse that could erase their past and future in a single, devastating byte.', 'Sci-Fi', 'comic-book', true, '/generated/panel_0_enhanced_1757366668882.png', NOW()),
+('04a21fc4-1b5d-4e97-bd0e-fc024033df70', 'YOUR_PRODUCTION_USER_ID', 'The Sin City Guardians, 3035', 'In a dazzling, perpetually neon-soaked Neo-Vegas of 3035, the "Sin City Guardians" are an embarrassingly underqualified team of misfits tasked with protecting the world''s most extravagant vice den. Their latest challenge isn''t a supervillain, but a sentient, high-stakes slot machine threatening to gamble the entire city into oblivion.', 'Comedy', 'manga', true, '/generated/panel_0_enhanced_1757366228878.png', NOW()),
+('b9d636d2-6a9b-4268-9aa7-c1b212e3396a', 'YOUR_PRODUCTION_USER_ID', 'Simmer & Spark', 'Elara Vance is a classically-trained pastry chef whose life is measured in grams and tempered to the degree. Leo Martinez is a chaotic street food artist who believes the best flavors come from happy accidents. When a booking mishap forces these two culinary arch-rivals to share a tiny food truck at the city''s most prestigious food festival, the stage is set for a disastrous, flour-dusted showdown.', 'Romantic Comedy', 'watercolor', true, '/generated/panel_0_enhanced_1757366209045.png', NOW()),
+('c2743a7f-7fd2-4590-b984-7599474ffeee', 'YOUR_PRODUCTION_USER_ID', 'Lovers of Babilon City, 3025', 'In the dazzling, dystopian sprawl of Babilon City, 3025, where biometric tech dictates every connection and corporation, a defiant romance blossoms between a revolutionary hacker and a high-ranking enforcer. Their forbidden love threatens to ignite a revolution or be crushed by the very city designed to keep them apart.', 'Sci-Fi', 'comic-book', true, '/generated/panel_0_enhanced_1757366508017.png', NOW());
+
+-- Add some sample characters to make projects feel complete
+INSERT INTO characters (id, project_id, name, role, bio, visual_descriptors, user_id, created_at) VALUES 
+(gen_random_uuid(), '7abe50f0-ba81-4058-90f1-c3fd609014d5', 'Data Architect', 'Protagonist', 'A brilliant data architect who discovers the dark truth behind Google City''s perfect algorithms.', 'Tall, focused, wearing smart casual attire with subtle tech augmentations', 'YOUR_PRODUCTION_USER_ID', NOW()),
+(gen_random_uuid(), '7cd64899-a5cb-4737-ba75-ca241d98f539', 'Marie "Nyx" Vance', 'Protagonist', 'A revolutionary hacker fighting against the oppressive biometric control system of Babilon City.', 'Determined eyes, cybernetic hair streaks, worn tech gloves, rebellious appearance', 'YOUR_PRODUCTION_USER_ID', NOW()),
+(gen_random_uuid(), '7cd64899-a5cb-4737-ba75-ca241d98f539', 'Cheick Diakite', 'Love Interest', 'A high-ranking enforcer torn between duty and forbidden love.', 'Imposing figure, formal Guardian uniform, cybernetic left arm, conflicted expression', 'YOUR_PRODUCTION_USER_ID', NOW()),
+(gen_random_uuid(), '0974f7ac-6190-421e-8cba-18bf318de22a', 'Cheick Diakite', 'Guardian Leader', 'Cybernetic-enhanced leader of the Sin City Guardians with a strong moral compass.', 'Cybernetic left arm, imposing presence, weathered face showing years of experience', 'YOUR_PRODUCTION_USER_ID', NOW()),
+(gen_random_uuid(), '0974f7ac-6190-421e-8cba-18bf318de22a', 'Ty Grannum', 'Tech Specialist', 'Clumsy but brilliant tech specialist who often saves the day through accident and ingenuity.', 'Stocky build, always carrying multiple gadgets, friendly face behind thick glasses', 'YOUR_PRODUCTION_USER_ID', NOW()),
+(gen_random_uuid(), 'b9d636d2-6a9b-4268-9aa7-c1b212e3396a', 'Elara Vance', 'Protagonist', 'A classically-trained pastry chef who values precision and technique above all else.', 'Elegant posture, flour-dusted apron, precise movements, determined expression', 'YOUR_PRODUCTION_USER_ID', NOW()),
+(gen_random_uuid(), 'b9d636d2-6a9b-4268-9aa7-c1b212e3396a', 'Leo Martinez', 'Love Interest', 'A chaotic street food artist who believes the best flavors come from happy accidents.', 'Casual attire, paint-stained clothes, expressive gestures, warm smile', 'YOUR_PRODUCTION_USER_ID', NOW());
+
+-- Add sample pages to make projects feel substantial
+INSERT INTO pages (id, project_id, page_number, layout_template, script_snippet, created_at) VALUES 
+(gen_random_uuid(), '7abe50f0-ba81-4058-90f1-c3fd609014d5', 1, 'classic-grid', 'Opening scene: The data architect discovers anomalies in the city''s perfect system.', NOW()),
+(gen_random_uuid(), '7abe50f0-ba81-4058-90f1-c3fd609014d5', 2, 'sandwich', 'The investigation deepens as more glitches are revealed.', NOW()),
+(gen_random_uuid(), '7cd64899-a5cb-4737-ba75-ca241d98f539', 1, 'staircase', 'Nyx infiltrates the Aegis Tower while Cheick monitors security systems.', NOW()),
+(gen_random_uuid(), '7cd64899-a5cb-4737-ba75-ca241d98f539', 2, 'four-square', 'Their first encounter - a dangerous game of cat and mouse.', NOW()),
+(gen_random_uuid(), '0974f7ac-6190-421e-8cba-18bf318de22a', 1, 'classic-grid', 'The Guardians confront a data runner in a neon-soaked alley.', NOW()),
+(gen_random_uuid(), '0974f7ac-6190-421e-8cba-18bf318de22a', 2, 'pentagon', 'A digital plague erupts, threatening the city''s data-soul.', NOW()),
+(gen_random_uuid(), 'b9d636d2-6a9b-4268-9aa7-c1b212e3396a', 1, 'sandwich', 'Elara and Leo are forced to share the food truck at the festival.', NOW()),
+(gen_random_uuid(), 'b9d636d2-6a9b-4268-9aa7-c1b212e3396a', 2, 'classic-grid', 'Culinary chaos ensues as their cooking styles clash.', NOW());
+
+-- Verify the data was inserted
+SELECT 'Data inserted successfully! Projects with cover art:' as status;
+SELECT id, title, genre, cover_art IS NOT NULL as has_cover_art FROM projects WHERE is_public = true;
