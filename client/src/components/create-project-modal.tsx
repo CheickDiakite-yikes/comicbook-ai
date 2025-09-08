@@ -167,7 +167,9 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
       return project;
     },
     onSuccess: (project) => {
+      // Invalidate both project list and structured script queries
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "structured-script"] });
       toast({
         title: "Project created",
         description: "Your comic project has been created successfully!",
