@@ -137,7 +137,7 @@ export default function Dashboard() {
   });
 
   // Get unique genres for filter
-  const availableGenres = [...new Set(projects.map(p => p.genre).filter(Boolean))];
+  const availableGenres = Array.from(new Set(projects.map(p => p.genre).filter(Boolean)));
 
   const totalPages = allPagesData.length;
   const totalCharacters = allCharacters.length;
