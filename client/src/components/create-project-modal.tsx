@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { X, Plus, Upload, Wand2, Palette, Loader2, ChevronDown, ChevronRight, FileText, Camera, MessageSquare, Users, MapPin, Clock, Volume2, Eye } from "lucide-react";
+import { X, Plus, Upload, Wand2, Palette, Loader2, ChevronDown, ChevronRight, FileText, Camera, MessageSquare, Users, MapPin, Clock, Volume2, Eye, Sparkles, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { aiService } from "@/lib/ai-service";
+import { useBackgroundGeneration } from "@/contexts/BackgroundGenerationContext";
 import type { Project } from "@shared/schema";
 import AIStoryGenerator from "./ai-story-generator";
 
@@ -69,6 +70,9 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
   const [characters, setCharacters] = useState([
     { name: "Captain Thunder", role: "Main Hero", bio: "A powerful superhero with lightning abilities, tall with silver hair and a blue cape. Always confident and protective of civilians.", visualDescriptors: "" }
   ]);
+  const [showGenerationCompleteBanner, setShowGenerationCompleteBanner] = useState(false);
+  
+  const { state: generationState, clearGeneration } = useBackgroundGeneration();
 
   const form = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema),
@@ -202,31 +206,17 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
     setCharacters(updated);
   };
 
-  const handleAIStoryGenerated = async (storyData: any) => {
-    try {
-      // Generate complete story content using AI
-      const response = await fetch("/api/generate-complete-story", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          genres: storyData.genres,
-          length: storyData.length,
-          artStyle: storyData.artStyle,
-          tones: storyData.tones
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to generate complete story");
-      }
-
-      const completeStory = await response.json();
-
+  // Handle background generation completion
+  useEffect(() => {
+    if (generationState.status === 'completed' && generationState.generatedResult && open) {
+      const storyData = generationState.storyData;
+      const completeStory = generationState.generatedResult;
+      
       // Auto-populate the form with generated content
       form.setValue("title", completeStory.title);
       form.setValue("genre", completeStory.genre);
       form.setValue("description", completeStory.description);
-      setSelectedArtStyle(storyData.artStyle);
+      setSelectedArtStyle(storyData?.artStyle || "");
       setCharacters(completeStory.characters || []);
       setGeneratedStructuredScript(completeStory.structuredScript);
       
@@ -235,27 +225,41 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
 
 ✅ ${completeStory.structuredScript.pages?.length || 6} pages with detailed metadata
 ✅ Rich character development and world-building
-✅ Genre blend: ${storyData.genres.join(" + ")}
-✅ ${storyData.tones.join(" + ")} tones with ${storyData.length} pacing
-✅ Optimized for ${storyData.artStyle} art style
+✅ Genre blend: ${storyData?.genres.join(" + ") || "Mixed"}
+✅ ${storyData?.tones.join(" + ") || "Balanced"} tones with ${storyData?.length || "medium"} pacing
+✅ Optimized for ${storyData?.artStyle || "comic book"} art style
 
 The complete structured script with full character details has been generated and is ready for your review.`;
         
         form.setValue("script", previewText);
       }
-
+      
+      // Show completion banner
+      setShowGenerationCompleteBanner(true);
+      
       toast({
-        title: "Story Generated Successfully!",
-        description: `Your ${storyData.genres.join(" + ")} story with ${storyData.tones.join(" + ")} tones is ready to create!`,
-      });
-    } catch (error) {
-      console.error("Error generating AI story:", error);
-      toast({
-        title: "Generation Failed",
-        description: "Failed to generate AI story. Please try again.",
-        variant: "destructive",
+        title: "🎉 Story Generated Successfully!",
+        description: `Your ${storyData?.genres.join(" + ") || "custom"} story with ${storyData?.tones.join(" + ") || "balanced"} tones is ready to create!`,
+        duration: 6000,
       });
     }
+  }, [generationState.status, generationState.generatedResult, open, form]);
+  
+  const handleUseGeneratedStory = () => {
+    setShowGenerationCompleteBanner(false);
+    clearGeneration();
+  };
+  
+  const handleDismissGeneration = () => {
+    setShowGenerationCompleteBanner(false);
+    clearGeneration();
+    // Reset form to defaults
+    form.reset();
+    setSelectedArtStyle("");
+    setCharacters([
+      { name: "Captain Thunder", role: "Main Hero", bio: "A powerful superhero with lightning abilities, tall with silver hair and a blue cape. Always confident and protective of civilians.", visualDescriptors: "" }
+    ]);
+    setGeneratedStructuredScript(null);
   };
 
   const handleGenerateScript = async () => {
@@ -525,6 +529,50 @@ Create a visual description that fits the ${selectedArtStyle || 'comic-book'} ar
             </Button>
           </div>
         </div>
+
+        {/* Generation Complete Banner */}
+        {showGenerationCompleteBanner && generationState.generatedResult && (
+          <div className="px-6 py-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-b border-green-200 dark:border-green-800">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                  <CheckCircle className="h-5 w-5 text-white" />
+                </div>
+              </div>
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-green-800 dark:text-green-200">
+                    🎉 Story Generated Successfully!
+                  </h3>
+                  <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                    "{generationState.generatedResult.title}"
+                  </Badge>
+                </div>
+                <p className="text-sm text-green-700 dark:text-green-300">
+                  Your complete story with {generationState.generatedResult.characters?.length || 0} characters and structured script is ready below. All fields have been automatically filled!
+                </p>
+                <div className="flex items-center gap-2 mt-3">
+                  <Button
+                    size="sm"
+                    onClick={handleUseGeneratedStory}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <Sparkles className="mr-2 h-3 w-3" />
+                    Perfect! Use This Story
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleDismissGeneration}
+                    className="border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300"
+                  >
+                    Start Over Instead
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Modal Content */}
         <Form {...form}>
@@ -897,7 +945,6 @@ Create a visual description that fits the ${selectedArtStyle || 'comic-book'} ar
       <AIStoryGenerator
         isOpen={showAIStoryGenerator}
         onClose={() => setShowAIStoryGenerator(false)}
-        onGenerate={handleAIStoryGenerated}
       />
     </div>
   );

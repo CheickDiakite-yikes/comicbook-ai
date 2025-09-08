@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { useBackgroundGeneration } from "@/contexts/BackgroundGenerationContext";
+import { useToast } from "@/hooks/use-toast";
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -21,7 +23,6 @@ import {
 interface AIStoryGeneratorProps {
   isOpen: boolean;
   onClose: () => void;
-  onGenerate: (storyData: GeneratedStoryData) => void;
 }
 
 interface GeneratedStoryData {
@@ -80,13 +81,17 @@ const tones = [
   { id: "melancholy", name: "Melancholy", icon: "🍂", color: "from-gray-500 to-blue-700" }
 ];
 
-export default function AIStoryGenerator({ isOpen, onClose, onGenerate }: AIStoryGeneratorProps) {
+export default function AIStoryGenerator({ isOpen, onClose }: AIStoryGeneratorProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [selectedLength, setSelectedLength] = useState<string>("");
   const [selectedArtStyle, setSelectedArtStyle] = useState<string>("");
   const [selectedTones, setSelectedTones] = useState<string[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
+  
+  const { startGeneration, state } = useBackgroundGeneration();
+  const { toast } = useToast();
+  
+  const isGenerating = state.status === 'generating';
 
   if (!isOpen) return null;
 
@@ -119,11 +124,6 @@ export default function AIStoryGenerator({ isOpen, onClose, onGenerate }: AIStor
   };
 
   const handleGenerate = async () => {
-    setIsGenerating(true);
-    
-    // Simulate generation time
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
     const storyData: GeneratedStoryData = {
       genres: selectedGenres,
       length: selectedLength,
@@ -131,8 +131,17 @@ export default function AIStoryGenerator({ isOpen, onClose, onGenerate }: AIStor
       tones: selectedTones
     };
     
-    onGenerate(storyData);
-    setIsGenerating(false);
+    // Start background generation
+    await startGeneration(storyData);
+    
+    // Show helpful message and close modal
+    toast({
+      title: "🎨 Story Generation Started!",
+      description: "Your story is being crafted in the background. You can continue using the app - we'll notify you when it's ready!",
+      duration: 5000,
+    });
+    
+    // Close modal immediately - generation continues in background
     onClose();
   };
 
