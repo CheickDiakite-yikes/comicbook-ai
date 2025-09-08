@@ -875,12 +875,9 @@ export default function Editor() {
                       onCheckedChange={(checked) => {
                         if (project) {
                           // Update project visibility
-                          apiRequest(`/api/projects/${project.id}`, {
-                            method: "PUT",
-                            body: JSON.stringify({
-                              ...project,
-                              isPublic: checked
-                            })
+                          apiRequest("/api/projects/" + project.id, "PUT", {
+                            ...project,
+                            isPublic: checked
                           }).then(() => {
                             queryClient.invalidateQueries({ queryKey: [`/api/projects/${project.id}`] });
                             toast({
@@ -1219,7 +1216,7 @@ export default function Editor() {
       <ShareDialog 
         open={showShareDialog}
         onOpenChange={setShowShareDialog}
-        project={project}
+        project={project || null}
       />
     </div>
   );

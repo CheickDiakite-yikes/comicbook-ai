@@ -12,12 +12,16 @@ import Templates from "@/pages/templates";
 import Explore from "@/pages/explore";
 import Profile from "@/pages/profile";
 import Characters from "@/pages/characters";
+import SharePage from "@/pages/share";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
 
   return (
     <Switch>
+      {/* Public routes accessible to everyone */}
+      <Route path="/share/:projectId" component={SharePage} />
+      
       {isLoading || !isAuthenticated ? (
         <Route path="/" component={Landing} />
       ) : (
