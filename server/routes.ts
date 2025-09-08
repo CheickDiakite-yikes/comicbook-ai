@@ -155,6 +155,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Character not found" });
       }
 
+      // Check if character belongs to a project or is a library character
+      if (!character.projectId) {
+        return res.status(400).json({ message: "Use library character API for library characters" });
+      }
+
       const project = await storage.getProject(character.projectId);
       const userId = getUserId(req.user);
       if (!project || project.userId !== userId) {
@@ -176,6 +181,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const character = await storage.getCharacter(req.params.id);
       if (!character) {
         return res.status(404).json({ message: "Character not found" });
+      }
+
+      // Check if character belongs to a project or is a library character
+      if (!character.projectId) {
+        return res.status(400).json({ message: "Use library character API for library characters" });
       }
 
       const project = await storage.getProject(character.projectId);

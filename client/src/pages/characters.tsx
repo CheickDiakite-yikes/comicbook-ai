@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { Sidebar } from "@/components/sidebar";
+import Sidebar from "@/components/sidebar";
 import { Users, Plus, Edit2, Trash2, Search, UserCircle, ImageIcon } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import type { Character } from "@shared/schema";
@@ -42,7 +42,7 @@ export default function Characters() {
   // Create character mutation
   const createCharacterMutation = useMutation({
     mutationFn: async (characterData: typeof characterForm) => {
-      return apiRequest("/api/characters/library", {
+      return await fetch("/api/characters/library", {
         method: "POST",
         body: JSON.stringify(characterData),
         headers: { "Content-Type": "application/json" },
@@ -69,7 +69,7 @@ export default function Characters() {
   // Update character mutation
   const updateCharacterMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: typeof characterForm }) => {
-      return apiRequest(`/api/characters/library/${id}`, {
+      return await fetch(`/api/characters/library/${id}`, {
         method: "PUT",
         body: JSON.stringify(data),
         headers: { "Content-Type": "application/json" },
@@ -96,7 +96,7 @@ export default function Characters() {
   // Delete character mutation
   const deleteCharacterMutation = useMutation({
     mutationFn: async (id: string) => {
-      return apiRequest(`/api/characters/library/${id}`, {
+      return await fetch(`/api/characters/library/${id}`, {
         method: "DELETE",
       });
     },
@@ -161,7 +161,7 @@ export default function Characters() {
   };
 
   // Filter characters based on search term
-  const filteredCharacters = characters.filter((character: Character) =>
+  const filteredCharacters = (characters as Character[]).filter((character: Character) =>
     character.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (character.role && character.role.toLowerCase().includes(searchTerm.toLowerCase()))
   );

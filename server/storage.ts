@@ -212,7 +212,7 @@ export class MemStorage implements IStorage {
   async createCharacter(characterData: InsertCharacter): Promise<Character> {
     const character: Character = {
       id: randomUUID(),
-      projectId: characterData.projectId,
+      projectId: characterData.projectId || null,
       name: characterData.name,
       role: characterData.role || null,
       bio: characterData.bio || null,
@@ -908,7 +908,7 @@ export class DatabaseStorage implements IStorage {
       .insert(characters)
       .values({
         projectId,
-        userId: undefined, // Project characters don't have userId
+        userId: null, // Project characters don't have userId
         name: libraryCharacter.name,
         role: libraryCharacter.role,
         bio: libraryCharacter.bio,
