@@ -553,6 +553,111 @@ export class GeminiService {
   }
 
   /**
+   * Generate cover art for a comic project
+   */
+  async generateCoverArt(request: {
+    projectId: string;
+    projectContext: {
+      title: string;
+      genre?: string;
+      description?: string;
+      artStyle?: string;
+      characters?: Array<{
+        name: string;
+        role: string;
+        bio: string;
+        visualDescriptors?: string;
+      }>;
+      settings?: Array<{
+        name: string;
+        description: string;
+      }>;
+    };
+  }): Promise<{
+    imageUrl: string;
+    status: "completed" | "failed";
+    error?: string;
+  }> {
+    try {
+      // Build cover art specific prompt
+      const coverPrompt = this.buildCoverArtPrompt(request);
+      
+      console.log(`Generating cover art for project ${request.projectId} with prompt: ${coverPrompt}`);
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-image-preview",
+        contents: coverPrompt,
+      });
+
+      // Process the response to extract image data
+      if (!response.candidates || !response.candidates[0]?.content?.parts) {
+        throw new Error("No valid response received from Gemini");
+      }
+      
+      for (const part of response.candidates[0].content.parts) {
+        if (part.text) {
+          console.log("Generated cover art text:", part.text);
+        } else if (part.inlineData) {
+          // Save the image to a temporary location and return URL
+          const imageData = part.inlineData.data;
+          if (!imageData) {
+            throw new Error("No cover art image data received");
+          }
+          const buffer = Buffer.from(imageData, "base64");
+          const filename = `cover_${request.projectId}_${Date.now()}.png`;
+          const imagePath = path.join(process.cwd(), "public", "generated", filename);
+          
+          // Ensure directory exists
+          const dir = path.dirname(imagePath);
+          if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+          }
+          
+          fs.writeFileSync(imagePath, buffer);
+          
+          // For cover art, we want a standard comic book cover aspect ratio (2:3)
+          // Resize to 800x1200 for high quality cover art
+          let finalImageUrl = `/generated/${filename}`;
+          
+          try {
+            // Use image enhancer to create proper cover art dimensions
+            const enhancedImagePath = await imageEnhancer.fitImageToPanel(
+              imagePath,
+              800, // Cover width
+              1200, // Cover height (2:3 aspect ratio)
+              0 // Use 0 for cover art
+            );
+            
+            // Extract just the filename from the processed path
+            const enhancedFile = path.basename(enhancedImagePath);
+            finalImageUrl = `/generated/${enhancedFile}`;
+            console.log(`Cover art enhanced for project ${request.projectId}: ${finalImageUrl}`);
+            
+          } catch (enhanceError) {
+            console.error("Cover art enhancement failed, using original:", enhanceError);
+            // Keep the original URL if enhancement fails
+          }
+          
+          return {
+            imageUrl: finalImageUrl,
+            status: "completed",
+          };
+        }
+      }
+
+      throw new Error("No cover art image data received from Gemini");
+    } catch (error) {
+      console.error("Error generating cover art:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate cover art";
+      return {
+        imageUrl: "",
+        status: "failed",
+        error: errorMessage,
+      };
+    }
+  }
+
+  /**
    * Generate a structured comic script with rich metadata
    */
   async generateStructuredScript(request: GenerateStructuredScriptRequest): Promise<GenerateStructuredScriptResponse> {
@@ -969,6 +1074,112 @@ export class GeminiService {
     prompt += ". Generate professional comic book artwork that bleeds to the edges like printed comics";
     prompt += ". Fill 100% of the canvas area with actual artwork, no empty space or borders";
 
+    return prompt;
+  }
+
+  /**
+   * Build a cover art generation prompt
+   */
+  private buildCoverArtPrompt(request: {
+    projectId: string;
+    projectContext: {
+      title: string;
+      genre?: string;
+      description?: string;
+      artStyle?: string;
+      characters?: Array<{
+        name: string;
+        role: string;
+        bio: string;
+        visualDescriptors?: string;
+      }>;
+      settings?: Array<{
+        name: string;
+        description: string;
+      }>;
+    };
+  }): string {
+    let prompt = `2:3 PORTRAIT: Create a 2:3 portrait aspect ratio comic book cover. `;
+    
+    // Core comic book cover requirements
+    prompt += `Design a professional comic book cover for "${request.projectContext.title}". `;
+    prompt += `This is a high-quality comic book cover in ${request.projectContext.artStyle || 'comic book'} art style. `;
+    
+    // Genre-specific styling
+    if (request.projectContext.genre) {
+      prompt += `Genre: ${request.projectContext.genre}. `;
+      
+      switch (request.projectContext.genre.toLowerCase()) {
+        case 'superhero':
+          prompt += `Dynamic superhero comic cover with bold action pose, dramatic lighting, and powerful composition. `;
+          break;
+        case 'horror':
+          prompt += `Dark, atmospheric horror comic cover with moody shadows, dramatic lighting, and suspenseful composition. `;
+          break;
+        case 'romance':
+          prompt += `Romantic comic cover with warm lighting, intimate composition, and emotional visual storytelling. `;
+          break;
+        case 'sci-fi':
+          prompt += `Science fiction comic cover with futuristic elements, technological details, and cosmic atmosphere. `;
+          break;
+        case 'fantasy':
+          prompt += `Fantasy comic cover with magical elements, mystical atmosphere, and enchanting composition. `;
+          break;
+        case 'mystery':
+          prompt += `Mystery comic cover with intriguing shadows, suspenseful lighting, and dramatic noir atmosphere. `;
+          break;
+        default:
+          prompt += `Genre-appropriate comic cover with engaging visual storytelling and dynamic composition. `;
+      }
+    }
+    
+    // Story context
+    if (request.projectContext.description) {
+      prompt += `Story concept: ${request.projectContext.description}. `;
+    }
+    
+    // Character focus for cover
+    if (request.projectContext.characters && request.projectContext.characters.length > 0) {
+      const mainCharacters = request.projectContext.characters.slice(0, 3); // Focus on up to 3 main characters
+      prompt += `Main characters for the cover: `;
+      
+      mainCharacters.forEach((char, index) => {
+        prompt += `${char.name} (${char.role})${char.visualDescriptors ? `: ${char.visualDescriptors}` : ': ' + char.bio}`;
+        if (index < mainCharacters.length - 1) prompt += `, `;
+      });
+      prompt += `. `;
+      
+      // Focus on the main character
+      const mainChar = mainCharacters[0];
+      prompt += `Feature ${mainChar.name} prominently as the central figure of the cover. `;
+    }
+    
+    // Setting/environment context
+    if (request.projectContext.settings && request.projectContext.settings.length > 0) {
+      const mainSetting = request.projectContext.settings[0];
+      prompt += `Background setting: ${mainSetting.name} - ${mainSetting.description}. `;
+      prompt += `Incorporate elements of this setting into the background composition. `;
+    }
+    
+    // Cover design requirements
+    prompt += `COVER DESIGN REQUIREMENTS: `;
+    prompt += `- Leave space at the TOP for the comic title "${request.projectContext.title}" `;
+    prompt += `- Leave space at the BOTTOM for creator names and issue information `;
+    prompt += `- Focus the main character(s) in the CENTER-LEFT or CENTER-RIGHT area `;
+    prompt += `- Use dynamic poses and compelling composition that tells a story `;
+    prompt += `- Include dramatic lighting and visual impact `;
+    prompt += `- Create depth with foreground, midground, and background elements `;
+    prompt += `- Use colors that support the genre and mood `;
+    prompt += `- Ensure the cover is eye-catching and would stand out on a comic shelf `;
+    
+    // Technical requirements
+    prompt += `TECHNICAL REQUIREMENTS: `;
+    prompt += `- FULL-BLEED artwork with NO white borders - fill the entire 2:3 canvas completely `;
+    prompt += `- High-quality professional comic book cover art `;
+    prompt += `- Rich colors, detailed linework, and professional comic book illustration style `;
+    prompt += `- Ensure artwork extends to all edges like a printed comic book cover `;
+    prompt += `- 2:3 aspect ratio (portrait orientation) optimized composition `;
+    
     return prompt;
   }
 

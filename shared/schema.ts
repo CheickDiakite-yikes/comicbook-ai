@@ -61,6 +61,7 @@ export const projects = pgTable("projects", {
   script: text("script"),
   settings: jsonb("settings"), // JSON array of setting objects
   canonRules: text("canon_rules"),
+  coverArt: varchar("cover_art"), // URL to generated cover art image
   isPublic: boolean("is_public").default(false), // Whether project is shared publicly
   publicDescription: text("public_description"), // Optional public description for shared projects
   createdAt: timestamp("created_at").defaultNow(),
