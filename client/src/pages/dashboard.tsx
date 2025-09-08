@@ -236,7 +236,7 @@ export default function Dashboard() {
                       <SelectContent>
                         <SelectItem value="all">All Genres</SelectItem>
                         {availableGenres.map(genre => (
-                          <SelectItem key={genre} value={genre}>
+                          <SelectItem key={genre} value={genre || ""}>
                             {genre}
                           </SelectItem>
                         ))}
