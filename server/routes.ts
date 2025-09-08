@@ -780,20 +780,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { projectId } = req.params;
       const { title, logline, pages } = req.body;
       
+      console.log(`🐛 save-structured-script called for project ${projectId}`);
+      console.log(`🐛 Request body:`, { title, logline, pagesCount: pages?.length });
+      
       // Verify user owns the project
       const project = await storage.getProject(projectId);
       const userId = getUserId(req.user);
+      console.log(`🐛 Project found:`, project ? "YES" : "NO");
+      console.log(`🐛 User ID:`, userId);
+      
       if (!project || project.userId !== userId) {
+        console.log(`🐛 FAILED: Project not found or wrong user`);
         return res.status(404).json({ message: "Project not found" });
       }
 
       // Delete existing structured script if one exists
       const existingScript = await storage.getProjectStructuredScript(projectId);
+      console.log(`🐛 Existing script:`, existingScript ? "YES" : "NO");
       if (existingScript) {
+        console.log(`🐛 Deleting existing script:`, existingScript.id);
         await storage.deleteStructuredScript(existingScript.id);
       }
 
       // Create new structured script
+      console.log(`🐛 Creating new script...`);
       const newScript = await storage.createStructuredScript({
         projectId,
         title: title || project.title,
@@ -801,9 +811,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         version: 1,
         isActive: true,
       });
+      console.log(`🐛 New script created:`, newScript.id);
 
       // Save all pages, panels, and dialogue
+      console.log(`🐛 Processing ${pages?.length || 0} pages...`);
       for (const pageData of pages || []) {
+        console.log(`🐛 Creating page ${pageData.pageNumber}:`, pageData.title);
         const savedPage = await storage.createScriptPage({
           structuredScriptId: newScript.id,
           pageNumber: pageData.pageNumber,
@@ -814,8 +827,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           location: pageData.location || "",
           weatherConditions: pageData.weatherConditions || "",
         });
+        console.log(`🐛 Page saved:`, savedPage.id);
 
         // Save panels for this page
+        console.log(`🐛 Processing ${pageData.panels?.length || 0} panels for page ${pageData.pageNumber}...`);
         for (const panelData of pageData.panels || []) {
           const savedPanel = await storage.createScriptPanel({
             scriptPageId: savedPage.id,
@@ -847,10 +862,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Return the full structured script with all relations
+      console.log(`🐛 Getting final script result...`);
       const fullScript = await storage.getProjectStructuredScript(projectId);
+      console.log(`🐛 Final script:`, fullScript ? `SUCCESS (${fullScript.pages?.length} pages)` : "FAILED - NULL");
       res.json(fullScript);
     } catch (error) {
-      console.error("Error saving structured script:", error);
+      console.error("🐛 ERROR saving structured script:", error);
       res.status(500).json({ message: "Failed to save structured script" });
     }
   });
