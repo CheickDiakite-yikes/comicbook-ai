@@ -1,16 +1,16 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Wand2, RotateCcw, MessageSquare, Cloud, Palette, BookOpen, X } from "lucide-react";
+import { Wand2, RotateCcw, MessageSquare, Cloud, Palette, BookOpen, X, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { comicLayouts } from "@/lib/comic-layouts";
 import { generateEnhancedPanelContext, getPanelAspectRatioInfo, calculateOptimalDimensions } from "@/lib/aspect-ratio-utils";
-import type { Project, Page } from "@shared/schema";
+import type { Project, Page, Panel, Character } from "@shared/schema";
 
 interface PanelEditorProps {
   selectedPanel: number | null;
@@ -39,10 +39,55 @@ export default function PanelEditor({
 }: PanelEditorProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [prompt, setPrompt] = useState("A superhero flies over a bustling city at sunset, cape flowing in the wind...");
+  const [prompt, setPrompt] = useState("");
   const [dialogueText, setDialogueText] = useState("");
   const [artStyle, setArtStyle] = useState("Comic Book (Classic)");
   const [isGeneratingBackground, setIsGeneratingBackground] = useState(false);
+
+  // Fetch existing panels for the current page
+  const { data: existingPanels = [], isLoading: panelsLoading } = useQuery<Panel[]>({
+    queryKey: ["/api/pages", currentPage?.id, "panels"],
+    enabled: !!currentPage?.id,
+  });
+
+  // Fetch project characters for context
+  const { data: projectCharacters = [], isLoading: charactersLoading } = useQuery<Character[]>({
+    queryKey: ["/api/projects", project?.id, "characters"],
+    enabled: !!project?.id,
+  });
+
+  // Find the current panel data
+  const currentPanelData = selectedPanel ? existingPanels.find(p => p.panelNumber === selectedPanel) : null;
+
+  // Auto-populate fields when panel changes or data loads
+  useEffect(() => {
+    if (selectedPanel && currentPanelData) {
+      // Load existing panel data
+      setPrompt(currentPanelData.prompt || "");
+      
+      // Parse speech bubbles if they exist
+      if (currentPanelData.speechBubbles && Array.isArray(currentPanelData.speechBubbles)) {
+        const bubbles = currentPanelData.speechBubbles as Array<{text: string}>;
+        if (bubbles.length > 0) {
+          setDialogueText(bubbles[0].text || "");
+        }
+      }
+    } else if (selectedPanel && !currentPanelData && !panelsLoading) {
+      // New panel - set smart defaults
+      const defaultPrompt = generateDefaultPrompt(selectedPanel, project, currentPage);
+      setPrompt(defaultPrompt);
+      setDialogueText("");
+    }
+  }, [selectedPanel, currentPanelData, panelsLoading, project, currentPage]);
+
+  // Generate intelligent default prompt based on context
+  const generateDefaultPrompt = (panelNum: number, proj: Project, page?: Page) => {
+    const sceneContext = proj.description || "A dramatic scene unfolds";
+    const artStyleContext = proj.artStyle || "comic book style";
+    const panelPosition = panelNum === 1 ? "opening" : panelNum === 6 ? "closing" : "middle";
+    
+    return `Panel ${panelNum}: ${sceneContext}. Drawn in ${artStyleContext}. This is the ${panelPosition} panel of the page.`;
+  };
 
   const generatePanelMutation = useMutation({
     mutationFn: async () => {
