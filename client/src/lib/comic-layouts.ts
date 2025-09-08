@@ -317,4 +317,70 @@ export const comicLayouts: ComicLayout[] = [
       { x: 0.025, y: 0.66, width: 0.225, height: 0.32 },   // Left bottom
     ],
   },
+  {
+    id: "classic-grid-6",
+    name: "Classic Grid",
+    description: "6 panels - traditional 2x3 grid",
+    panelCount: 6,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+      <rect x="10" y="10" width="85" height="56" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="105" y="10" width="85" height="56" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="72" width="85" height="56" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="105" y="72" width="85" height="56" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="134" width="85" height="56" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="105" y="134" width="85" height="56" fill="none" stroke="#666" stroke-width="2"/>
+    </svg>`,
+    panels: [
+      { x: 0.025, y: 0.02, width: 0.46, height: 0.3 },   // Top left
+      { x: 0.515, y: 0.02, width: 0.46, height: 0.3 },   // Top right
+      { x: 0.025, y: 0.34, width: 0.46, height: 0.3 },   // Middle left
+      { x: 0.515, y: 0.34, width: 0.46, height: 0.3 },   // Middle right
+      { x: 0.025, y: 0.66, width: 0.46, height: 0.32 },  // Bottom left
+      { x: 0.515, y: 0.66, width: 0.46, height: 0.32 },  // Bottom right
+    ],
+  },
+  {
+    id: "hero-surround",
+    name: "Hero Surround",
+    description: "6 panels - large center + 5 around",
+    panelCount: 6,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+      <rect x="10" y="10" width="56" height="36" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="72" y="10" width="56" height="36" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="134" y="10" width="56" height="36" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="52" width="36" height="96" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="52" y="52" width="96" height="96" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="154" y="52" width="36" height="96" fill="none" stroke="#666" stroke-width="2"/>
+    </svg>`,
+    panels: [
+      { x: 0.025, y: 0.02, width: 0.305, height: 0.2 },   // Top left
+      { x: 0.3475, y: 0.02, width: 0.305, height: 0.2 },  // Top center
+      { x: 0.67, y: 0.02, width: 0.305, height: 0.2 },    // Top right
+      { x: 0.025, y: 0.24, width: 0.2, height: 0.52 },    // Left side
+      { x: 0.245, y: 0.24, width: 0.51, height: 0.52 },   // Large center
+      { x: 0.775, y: 0.24, width: 0.2, height: 0.52 },    // Right side
+    ],
+  },
+  {
+    id: "zigzag-flow",
+    name: "Zigzag Flow", 
+    description: "6 panels - alternating flow pattern",
+    panelCount: 6,
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+      <rect x="10" y="10" width="85" height="28" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="105" y="44" width="85" height="28" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="78" width="85" height="28" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="105" y="112" width="85" height="28" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="146" width="85" height="28" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="105" y="180" width="85" height="20" fill="none" stroke="#666" stroke-width="2"/>
+    </svg>`,
+    panels: [
+      { x: 0.025, y: 0.02, width: 0.46, height: 0.16 },   // Top left
+      { x: 0.515, y: 0.2, width: 0.46, height: 0.16 },    // Offset right
+      { x: 0.025, y: 0.38, width: 0.46, height: 0.16 },   // Left again
+      { x: 0.515, y: 0.56, width: 0.46, height: 0.16 },   // Right again
+      { x: 0.025, y: 0.74, width: 0.46, height: 0.16 },   // Left final
+      { x: 0.515, y: 0.92, width: 0.46, height: 0.06 },   // Small right end
+    ],
+  },
 ];
