@@ -10,6 +10,9 @@ import { TypewriterText, AnimatedText } from "@/components/TypewriterText";
 import { MagicalBackground } from "@/components/MagicalBackground";
 import { ComicPanel, ComicSpeechBubble } from "@/components/ComicPanel";
 import { ComicBurst, ComicWOW, ComicZAP, ComicNEW } from "@/components/ComicBurst";
+import { TheaterStage, MarqueeHeading, TheaterControls } from "@/components/TheaterStage";
+import { ScrollStorytellingSection, StoryChapter } from "@/components/ScrollStorytellingSection";
+import { MobileAwareComponent, TouchFriendlyButton, MobileOptimizedAnimation, MobileParticleSystem } from "@/components/MobileOptimizations";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import { animationVariants } from "@/lib/animations";
 
@@ -27,12 +30,16 @@ export default function Landing() {
         className="opacity-40"
       />
       
-      {/* Magical particle background */}
-      <ParticleSystem 
-        particleCount={25}
-        interactive={true}
-        className="opacity-50"
-      />
+      {/* Magical particle background - desktop */}
+      <MobileAwareComponent
+        mobileChildren={<MobileParticleSystem particleCount={12} className="opacity-40" />}
+      >
+        <ParticleSystem 
+          particleCount={25}
+          interactive={true}
+          className="opacity-50"
+        />
+      </MobileAwareComponent>
       
       {/* Comic book style scroll progress */}
       <ScrollProgress comicStyle={true} showPercentage={false} />
@@ -151,137 +158,167 @@ export default function Landing() {
             className="flex flex-col gap-4 justify-center items-center"
             variants={animationVariants.slideUp}
           >
-            <motion.div
-              whileHover={{
-                scale: 1.05,
-                boxShadow: "0 20px 40px rgba(220, 38, 38, 0.4)",
-                y: -5
-              }}
-              whileTap={{ scale: 0.95 }}
-              className="relative"
+            <MobileAwareComponent
+              mobileChildren={
+                <TouchFriendlyButton
+                  onClick={() => window.location.href = '/api/auth/google'}
+                  variant="primary"
+                  size="lg"
+                  className="bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg border-2 border-red-800 w-full sm:w-auto"
+                  hapticFeedback={true}
+                >
+                  <FaGoogle className="mr-2 h-5 w-5" />
+                  Get Started with Google
+                </TouchFriendlyButton>
+              }
             >
-              <Button 
-                size="lg"
-                onClick={() => window.location.href = '/api/auth/google'}
-                className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white text-lg px-8 py-3 shadow-lg border-2 border-red-800 relative overflow-hidden"
-                data-testid="button-get-started-google"
-              >
-                <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20"
-                  animate={{
-                    x: ['-100%', '100%']
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "linear"
-                  }}
-                />
-                <FaGoogle className="mr-2 h-5 w-5 relative z-10" />
-                <span className="relative z-10">Get Started with Google</span>
-              </Button>
-              
-              {/* Comic book action lines */}
               <motion.div
-                className="absolute inset-0 pointer-events-none"
                 whileHover={{
-                  opacity: 1
+                  scale: 1.05,
+                  boxShadow: "0 20px 40px rgba(220, 38, 38, 0.4)",
+                  y: -5
                 }}
-                initial={{ opacity: 0 }}
+                whileTap={{ scale: 0.95 }}
+                className="relative"
               >
-                {[...Array(6)].map((_, i) => (
+                <Button 
+                  size="lg"
+                  onClick={() => window.location.href = '/api/auth/google'}
+                  className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white text-lg px-8 py-3 shadow-lg border-2 border-red-800 relative overflow-hidden"
+                  data-testid="button-get-started-google"
+                >
                   <motion.div
-                    key={i}
-                    className="absolute bg-red-400 h-0.5 w-8"
-                    style={{
-                      transformOrigin: 'center',
-                      left: '50%',
-                      top: '50%',
-                      transform: `rotate(${i * 30}deg) translateX(60px)`
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20"
+                    animate={{
+                      x: ['-100%', '100%']
                     }}
-                    initial={{ scaleX: 0 }}
-                    whileHover={{ scaleX: 1 }}
-                    transition={{ delay: i * 0.05 }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "linear"
+                    }}
                   />
-                ))}
+                  <FaGoogle className="mr-2 h-5 w-5 relative z-10" />
+                  <span className="relative z-10">Get Started with Google</span>
+                </Button>
+                
+                {/* Comic book action lines */}
+                <motion.div
+                  className="absolute inset-0 pointer-events-none"
+                  whileHover={{
+                    opacity: 1
+                  }}
+                  initial={{ opacity: 0 }}
+                >
+                  {[...Array(6)].map((_, i) => (
+                    <motion.div
+                      key={i}
+                      className="absolute bg-red-400 h-0.5 w-8"
+                      style={{
+                        transformOrigin: 'center',
+                        left: '50%',
+                        top: '50%',
+                        transform: `rotate(${i * 30}deg) translateX(60px)`
+                      }}
+                      initial={{ scaleX: 0 }}
+                      whileHover={{ scaleX: 1 }}
+                      transition={{ delay: i * 0.05 }}
+                    />
+                  ))}
+                </motion.div>
               </motion.div>
-            </motion.div>
+            </MobileAwareComponent>
             <motion.div 
               className="text-muted-foreground text-sm"
               variants={animationVariants.fadeIn}
             >
               or
             </motion.div>
-            <motion.div
-              whileHover={{
-                scale: 1.05,
-                boxShadow: "0 20px 40px rgba(59, 130, 246, 0.3)",
-                y: -5
-              }}
-              whileTap={{ scale: 0.95 }}
-              className="relative"
-            >
-              <Button 
-                size="lg"
-                onClick={() => window.location.href = '/api/login'}
-                variant="outline"
-                className="border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground text-lg px-8 py-3 bg-gradient-to-r from-transparent to-transparent hover:from-primary hover:to-primary transition-all duration-300 relative overflow-hidden"
-                data-testid="button-get-started-replit"
-              >
-                <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-transparent via-primary to-transparent opacity-10"
-                  animate={{
-                    x: ['-100%', '100%']
-                  }}
-                  transition={{
-                    duration: 3,
-                    repeat: Infinity,
-                    ease: "linear"
-                  }}
-                />
-                <motion.div
-                  className="mr-2 h-5 w-5 relative z-10"
-                  animate={{
-                    rotate: [0, 15, -15, 0]
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "easeInOut"
-                  }}
+            <MobileAwareComponent
+              mobileChildren={
+                <TouchFriendlyButton
+                  onClick={() => window.location.href = '/api/login'}
+                  variant="secondary"
+                  size="lg"
+                  className="border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground w-full sm:w-auto"
+                  hapticFeedback={true}
                 >
-                  <Wand2 />
-                </motion.div>
-                <span className="relative z-10">Get Started with Replit</span>
-              </Button>
-              
-              {/* Magic sparkles on hover */}
+                  <Wand2 className="mr-2 h-5 w-5" />
+                  Get Started with Replit
+                </TouchFriendlyButton>
+              }
+            >
               <motion.div
-                className="absolute inset-0 pointer-events-none"
                 whileHover={{
-                  opacity: 1
+                  scale: 1.05,
+                  boxShadow: "0 20px 40px rgba(59, 130, 246, 0.3)",
+                  y: -5
                 }}
-                initial={{ opacity: 0 }}
+                whileTap={{ scale: 0.95 }}
+                className="relative"
               >
-                {[...Array(4)].map((_, i) => (
+                <Button 
+                  size="lg"
+                  onClick={() => window.location.href = '/api/login'}
+                  variant="outline"
+                  className="border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground text-lg px-8 py-3 bg-gradient-to-r from-transparent to-transparent hover:from-primary hover:to-primary transition-all duration-300 relative overflow-hidden"
+                  data-testid="button-get-started-replit"
+                >
                   <motion.div
-                    key={i}
-                    className="absolute text-yellow-400 text-lg"
-                    style={{
-                      left: `${20 + i * 20}%`,
-                      top: `${20 + (i % 2) * 60}%`
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-primary to-transparent opacity-10"
+                    animate={{
+                      x: ['-100%', '100%']
                     }}
-                    whileHover={{
-                      scale: [0, 1, 0],
-                      rotate: [0, 180, 360]
+                    transition={{
+                      duration: 3,
+                      repeat: Infinity,
+                      ease: "linear"
                     }}
-                    transition={{ delay: i * 0.1, duration: 0.6 }}
+                  />
+                  <motion.div
+                    className="mr-2 h-5 w-5 relative z-10"
+                    animate={{
+                      rotate: [0, 15, -15, 0]
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
                   >
-                    ✨
+                    <Wand2 />
                   </motion.div>
-                ))}
+                  <span className="relative z-10">Get Started with Replit</span>
+                </Button>
+                
+                {/* Magic sparkles on hover */}
+                <motion.div
+                  className="absolute inset-0 pointer-events-none"
+                  whileHover={{
+                    opacity: 1
+                  }}
+                  initial={{ opacity: 0 }}
+                >
+                  {[...Array(4)].map((_, i) => (
+                    <motion.div
+                      key={i}
+                      className="absolute text-yellow-400 text-lg"
+                      style={{
+                        left: `${20 + i * 20}%`,
+                        top: `${20 + (i % 2) * 60}%`
+                      }}
+                      whileHover={{
+                        scale: [0, 1, 0],
+                        rotate: [0, 180, 360]
+                      }}
+                      transition={{ delay: i * 0.1, duration: 0.6 }}
+                    >
+                      ✨
+                    </motion.div>
+                  ))}
+                </motion.div>
               </motion.div>
-            </motion.div>
+            </MobileAwareComponent>
           </motion.div>
         </motion.div>
 
@@ -458,7 +495,7 @@ export default function Landing() {
           </div>
         </motion.section>
 
-        {/* Demo Section */}
+        {/* Theater Demo Section */}
         <motion.section 
           ref={demoSection.ref}
           className="text-center" 
@@ -467,42 +504,128 @@ export default function Landing() {
           animate={demoSection.isIntersecting ? "visible" : "hidden"}
           variants={animationVariants.fadeIn}
         >
-          <motion.h3 
-            id="demo-heading" 
-            className="text-2xl sm:text-3xl font-serif font-bold mb-6 sm:mb-8"
-            variants={animationVariants.slideUp}
+          {/* Marquee heading */}
+          <motion.div
+            className="mb-8"
+            variants={animationVariants.slideDown}
           >
-            See It In Action
-          </motion.h3>
+            <MarqueeHeading 
+              text="✨ NOW SHOWING ✨"
+              className="mb-4"
+            />
+            <motion.p
+              className="text-lg text-muted-foreground max-w-2xl mx-auto"
+              variants={animationVariants.slideUp}
+            >
+              Step into the magic of AI-powered comic creation. Watch the full demo experience!
+            </motion.p>
+          </motion.div>
+
+          {/* Theater stage with video */}
           <motion.div 
-            className="bg-card rounded-xl border border-border p-4 sm:p-8"
             variants={animationVariants.scaleIn}
+            className="max-w-4xl mx-auto"
           >
-            <div className="aspect-video rounded-lg overflow-hidden border border-border">
-              <iframe
-                src="https://www.youtube.com/embed/4XulgZqOhEw"
-                title="Nerrame Demo - AI-Powered Comic Creation Platform"
-                className="w-full h-full"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-              />
-            </div>
-            <div className="mt-4 text-center">
-              <p className="text-sm text-muted-foreground">
-                Watch how easy it is to create comics with AI assistance
-              </p>
-              <a 
-                href="https://youtu.be/4XulgZqOhEw" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="inline-flex items-center text-primary hover:text-primary/80 text-sm mt-2 underline"
-              >
-                Watch on YouTube
-              </a>
-            </div>
+            <TheaterStage 
+              showCurtains={true}
+              curtainDelay={1000}
+              spotlightEffect={true}
+              className="shadow-2xl"
+            >
+              <div className="aspect-video rounded-lg overflow-hidden">
+                <iframe
+                  src="https://www.youtube.com/embed/4XulgZqOhEw"
+                  title="Nerrame Demo - AI-Powered Comic Creation Platform"
+                  className="w-full h-full"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              </div>
+              
+              {/* Theater controls */}
+              <div className="mt-6 flex justify-center">
+                <TheaterControls />
+              </div>
+            </TheaterStage>
+          </motion.div>
+
+          {/* Additional theater atmosphere */}
+          <motion.div
+            className="mt-8 text-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 4 }}
+          >
+            <p className="text-sm text-muted-foreground mb-2">
+              🎭 Experience the magic of storytelling
+            </p>
+            <a 
+              href="https://youtu.be/4XulgZqOhEw" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center text-primary hover:text-primary/80 text-sm underline font-medium"
+            >
+              Watch Full Show on YouTube →
+            </a>
           </motion.div>
         </motion.section>
+
+        {/* Scroll Storytelling Chapters */}
+        <div className="mt-20 space-y-16">
+          <StoryChapter
+            chapterNumber={1}
+            title="Create Your Universe"
+            theme="hero"
+            content={
+              <div className="space-y-4">
+                <p className="text-lg leading-relaxed">
+                  Every great comic begins with a world. Define your characters, settings, and rules once in your Story Bible.
+                </p>
+                <div className="flex items-center space-x-4 text-sm">
+                  <span className="bg-blue-600 px-3 py-1 rounded-full">Characters</span>
+                  <span className="bg-purple-600 px-3 py-1 rounded-full">Settings</span>
+                  <span className="bg-indigo-600 px-3 py-1 rounded-full">Art Style</span>
+                </div>
+              </div>
+            }
+          />
+
+          <StoryChapter
+            chapterNumber={2}
+            title="AI Brings Stories to Life"
+            theme="action"
+            content={
+              <div className="space-y-4">
+                <p className="text-lg leading-relaxed">
+                  Watch as AI generates stunning comic panels that maintain perfect consistency with your vision.
+                </p>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="bg-red-800/50 p-3 rounded">⚡ Instant Generation</div>
+                  <div className="bg-orange-800/50 p-3 rounded">🎨 Style Consistency</div>
+                </div>
+              </div>
+            }
+          />
+
+          <StoryChapter
+            chapterNumber={3}
+            title="Share Your Epic"
+            theme="adventure"
+            content={
+              <div className="space-y-4">
+                <p className="text-lg leading-relaxed">
+                  Publish your comic to the world! Share with the community and discover amazing stories from other creators.
+                </p>
+                <div className="text-center">
+                  <span className="bg-green-600 px-6 py-2 rounded-full text-lg font-bold">
+                    Join the Adventure! 🚀
+                  </span>
+                </div>
+              </div>
+            }
+          />
+        </div>
       </main>
       {/* Footer */}
       <footer 
