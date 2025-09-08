@@ -14,6 +14,7 @@ export default function SharePage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [, setLocation] = useLocation();
   const [showComicReader, setShowComicReader] = useState(false);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
 
   // Fetch public project data
   const { data: project, isLoading: projectLoading, error: projectError } = useQuery<Project & { user: User }>({
@@ -258,9 +259,12 @@ export default function SharePage() {
             imageUrl: panel.imageUrl || '',
             action: panel.prompt || `Panel ${panel.panelNumber}`,
           }))}
-          currentPageIndex={0}
-          onPageChange={() => {}}
-          onClose={() => setShowComicReader(false)}
+          currentPageIndex={currentPageIndex}
+          onPageChange={setCurrentPageIndex}
+          onClose={() => {
+            setShowComicReader(false);
+            setCurrentPageIndex(0); // Reset to first page when closing
+          }}
           projectTitle={project?.title}
         />
       )}
