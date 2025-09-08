@@ -118,7 +118,110 @@ export function MagicalMascot({
       onClick={handleClick}
       whileTap={{ scale: 0.9 }}
     >
-      
+      {/* Main mascot body - a friendly wizard */}
+      <div className="relative w-full h-full cursor-pointer">
+        {/* Wizard hat */}
+        <motion.div
+          className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-8 h-12 bg-gradient-to-b from-purple-600 to-purple-800 rounded-full"
+          animate={isActive ? { rotate: [0, 15, -15, 0] } : {}}
+          transition={{ duration: 0.5 }}
+        >
+          {/* Hat tip */}
+          <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-yellow-400 rounded-full" />
+          
+          {/* Stars on hat */}
+          <motion.div
+            className="absolute top-2 left-1 text-yellow-300 text-xs"
+            animate={{ opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          >
+            ✨
+          </motion.div>
+        </motion.div>
+
+        
+
+        {/* Magic sparkles around the mascot */}
+        {isActive && (
+          <>
+            {[...Array(6)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute text-yellow-400 text-lg pointer-events-none"
+                initial={{ 
+                  opacity: 0, 
+                  scale: 0,
+                  x: 0,
+                  y: 0
+                }}
+                animate={{
+                  opacity: [0, 1, 0],
+                  scale: [0, 1, 0],
+                  x: Math.cos(i * 60 * Math.PI / 180) * 40,
+                  y: Math.sin(i * 60 * Math.PI / 180) * 40,
+                  rotate: 360
+                }}
+                transition={{
+                  duration: 1,
+                  delay: i * 0.1,
+                  ease: "easeOut"
+                }}
+                style={{
+                  left: '50%',
+                  top: '50%',
+                  transform: 'translate(-50%, -50%)'
+                }}
+              >
+                ✨
+              </motion.div>
+            ))}
+          </>
+        )}
+
+        {/* Floating icons around mascot when active */}
+        {isActive && (
+          <>
+            <motion.div
+              className="absolute -top-8 -left-8 text-blue-500"
+              initial={{ opacity: 0, y: 0 }}
+              animate={{ 
+                opacity: [0, 1, 0], 
+                y: [-20, -40, -60],
+                rotate: [0, 180, 360]
+              }}
+              transition={{ duration: 2, ease: "easeOut" }}
+            >
+              <BookOpen className="w-4 h-4" />
+            </motion.div>
+            
+            <motion.div
+              className="absolute -top-8 -right-8 text-purple-500"
+              initial={{ opacity: 0, y: 0 }}
+              animate={{ 
+                opacity: [0, 1, 0], 
+                y: [-20, -40, -60],
+                rotate: [0, -180, -360]
+              }}
+              transition={{ duration: 2, delay: 0.3, ease: "easeOut" }}
+            >
+              <Zap className="w-4 h-4" />
+            </motion.div>
+
+            <motion.div
+              className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-green-500"
+              initial={{ opacity: 0, y: 0 }}
+              animate={{ 
+                opacity: [0, 1, 0], 
+                y: [20, 40, 60],
+                rotate: [0, 360, 720]
+              }}
+              transition={{ duration: 2, delay: 0.6, ease: "easeOut" }}
+            >
+              <Sparkles className="w-4 h-4" />
+            </motion.div>
+          </>
+        )}
+      </div>
     </motion.div>
   );
 }
