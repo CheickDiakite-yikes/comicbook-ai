@@ -5,7 +5,6 @@ import { FaGoogle } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { ParticleSystem } from "@/components/ParticleSystem";
 import { ScrollProgress } from "@/components/ScrollProgress";
-import { MagicalMascot } from "@/components/MagicalMascot";
 import { TypewriterText, AnimatedText } from "@/components/TypewriterText";
 import { MagicalBackground } from "@/components/MagicalBackground";
 import { ComicPanel, ComicSpeechBubble } from "@/components/ComicPanel";
@@ -92,13 +91,6 @@ export default function Landing() {
           animate={heroSection.isIntersecting ? "visible" : "hidden"}
           variants={animationVariants.staggerContainer}
         >
-          {/* Floating Mascot */}
-          <motion.div
-            className="absolute -top-16 left-8 sm:left-16 lg:left-32"
-            variants={animationVariants.comicPop}
-          >
-            <MagicalMascot size="lg" interactive={true} />
-          </motion.div>
 
           {/* Main title with typewriter effect */}
           <motion.div 
