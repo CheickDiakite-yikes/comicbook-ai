@@ -236,7 +236,11 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
       const tempProject = await tempProjectResponse.json() as Project;
       
       try {
-        // Generate structured script
+        // Generate structured script (minimum 5 pages for all scripts)
+        const MIN_PAGES = 5;
+        const DEFAULT_PAGES = 12;
+        const pageCount = Math.max(MIN_PAGES, DEFAULT_PAGES);
+        
         const structuredResponse = await fetch(`/api/projects/${tempProject.id}/generate-structured-script`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -246,7 +250,7 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
             genre: formValues.genre,
             characters: characterData,
             settings: [{ name: "Metro City", description: "A bustling metropolis with towering skyscrapers and busy streets." }],
-            pageCount: 12,
+            pageCount: pageCount,
             tone: formValues.genre,
             logline: formValues.description
           }),
