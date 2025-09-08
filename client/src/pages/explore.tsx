@@ -75,6 +75,16 @@ export default function Explore() {
   // Fetch public projects
   const { data: publicProjects = [], isLoading } = useQuery<PublicProject[]>({
     queryKey: ["/api/explore/projects", genreFilter],
+    queryFn: async () => {
+      const url = genreFilter === "all" 
+        ? "/api/explore/projects" 
+        : `/api/explore/projects?genre=${encodeURIComponent(genreFilter)}`;
+      const response = await fetch(url, { credentials: "include" });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch projects: ${response.status}`);
+      }
+      return response.json();
+    },
   });
 
   // Fetch comments for selected project
@@ -162,8 +172,8 @@ export default function Explore() {
     });
   };
 
-  const getGenres = () => {
-    const genres = publicProjects.map(p => p.genre).filter(Boolean);
+  const getGenres = (): string[] => {
+    const genres = publicProjects.map(p => p.genre).filter((genre): genre is string => Boolean(genre));
     return Array.from(new Set(genres));
   };
 
@@ -399,27 +409,29 @@ export default function Explore() {
                     No comments yet. Be the first to comment!
                   </p>
                 ) : (
-                  projectComments.map((comment) => (
-                    <div key={comment.id} className="flex space-x-3">
-                      <Avatar className="w-8 h-8">
-                        <AvatarImage src={comment.user.profileImageUrl || ""} />
-                        <AvatarFallback className="text-xs">
-                          {comment.user.firstName?.charAt(0) || comment.user.email?.charAt(0) || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center space-x-2">
-                          <span className="font-medium text-sm">
-                            {comment.user.firstName || comment.user.email?.split('@')[0] || 'Anonymous'}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString() : 'Unknown date'}
-                          </span>
+                  <>
+                    {projectComments.map((comment) => (
+                      <div key={comment.id} className="flex space-x-3">
+                        <Avatar className="w-8 h-8">
+                          <AvatarImage src={comment.user.profileImageUrl || ""} />
+                          <AvatarFallback className="text-xs">
+                            {comment.user.firstName?.charAt(0) || comment.user.email?.charAt(0) || "U"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-medium text-sm">
+                              {comment.user.firstName || comment.user.email?.split('@')[0] || 'Anonymous'}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString() : 'Unknown date'}
+                            </span>
+                          </div>
+                          <p className="text-sm">{comment.comment}</p>
                         </div>
-                        <p className="text-sm">{comment.comment}</p>
                       </div>
-                    </div>
-                  ))
+                    ))}
+                  </>
                 )}
               </div>
 
