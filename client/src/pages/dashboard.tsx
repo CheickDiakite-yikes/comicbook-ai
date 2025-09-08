@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import Navigation from "@/components/navigation";
@@ -7,14 +7,21 @@ import CreateProjectModal from "@/components/create-project-modal";
 import EditProjectModal from "@/components/edit-project-modal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Clock, Users, Settings } from "lucide-react";
-import type { Project } from "@shared/schema";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Plus, Clock, Users, Settings, Trash2, Filter } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import type { Project, Character } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 
 export default function Dashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedGenre, setSelectedGenre] = useState<string>("all");
+  const [deleteProject, setDeleteProject] = useState<Project | null>(null);
+  
+  const queryClient = useQueryClient();
   
   // Close sidebar on mobile when screen size changes
   useEffect(() => {
@@ -30,6 +37,25 @@ export default function Dashboard() {
 
   const { data: projects = [], isLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
+  });
+
+  // Fetch characters for all projects to get accurate counts
+  const { data: allCharacters = [] } = useQuery<Character[]>({
+    queryKey: ["/api/all-characters"],
+    queryFn: async () => {
+      const allCharacters = [];
+      for (const project of projects) {
+        try {
+          const response = await apiRequest("GET", `/api/projects/${project.id}/characters`, undefined);
+          const characters = await response.json();
+          allCharacters.push(...characters.map((char: any) => ({ ...char, projectId: project.id })));
+        } catch (error) {
+          console.error(`Failed to fetch characters for project ${project.id}:`, error);
+        }
+      }
+      return allCharacters;
+    },
+    enabled: projects.length > 0,
   });
 
   // Fetch actual page counts for each project
@@ -51,16 +77,70 @@ export default function Dashboard() {
     enabled: projects.length > 0,
   });
 
+  // Delete project mutation
+  const deleteProjectMutation = useMutation({
+    mutationFn: async (projectId: string) => {
+      await apiRequest("DELETE", `/api/projects/${projectId}`, undefined);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/all-pages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/all-characters"] });
+      toast({
+        title: "Project deleted",
+        description: "Your project has been successfully deleted.",
+      });
+      setDeleteProject(null);
+    },
+    onError: (error) => {
+      console.error("Failed to delete project:", error);
+      toast({
+        title: "Delete failed",
+        description: "There was an error deleting your project. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
   // Helper function to get page count for a specific project
   const getProjectPageCount = (projectId: string) => {
     return allPagesData.filter((page: any) => page.projectId === projectId).length;
   };
 
+  // Helper function to get character count for a specific project
+  const getProjectCharacterCount = (projectId: string) => {
+    return allCharacters.filter((char: any) => char.projectId === projectId).length;
+  };
+
+  // Helper function to format creation date
+  const formatCreationDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return "Today";
+    } else if (diffDays === 1) {
+      return "Yesterday";
+    } else if (diffDays < 7) {
+      return `${diffDays} days ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
+
+  // Filter projects by genre
+  const filteredProjects = projects.filter(project => {
+    if (selectedGenre === "all") return true;
+    return project.genre === selectedGenre;
+  });
+
+  // Get unique genres for filter
+  const availableGenres = [...new Set(projects.map(p => p.genre).filter(Boolean))];
+
   const totalPages = allPagesData.length;
-  const totalCharacters = projects.reduce((acc, project) => {
-    const projectPages = allPagesData.filter((page: any) => page.projectId === project.id);
-    return acc + projectPages.length * 3; // Estimate 3 characters per page
-  }, 0);
+  const totalCharacters = allCharacters.length;
 
   return (
     <div className="min-h-screen bg-background" style={{ paddingTop: 'var(--safe-top)' }}>
@@ -141,11 +221,34 @@ export default function Dashboard() {
 
           {/* Recent Projects */}
           <section className="mb-6 sm:mb-8" aria-labelledby="recent-projects-heading">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">
               <h2 id="recent-projects-heading" className="text-xl sm:text-2xl font-serif font-semibold">Recent Projects</h2>
-              <Button variant="ghost" className="text-primary hover:underline text-sm font-medium min-h-[44px]">
-                View all
-              </Button>
+              
+              <div className="flex items-center gap-4">
+                {/* Genre Filter */}
+                {availableGenres.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                    <Select value={selectedGenre} onValueChange={setSelectedGenre}>
+                      <SelectTrigger className="w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Genres</SelectItem>
+                        {availableGenres.map(genre => (
+                          <SelectItem key={genre} value={genre}>
+                            {genre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                
+                <Button variant="ghost" className="text-primary hover:underline text-sm font-medium min-h-[44px]">
+                  View all
+                </Button>
+              </div>
             </div>
             
             {isLoading ? (
@@ -162,7 +265,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                {projects.map((project) => (
+                {filteredProjects.map((project) => (
                   <div key={project.id} className="relative group">
                     <Link href={`/editor/${project.id}`}>
                       <Button
@@ -189,13 +292,19 @@ export default function Dashboard() {
                             <div className="flex items-center justify-between">
                               <div className="flex items-center space-x-2 text-xs text-muted-foreground">
                                 <Clock className="h-3 w-3" aria-hidden="true" />
-                                <span>Just created</span>
+                                <span>{project.createdAt ? formatCreationDate(project.createdAt.toString()) : 'Just created'}</span>
                               </div>
                               <div className="flex items-center space-x-1">
-                                <span className="bg-chart-4 w-2 h-2 rounded-full" aria-hidden="true"></span>
-                                <span className="bg-chart-5 w-2 h-2 rounded-full" aria-hidden="true"></span>
-                                <span className="bg-chart-1 w-2 h-2 rounded-full" aria-hidden="true"></span>
-                                <span className="text-xs text-muted-foreground ml-2">3 characters</span>
+                                {getProjectCharacterCount(project.id) > 0 && (
+                                  <>
+                                    <span className="bg-chart-4 w-2 h-2 rounded-full" aria-hidden="true"></span>
+                                    <span className="bg-chart-5 w-2 h-2 rounded-full" aria-hidden="true"></span>
+                                    <span className="bg-chart-1 w-2 h-2 rounded-full" aria-hidden="true"></span>
+                                  </>
+                                )}
+                                <span className="text-xs text-muted-foreground ml-2">
+                                  {getProjectCharacterCount(project.id)} {getProjectCharacterCount(project.id) === 1 ? 'character' : 'characters'}
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -203,21 +312,40 @@ export default function Dashboard() {
                       </Button>
                     </Link>
                     
-                    {/* Edit button */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm hover:bg-background/90 w-8 h-8 p-0"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setEditingProject(project);
-                      }}
-                      data-testid={`button-edit-project-${project.id}`}
-                      aria-label="Edit project"
-                    >
-                      <Settings className="h-4 w-4" />
-                    </Button>
+                    {/* Action buttons */}
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                      {/* Edit button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="bg-background/80 backdrop-blur-sm hover:bg-background/90 w-8 h-8 p-0"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setEditingProject(project);
+                        }}
+                        data-testid={`button-edit-project-${project.id}`}
+                        aria-label="Edit project"
+                      >
+                        <Settings className="h-4 w-4" />
+                      </Button>
+                      
+                      {/* Delete button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="bg-background/80 backdrop-blur-sm hover:bg-destructive/90 hover:text-destructive-foreground w-8 h-8 p-0"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDeleteProject(project);
+                        }}
+                        data-testid={`button-delete-project-${project.id}`}
+                        aria-label="Delete project"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
                 
@@ -312,6 +440,29 @@ export default function Dashboard() {
           project={editingProject}
         />
       )}
+      
+      {/* Delete Project Confirmation Dialog */}
+      <AlertDialog open={!!deleteProject} onOpenChange={(open) => !open && setDeleteProject(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete "{deleteProject?.title}" and all its content including pages, panels, characters, and generated artwork. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteProject && deleteProjectMutation.mutate(deleteProject.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteProjectMutation.isPending}
+              data-testid="confirm-delete-project"
+            >
+              {deleteProjectMutation.isPending ? "Deleting..." : "Delete Project"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
