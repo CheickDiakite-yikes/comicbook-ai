@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
+import Navigation from "@/components/navigation";
 import Sidebar from "@/components/sidebar";
 import { Users, Plus, Edit2, Trash2, Search, UserCircle, ImageIcon } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
@@ -21,6 +22,23 @@ export default function Characters() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Handle responsive behavior
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setSidebarOpen(false);
+      }
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const toggleSidebarCollapse = () => setSidebarCollapsed(!sidebarCollapsed);
+  const toggleMobileSidebar = () => setSidebarOpen(!sidebarOpen);
 
   // Form state for create/edit
   const [characterForm, setCharacterForm] = useState({
@@ -169,22 +187,57 @@ export default function Characters() {
   if (isLoading) {
     return (
       <>
-        <Sidebar />
-        <main className="flex-1 pl-64">
-          <div className="container mx-auto p-8">
-            <div className="flex items-center justify-center h-64">
-              <div className="text-muted-foreground">Loading characters...</div>
+        <Navigation
+          onToggleSidebar={() => {
+            if (window.innerWidth >= 768) {
+              toggleSidebarCollapse();
+            } else {
+              toggleMobileSidebar();
+            }
+          }}
+          showMobileToggle={true}
+          showDesktopToggle={true}
+          sidebarOpen={!sidebarCollapsed}
+        />
+        <div className="flex min-h-screen">
+          <Sidebar 
+            isOpen={sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+            isCollapsed={sidebarCollapsed}
+          />
+          <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'pl-16' : 'pl-64'}`}>
+            <div className="container mx-auto p-8">
+              <div className="flex items-center justify-center h-64">
+                <div className="text-muted-foreground">Loading characters...</div>
+              </div>
             </div>
-          </div>
-        </main>
+          </main>
+        </div>
       </>
     );
   }
 
   return (
     <>
-      <Sidebar />
-      <main className="flex-1 pl-64">
+      <Navigation
+        onToggleSidebar={() => {
+          if (window.innerWidth >= 768) {
+            toggleSidebarCollapse();
+          } else {
+            toggleMobileSidebar();
+          }
+        }}
+        showMobileToggle={true}
+        showDesktopToggle={true}
+        sidebarOpen={!sidebarCollapsed}
+      />
+      <div className="flex min-h-screen">
+        <Sidebar 
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          isCollapsed={sidebarCollapsed}
+        />
+        <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'pl-16' : 'pl-64'}`}>
         <div className="px-8 py-0 pt-[10px] pb-[10px]">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
@@ -311,8 +364,9 @@ export default function Characters() {
               />
             </DialogContent>
           </Dialog>
-        </div>
-      </main>
+          </div>
+        </main>
+      </div>
     </>
   );
 }

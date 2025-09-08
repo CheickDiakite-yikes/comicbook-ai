@@ -36,9 +36,13 @@ interface CommentWithUser extends ProjectComment {
 
 export default function Explore() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedProject, setSelectedProject] = useState<PublicProject | null>(null);
   const [newComment, setNewComment] = useState("");
   const [genreFilter, setGenreFilter] = useState("all");
+
+  const toggleSidebarCollapse = () => setSidebarCollapsed(!sidebarCollapsed);
+  const toggleMobileSidebar = () => setSidebarOpen(!sidebarOpen);
   
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
@@ -145,13 +149,28 @@ export default function Explore() {
 
   return (
     <div className="min-h-screen bg-background" style={{ paddingTop: 'var(--safe-top)' }}>
-      <Navigation onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} showMobileToggle={true} />
+      <Navigation 
+        onToggleSidebar={() => {
+          if (window.innerWidth >= 768) {
+            toggleSidebarCollapse();
+          } else {
+            toggleMobileSidebar();
+          }
+        }}
+        showMobileToggle={true}
+        showDesktopToggle={true}
+        sidebarOpen={!sidebarCollapsed}
+      />
       
       <div className="flex min-h-[calc(100vh-64px)]">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <Sidebar 
+          isOpen={sidebarOpen} 
+          onClose={() => setSidebarOpen(false)}
+          isCollapsed={sidebarCollapsed}
+        />
         
         <main 
-          className="flex-1 overflow-y-auto p-4 sm:p-6 w-full md:w-auto"
+          className={`flex-1 overflow-y-auto p-4 sm:p-6 w-full transition-all duration-300 ${sidebarCollapsed ? 'md:pl-16' : 'md:pl-64'}`}
           style={{ paddingBottom: 'calc(1rem + var(--safe-bottom))' }}
         >
           <div className="max-w-6xl mx-auto space-y-6">
