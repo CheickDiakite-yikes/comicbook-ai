@@ -11,6 +11,7 @@ import Editor from "@/pages/editor";
 import Templates from "@/pages/templates";
 import Explore from "@/pages/explore";
 import Profile from "@/pages/profile";
+import Characters from "@/pages/characters";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -26,6 +27,7 @@ function Router() {
           <Route path="/templates" component={Templates} />
           <Route path="/explore" component={Explore} />
           <Route path="/profile" component={Profile} />
+          <Route path="/characters" component={Characters} />
         </>
       )}
       <Route component={NotFound} />

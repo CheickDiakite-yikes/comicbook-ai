@@ -916,6 +916,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========================================
+  // Character Library API Routes
+  // ========================================
+
+  // Get user's library characters
+  app.get("/api/characters/library", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const characters = await storage.getUserLibraryCharacters(userId);
+      res.json(characters);
+    } catch (error) {
+      console.error("Error fetching library characters:", error);
+      res.status(500).json({ message: "Failed to fetch library characters" });
+    }
+  });
+
+  // Create library character
+  app.post("/api/characters/library", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      
+      // Validate character data (without projectId)
+      const characterData = {
+        name: req.body.name,
+        role: req.body.role,
+        bio: req.body.bio,
+        visualDescriptors: req.body.visualDescriptors,
+        alwaysTraits: req.body.alwaysTraits,
+        neverTraits: req.body.neverTraits,
+        referenceImageUrl: req.body.referenceImageUrl,
+        colorScheme: req.body.colorScheme,
+      };
+
+      const character = await storage.createLibraryCharacter(userId, characterData);
+      res.json(character);
+    } catch (error) {
+      console.error("Error creating library character:", error);
+      res.status(400).json({ message: "Failed to create library character" });
+    }
+  });
+
+  // Update library character
+  app.put("/api/characters/library/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const characterId = req.params.id;
+      
+      const updates = {
+        name: req.body.name,
+        role: req.body.role,
+        bio: req.body.bio,
+        visualDescriptors: req.body.visualDescriptors,
+        alwaysTraits: req.body.alwaysTraits,
+        neverTraits: req.body.neverTraits,
+        referenceImageUrl: req.body.referenceImageUrl,
+        colorScheme: req.body.colorScheme,
+      };
+
+      const character = await storage.updateLibraryCharacter(characterId, userId, updates);
+      if (!character) {
+        return res.status(404).json({ message: "Character not found or not owned by user" });
+      }
+      
+      res.json(character);
+    } catch (error) {
+      console.error("Error updating library character:", error);
+      res.status(400).json({ message: "Failed to update library character" });
+    }
+  });
+
+  // Delete library character
+  app.delete("/api/characters/library/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const characterId = req.params.id;
+      
+      const success = await storage.deleteLibraryCharacter(characterId, userId);
+      if (!success) {
+        return res.status(404).json({ message: "Character not found or not owned by user" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting library character:", error);
+      res.status(500).json({ message: "Failed to delete library character" });
+    }
+  });
+
+  // Copy library character to project
+  app.post("/api/characters/library/:id/copy", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const characterId = req.params.id;
+      const { projectId } = req.body;
+      
+      if (!projectId) {
+        return res.status(400).json({ message: "Project ID is required" });
+      }
+
+      // Verify user owns the project
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found or not owned by user" });
+      }
+
+      const projectCharacter = await storage.copyCharacterToProject(characterId, projectId, userId);
+      res.json(projectCharacter);
+    } catch (error) {
+      console.error("Error copying character to project:", error);
+      res.status(400).json({ message: "Failed to copy character to project" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

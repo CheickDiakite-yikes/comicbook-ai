@@ -397,6 +397,60 @@ export class MemStorage implements IStorage {
   async deleteScriptDialogue(id: string): Promise<boolean> {
     throw new Error("Structured scripts not implemented in MemStorage");
   }
+
+  // Social features placeholder methods for MemStorage
+  async getUserProfile(userId: string): Promise<UserProfile | undefined> {
+    return undefined; // Not implemented for in-memory storage
+  }
+
+  async updateUserProfile(userId: string, profile: Partial<InsertUserProfile>): Promise<UserProfile> {
+    throw new Error("Social features not implemented for in-memory storage");
+  }
+
+  async getPublicProjects(genre?: string): Promise<any[]> {
+    return []; // Not implemented for in-memory storage
+  }
+
+  async getUserProjectsWithStats(userId: string): Promise<any[]> {
+    return []; // Not implemented for in-memory storage
+  }
+
+  async likeProject(projectId: string, userId: string): Promise<ProjectLike> {
+    throw new Error("Social features not implemented for in-memory storage");
+  }
+
+  async unlikeProject(projectId: string, userId: string): Promise<boolean> {
+    return false; // Not implemented for in-memory storage
+  }
+
+  async getProjectComments(projectId: string): Promise<any[]> {
+    return []; // Not implemented for in-memory storage
+  }
+
+  async createProjectComment(comment: InsertProjectComment): Promise<ProjectComment> {
+    throw new Error("Social features not implemented for in-memory storage");
+  }
+
+  // Character library placeholder methods for MemStorage
+  async getUserLibraryCharacters(userId: string): Promise<Character[]> {
+    return []; // Not implemented for in-memory storage
+  }
+
+  async createLibraryCharacter(userId: string, character: Omit<InsertCharacter, 'projectId'>): Promise<Character> {
+    throw new Error("Character library not implemented for in-memory storage");
+  }
+
+  async updateLibraryCharacter(id: string, userId: string, updates: Partial<InsertCharacter>): Promise<Character | undefined> {
+    return undefined; // Not implemented for in-memory storage
+  }
+
+  async deleteLibraryCharacter(id: string, userId: string): Promise<boolean> {
+    return false; // Not implemented for in-memory storage
+  }
+
+  async copyCharacterToProject(characterId: string, projectId: string, userId: string): Promise<Character> {
+    throw new Error("Character library not implemented for in-memory storage");
+  }
 }
 
 // Database storage implementation
@@ -854,7 +908,7 @@ export class DatabaseStorage implements IStorage {
       .insert(characters)
       .values({
         projectId,
-        userId: null, // Project characters don't have userId
+        userId: undefined, // Project characters don't have userId
         name: libraryCharacter.name,
         role: libraryCharacter.role,
         bio: libraryCharacter.bio,
