@@ -143,8 +143,8 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
           )}
         </div>
         
-        <ScrollArea className="h-[600px] w-full border rounded-md p-4">
-          <div className="space-y-4">
+        <ScrollArea className="h-[600px] w-full border rounded-md p-2 sm:p-4">
+          <div className="space-y-4 min-w-0">
             {structuredScript.pages?.filter(page => {
               // If we have a current page and not showing all pages, only show current page
               if (currentPageNumber && !showAllPages) {
@@ -153,14 +153,14 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
               // Otherwise show all pages
               return true;
             }).map((page) => (
-              <Card key={page.id} className={`overflow-hidden ${
+              <Card key={page.id} className={`overflow-hidden min-w-0 ${
                 currentPageNumber && page.pageNumber === currentPageNumber ? 'border-primary border-2' : ''
               }`}>
                 {currentPageNumber && page.pageNumber === currentPageNumber && (
-                  <div className="bg-primary/5 px-4 py-2 border-b">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="default">Current Page</Badge>
-                      <span className="text-sm font-medium">Page {page.pageNumber}: {page.title}</span>
+                  <div className="bg-primary/5 px-2 sm:px-4 py-2 border-b">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Badge variant="default" className="flex-shrink-0">Current Page</Badge>
+                      <span className="text-sm font-medium truncate">Page {page.pageNumber}: {page.title}</span>
                     </div>
                   </div>
                 )}
@@ -169,30 +169,32 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
                   onOpenChange={() => togglePage(page.id)}
                 >
                   <CollapsibleTrigger asChild>
-                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          {expandedPages.has(page.id) ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                          <div>
-                            <CardTitle className="text-lg">
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors px-2 sm:px-6">
+                      <div className="flex items-start justify-between gap-2 min-w-0">
+                        <div className="flex items-start gap-2 sm:gap-3 min-w-0 flex-1">
+                          <div className="flex-shrink-0 mt-0.5">
+                            {expandedPages.has(page.id) ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <CardTitle className="text-base sm:text-lg text-left break-words">
                               Page {page.pageNumber}: {page.title}
                             </CardTitle>
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              <Badge variant="outline" className="text-xs">
+                            <div className="flex flex-wrap gap-1 sm:gap-2 mt-2">
+                              <Badge variant="outline" className="text-xs flex-shrink-0">
                                 <MapPin className="h-3 w-3 mr-1" />
-                                {page.setting}
+                                <span className="truncate max-w-[120px] sm:max-w-none">{page.setting}</span>
                               </Badge>
                               {page.mood && (
-                                <Badge variant="outline" className="text-xs">
+                                <Badge variant="outline" className="text-xs flex-shrink-0">
                                   <Palette className="h-3 w-3 mr-1" />
-                                  {page.mood}
+                                  <span className="truncate max-w-[80px] sm:max-w-none">{page.mood}</span>
                                 </Badge>
                               )}
-                              <Badge variant="secondary" className="text-xs">
+                              <Badge variant="secondary" className="text-xs flex-shrink-0">
                                 {page.panels?.length || 0} Panels
                               </Badge>
                             </div>
@@ -203,37 +205,37 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
                   </CollapsibleTrigger>
                   
                   <CollapsibleContent>
-                    <CardContent className="pt-0">
+                    <CardContent className="pt-0 px-2 sm:px-6">
                       {/* Page Summary */}
-                      <div className="bg-muted/30 rounded-lg p-4 mb-4">
-                        <h4 className="font-medium mb-2 flex items-center gap-2">
-                          <Users className="h-4 w-4" />
+                      <div className="bg-muted/30 rounded-lg p-3 sm:p-4 mb-4">
+                        <h4 className="font-medium mb-2 flex items-center gap-2 text-sm sm:text-base">
+                          <Users className="h-4 w-4 flex-shrink-0" />
                           Characters & Setting
                         </h4>
                         <div className="space-y-2">
                           <div>
                             <span className="text-sm font-medium">Setting:</span>
-                            <p className="text-sm text-muted-foreground mt-1">
+                            <p className="text-sm text-muted-foreground mt-1 break-words">
                               {page.setting}
                             </p>
                           </div>
                           {(page.timeOfDay || page.location || page.weatherConditions) && (
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-1 sm:gap-2">
                               {page.timeOfDay && (
-                                <Badge variant="outline" className="text-xs">
+                                <Badge variant="outline" className="text-xs flex-shrink-0">
                                   <Clock className="h-3 w-3 mr-1" />
-                                  {page.timeOfDay}
+                                  <span className="truncate max-w-[100px] sm:max-w-none">{page.timeOfDay}</span>
                                 </Badge>
                               )}
                               {page.location && (
-                                <Badge variant="outline" className="text-xs">
+                                <Badge variant="outline" className="text-xs flex-shrink-0">
                                   <MapPin className="h-3 w-3 mr-1" />
-                                  {page.location}
+                                  <span className="truncate max-w-[100px] sm:max-w-none">{page.location}</span>
                                 </Badge>
                               )}
                               {page.weatherConditions && (
-                                <Badge variant="outline" className="text-xs">
-                                  {page.weatherConditions}
+                                <Badge variant="outline" className="text-xs flex-shrink-0">
+                                  <span className="truncate max-w-[100px] sm:max-w-none">{page.weatherConditions}</span>
                                 </Badge>
                               )}
                             </div>
@@ -245,44 +247,54 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
                       <div className="space-y-3">
                         <h4 className="font-medium">Panels</h4>
                         {page.panels?.map((panel) => (
-                          <Card key={panel.id} className="border-l-4 border-l-primary/30">
+                          <Card key={panel.id} className="border-l-4 border-l-primary/30 min-w-0">
                             <Collapsible 
                               open={expandedPanels.has(panel.id)} 
                               onOpenChange={() => togglePanel(panel.id)}
                             >
                               <CollapsibleTrigger asChild>
-                                <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors pb-3">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                      {expandedPanels.has(panel.id) ? (
-                                        <ChevronDown className="h-3 w-3" />
-                                      ) : (
-                                        <ChevronRight className="h-3 w-3" />
-                                      )}
-                                      <CardTitle className="text-base">
-                                        Panel {panel.panelNumber}
-                                      </CardTitle>
-                                      <div className="flex gap-1">
-                                        <Badge variant="outline" className="text-xs">
-                                          <Camera className="h-3 w-3 mr-1" />
-                                          {panel.cameraAngle}
-                                        </Badge>
-                                        <Badge variant="outline" className="text-xs">
-                                          <Eye className="h-3 w-3 mr-1" />
-                                          {panel.shotType}
-                                        </Badge>
+                                <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors pb-3 px-2 sm:px-6">
+                                  <div className="flex flex-col gap-2 min-w-0">
+                                    <div className="flex items-center justify-between gap-2 min-w-0">
+                                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                                        <div className="flex-shrink-0">
+                                          {expandedPanels.has(panel.id) ? (
+                                            <ChevronDown className="h-3 w-3" />
+                                          ) : (
+                                            <ChevronRight className="h-3 w-3" />
+                                          )}
+                                        </div>
+                                        <CardTitle className="text-sm sm:text-base">
+                                          Panel {panel.panelNumber}
+                                        </CardTitle>
+                                      </div>
+                                      <div className="flex flex-wrap gap-1 flex-shrink-0">
+                                        {panel.cameraAngle && (
+                                          <Badge variant="outline" className="text-xs">
+                                            <Camera className="h-3 w-3 mr-1" />
+                                            <span className="hidden sm:inline">{panel.cameraAngle}</span>
+                                            <span className="sm:hidden">{panel.cameraAngle.slice(0, 6)}</span>
+                                          </Badge>
+                                        )}
+                                        {panel.shotType && (
+                                          <Badge variant="outline" className="text-xs">
+                                            <Eye className="h-3 w-3 mr-1" />
+                                            <span className="hidden sm:inline">{panel.shotType}</span>
+                                            <span className="sm:hidden">{panel.shotType.slice(0, 6)}</span>
+                                          </Badge>
+                                        )}
                                       </div>
                                     </div>
+                                    <p className="text-sm text-muted-foreground text-left break-words">
+                                      {panel.sceneDescription}
+                                    </p>
                                   </div>
-                                  <p className="text-sm text-muted-foreground text-left">
-                                    {panel.sceneDescription}
-                                  </p>
                                 </CardHeader>
                               </CollapsibleTrigger>
                               
                               <CollapsibleContent>
-                                <CardContent className="pt-0">
-                                  <div className="grid gap-4 md:grid-cols-2">
+                                <CardContent className="pt-0 px-2 sm:px-6">
+                                  <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
                                     {/* Technical Details */}
                                     <div className="space-y-3">
                                       <div>
@@ -291,20 +303,20 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
                                           Technical Direction
                                         </h5>
                                         <div className="space-y-1 text-sm">
-                                          <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Mood:</span>
-                                            <span>{panel.mood}</span>
+                                          <div className="flex justify-between gap-2">
+                                            <span className="text-muted-foreground flex-shrink-0">Mood:</span>
+                                            <span className="break-words text-right">{panel.mood}</span>
                                           </div>
-                                          <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Timing:</span>
-                                            <span>{panel.timing}</span>
+                                          <div className="flex justify-between gap-2">
+                                            <span className="text-muted-foreground flex-shrink-0">Timing:</span>
+                                            <span className="break-words text-right">{panel.timing}</span>
                                           </div>
                                         </div>
                                       </div>
 
                                       <div>
                                         <h5 className="text-sm font-medium mb-1">Action:</h5>
-                                        <p className="text-sm text-muted-foreground">
+                                        <p className="text-sm text-muted-foreground break-words">
                                           {panel.action}
                                         </p>
                                       </div>
@@ -312,7 +324,7 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
                                       {panel.visualNotes && (
                                         <div>
                                           <h5 className="text-sm font-medium mb-1">Visual Notes:</h5>
-                                          <p className="text-sm text-muted-foreground">
+                                          <p className="text-sm text-muted-foreground break-words">
                                             {panel.visualNotes}
                                           </p>
                                         </div>
@@ -326,7 +338,7 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
                                           </h5>
                                           <div className="flex flex-wrap gap-1">
                                             {panel.soundEffects.map((sfx, idx) => (
-                                              <Badge key={idx} variant="secondary" className="text-xs">
+                                              <Badge key={idx} variant="secondary" className="text-xs break-words">
                                                 {sfx}
                                               </Badge>
                                             ))}
@@ -345,7 +357,7 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
                                           </h5>
                                           <div className="flex flex-wrap gap-1">
                                             {panel.characters.map((character: string, idx: number) => (
-                                              <Badge key={idx} variant="outline" className="text-xs">
+                                              <Badge key={idx} variant="outline" className="text-xs break-words">
                                                 {character}
                                               </Badge>
                                             ))}
@@ -362,11 +374,11 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
                                           <div className="space-y-2">
                                             {panel.dialogue.map((dialogue, idx) => (
                                               <div key={idx} className="bg-muted/50 rounded p-2">
-                                                <div className="flex items-center justify-between mb-1">
-                                                  <span className="text-sm font-medium">
+                                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-1">
+                                                  <span className="text-sm font-medium break-words">
                                                     {dialogue.character}
                                                   </span>
-                                                  <div className="flex gap-1">
+                                                  <div className="flex flex-wrap gap-1">
                                                     {dialogue.tone && (
                                                       <Badge variant="outline" className="text-xs">
                                                         {dialogue.tone}
@@ -384,7 +396,7 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
                                                     )}
                                                   </div>
                                                 </div>
-                                                <p className="text-sm">"{dialogue.text}"</p>
+                                                <p className="text-sm break-words">"{dialogue.text}"</p>
                                               </div>
                                             ))}
                                           </div>
