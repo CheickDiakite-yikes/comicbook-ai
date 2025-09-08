@@ -904,6 +904,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate cover art for project
+  app.post("/api/projects/:projectId/generate-cover-art", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const projectId = req.params.projectId;
+      
+      // Verify user owns the project
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      
+      // Get project characters for context
+      const characters = await storage.getProjectCharacters(projectId);
+      
+      // Prepare project context for cover generation
+      const projectContext = {
+        title: project.title,
+        genre: project.genre,
+        description: project.description,
+        artStyle: project.artStyle,
+        characters: characters.map(char => ({
+          name: char.name,
+          role: char.role,
+          bio: char.bio,
+          visualDescriptors: char.visualDescriptors,
+        })),
+        settings: project.settings || [],
+      };
+      
+      console.log(`🎨 Generating cover art for project: "${project.title}" (${projectId})`);
+      
+      // Generate cover art using Gemini
+      const result = await geminiService.generateCoverArt({
+        projectId,
+        projectContext,
+      });
+      
+      if (result.status === "completed") {
+        // Save cover art URL to project
+        const updatedProject = await storage.updateProject(projectId, {
+          coverArt: result.imageUrl,
+        });
+        
+        console.log(`✅ Cover art generated and saved for project: "${project.title}"`);
+        
+        res.json({
+          success: true,
+          coverArt: result.imageUrl,
+          project: updatedProject,
+        });
+      } else {
+        console.error(`❌ Cover art generation failed for project: "${project.title}":`, result.error);
+        res.status(500).json({ 
+          success: false,
+          message: result.error || "Failed to generate cover art" 
+        });
+      }
+    } catch (error) {
+      console.error("🔥 Error generating cover art:", error);
+      res.status(500).json({ 
+        success: false,
+        message: "Failed to generate cover art" 
+      });
+    }
+  });
+
   // ========================================
   // Social Features API Routes
   // ========================================
