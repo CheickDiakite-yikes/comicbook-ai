@@ -19,6 +19,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { aiService } from "@/lib/ai-service";
 import type { Project } from "@shared/schema";
+import AIStoryGenerator from "./ai-story-generator";
 
 interface CreateProjectModalProps {
   open: boolean;
@@ -64,6 +65,7 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [isGeneratingCharacterBio, setIsGeneratingCharacterBio] = useState<number | null>(null);
   const [isGeneratingCharacterVisual, setIsGeneratingCharacterVisual] = useState<number | null>(null);
+  const [showAIStoryGenerator, setShowAIStoryGenerator] = useState(false);
   const [characters, setCharacters] = useState([
     { name: "Captain Thunder", role: "Main Hero", bio: "A powerful superhero with lightning abilities, tall with silver hair and a blue cape. Always confident and protective of civilians.", visualDescriptors: "" }
   ]);
@@ -198,6 +200,62 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
     const updated = [...characters];
     updated[index] = { ...updated[index], [field]: value };
     setCharacters(updated);
+  };
+
+  const handleAIStoryGenerated = async (storyData: any) => {
+    try {
+      // Generate complete story content using AI
+      const response = await fetch("/api/generate-complete-story", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          genres: storyData.genres,
+          length: storyData.length,
+          artStyle: storyData.artStyle,
+          tone: storyData.tone
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate complete story");
+      }
+
+      const completeStory = await response.json();
+
+      // Auto-populate the form with generated content
+      form.setValue("title", completeStory.title);
+      form.setValue("genre", completeStory.genre);
+      form.setValue("description", completeStory.description);
+      setSelectedArtStyle(storyData.artStyle);
+      setCharacters(completeStory.characters || []);
+      setGeneratedStructuredScript(completeStory.structuredScript);
+      
+      if (completeStory.structuredScript) {
+        const previewText = `# ${completeStory.title} - AI Generated Story!
+
+✅ ${completeStory.structuredScript.pages?.length || 6} pages with detailed metadata
+✅ Rich character development and world-building
+✅ Genre blend: ${storyData.genres.join(" + ")}
+✅ ${storyData.tone} tone with ${storyData.length} pacing
+✅ Optimized for ${storyData.artStyle} art style
+
+The complete structured script with full character details has been generated and is ready for your review.`;
+        
+        form.setValue("script", previewText);
+      }
+
+      toast({
+        title: "Story Generated Successfully!",
+        description: `Your ${storyData.genres.join(" + ")} ${storyData.length} story is ready to create!`,
+      });
+    } catch (error) {
+      console.error("Error generating AI story:", error);
+      toast({
+        title: "Generation Failed",
+        description: "Failed to generate AI story. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleGenerateScript = async () => {
@@ -446,6 +504,26 @@ Create a visual description that fits the ${selectedArtStyle || 'comic-book'} ar
           <Button variant="ghost" size="sm" onClick={onClose} data-testid="button-close-modal">
             <X className="h-4 w-4" />
           </Button>
+        </div>
+
+        {/* AI Story Generator Section */}
+        <div className="px-6 pt-4 pb-2 bg-gradient-to-r from-primary/5 to-accent/5 border-b border-border">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-lg">Need Story Inspiration?</h3>
+              <p className="text-sm text-muted-foreground">Let AI create a complete story concept for you in seconds</p>
+            </div>
+            <Button 
+              variant="default"
+              size="lg"
+              className="bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90"
+              onClick={() => setShowAIStoryGenerator(true)}
+              data-testid="button-ai-story-generator"
+            >
+              <Wand2 className="mr-2 h-5 w-5" />
+              AI Story Generator
+            </Button>
+          </div>
         </div>
 
         {/* Modal Content */}
@@ -814,6 +892,13 @@ Create a visual description that fits the ${selectedArtStyle || 'comic-book'} ar
           </form>
         </Form>
       </div>
+      
+      {/* AI Story Generator Modal */}
+      <AIStoryGenerator
+        isOpen={showAIStoryGenerator}
+        onClose={() => setShowAIStoryGenerator(false)}
+        onGenerate={handleAIStoryGenerated}
+      />
     </div>
   );
 }

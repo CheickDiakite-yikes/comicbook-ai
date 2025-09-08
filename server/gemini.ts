@@ -1140,6 +1140,171 @@ Create a script that tells a complete, satisfying story with strong visual story
     
     return scenes;
   }
+
+  /**
+   * Generate a complete story with title, description, characters, and script
+   */
+  async generateCompleteStory(request: {
+    genres: string[];
+    length: string;
+    artStyle: string;
+    tone: string;
+  }): Promise<{
+    title: string;
+    genre: string;
+    description: string;
+    characters: Array<{
+      name: string;
+      role: string;
+      bio: string;
+      visualDescriptors: string;
+    }>;
+    structuredScript: any;
+  }> {
+    try {
+      // Map length to page count
+      const pageCounts = {
+        short: Math.floor(Math.random() * 7) + 6,  // 6-12 pages
+        medium: Math.floor(Math.random() * 9) + 12, // 12-20 pages
+        epic: Math.floor(Math.random() * 11) + 20   // 20-30 pages
+      };
+      
+      const pageCount = pageCounts[request.length as keyof typeof pageCounts] || 12;
+      
+      const prompt = `You are an expert storyteller and comic creator. Generate a complete, original comic story concept with all necessary details.
+
+REQUIREMENTS:
+- Genres: ${request.genres.join(" + ")} (blend these thoughtfully)
+- Length: ${request.length} story (${pageCount} pages)
+- Art Style: ${request.artStyle}
+- Tone: ${request.tone}
+
+CREATE A COMPLETE STORY PACKAGE INCLUDING:
+
+1. TITLE: Creative, memorable title that captures the genre blend
+2. BLENDED GENRE: How the ${request.genres.join(" and ")} elements work together
+3. STORY DESCRIPTION: 2-3 paragraph compelling synopsis that hooks readers
+4. MAIN CHARACTERS: 3-4 well-developed characters with:
+   - Name and role
+   - Personality and background
+   - Visual description (appearance, clothing, distinctive features)
+   - Character motivations and goals
+
+5. COMPLETE STRUCTURED SCRIPT: ${pageCount} pages of detailed comic script with:
+   - Page-by-page breakdown
+   - Panel descriptions (2-5 panels per page)
+   - Character dialogue with emotion
+   - Visual notes and camera angles
+   - Sound effects where appropriate
+
+STORYTELLING GUIDELINES:
+- Create compelling character arcs and conflicts
+- Include genre-appropriate elements (${request.genres.join(", ")})
+- Match the ${request.tone} tone throughout
+- Design for ${request.artStyle} visual style
+- Ensure ${pageCount} pages tell a complete, satisfying story
+- Include strong opening, development, climax, and resolution
+
+Generate a professional-quality story concept that comic creators would be excited to produce.`;
+
+      console.log("🎨 Generating complete story with Gemini Pro...");
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-pro",
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              genre: { type: "string" },
+              description: { type: "string" },
+              characters: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    role: { type: "string" },
+                    bio: { type: "string" },
+                    visualDescriptors: { type: "string" }
+                  },
+                  required: ["name", "role", "bio", "visualDescriptors"]
+                }
+              },
+              structuredScript: {
+                type: "object",
+                properties: {
+                  title: { type: "string" },
+                  logline: { type: "string" },
+                  pages: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        pageNumber: { type: "number" },
+                        title: { type: "string" },
+                        setting: { type: "string" },
+                        overallMood: { type: "string" },
+                        characters: { type: "array", items: { type: "string" } },
+                        narrative: { type: "string" },
+                        panels: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            properties: {
+                              panelNumber: { type: "number" },
+                              visualDescription: { type: "string" },
+                              cameraAngle: { type: "string" },
+                              shotType: { type: "string" },
+                              mood: { type: "string" },
+                              visualNotes: { type: "string" },
+                              timing: { type: "string" },
+                              soundEffects: { type: "array", items: { type: "string" } },
+                              dialogue: {
+                                type: "array",
+                                items: {
+                                  type: "object",
+                                  properties: {
+                                    characterName: { type: "string" },
+                                    text: { type: "string" },
+                                    tone: { type: "string" },
+                                    placement: { type: "string" }
+                                  },
+                                  required: ["characterName", "text", "tone", "placement"]
+                                }
+                              }
+                            },
+                            required: ["panelNumber", "visualDescription", "cameraAngle", "shotType", "mood"]
+                          }
+                        }
+                      },
+                      required: ["pageNumber", "title", "setting", "overallMood", "panels"]
+                    }
+                  }
+                },
+                required: ["title", "logline", "pages"]
+              }
+            },
+            required: ["title", "genre", "description", "characters", "structuredScript"]
+          }
+        },
+        contents: prompt,
+      });
+
+      const completeStory = response.text;
+      if (!completeStory) {
+        throw new Error("Empty response from Gemini API");
+      }
+
+      console.log("✅ Complete story generated successfully");
+      return JSON.parse(completeStory);
+    } catch (error) {
+      console.error("🔥 Error generating complete story:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      throw new Error("Failed to generate complete story: " + errorMessage);
+    }
+  }
 }
 
 // Export singleton instance
