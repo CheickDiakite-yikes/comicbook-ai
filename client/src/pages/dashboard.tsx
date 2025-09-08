@@ -313,12 +313,12 @@ export default function Dashboard() {
                     </Link>
                     
                     {/* Action buttons */}
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                    <div className="absolute top-2 right-2 opacity-40 group-hover:opacity-100 hover:opacity-100 transition-opacity flex space-x-1">
                       {/* Edit button */}
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="bg-background/80 backdrop-blur-sm hover:bg-background/90 w-8 h-8 p-0"
+                        className="bg-background/90 backdrop-blur-sm hover:bg-background shadow-sm border border-border/50 hover:border-border w-8 h-8 p-0"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -334,7 +334,7 @@ export default function Dashboard() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="bg-background/80 backdrop-blur-sm hover:bg-destructive/90 hover:text-destructive-foreground w-8 h-8 p-0"
+                        className="bg-background/90 backdrop-blur-sm hover:bg-destructive hover:text-destructive-foreground shadow-sm border border-border/50 hover:border-destructive w-8 h-8 p-0"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
