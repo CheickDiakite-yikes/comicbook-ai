@@ -2,15 +2,16 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, BookOpen, Users, Settings, Palette, Wand2, X } from "lucide-react";
+import { LayoutDashboard, Compass, Users, User, Palette, Wand2, X } from "lucide-react";
 import type { Project } from "@shared/schema";
 
 interface SidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
+  allPagesData?: any[];
 }
 
-export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
+export default function Sidebar({ isOpen = true, onClose, allPagesData = [] }: SidebarProps) {
   const [location] = useLocation();
   
   const { data: projects = [] } = useQuery<Project[]>({
@@ -18,6 +19,11 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   });
 
   const recentProjects = projects.slice(0, 2);
+
+  // Helper function to get page count for a project
+  const getProjectPageCount = (projectId: string) => {
+    return allPagesData.filter((page: any) => page.projectId === projectId).length;
+  };
 
   const isActive = (path: string) => {
     if (path === "/" && location === "/") return true;
@@ -85,18 +91,18 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                   </Link>
                 </li>
                 <li role="listitem">
-                  <Link href="/projects">
+                  <Link href="/explore">
                     <Button
                       variant="ghost"
                       className={`w-full justify-start space-x-3 p-3 h-auto min-h-[44px] ${
-                        isActive("/projects") 
+                        isActive("/explore") 
                           ? "bg-accent text-accent-foreground" 
                           : "hover:bg-accent hover:text-accent-foreground"
                       }`} 
-                      data-testid="nav-projects"
+                      data-testid="nav-explore"
                     >
-                      <BookOpen className="w-5 h-5" aria-hidden="true" />
-                      <span>My Comics</span>
+                      <Compass className="w-5 h-5" aria-hidden="true" />
+                      <span>Explore</span>
                     </Button>
                   </Link>
                 </li>
@@ -113,14 +119,18 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                   </Link>
                 </li>
                 <li role="listitem">
-                  <Link href="/settings">
+                  <Link href="/profile">
                     <Button
                       variant="ghost"
-                      className="w-full justify-start space-x-3 p-3 h-auto min-h-[44px] hover:bg-accent hover:text-accent-foreground transition-colors" 
-                      data-testid="nav-settings"
+                      className={`w-full justify-start space-x-3 p-3 h-auto min-h-[44px] ${
+                        isActive("/profile") 
+                          ? "bg-accent text-accent-foreground" 
+                          : "hover:bg-accent hover:text-accent-foreground"
+                      }`} 
+                      data-testid="nav-profile"
                     >
-                      <Settings className="w-5 h-5" aria-hidden="true" />
-                      <span>Settings</span>
+                      <User className="w-5 h-5" aria-hidden="true" />
+                      <span>Profile</span>
                     </Button>
                   </Link>
                 </li>
@@ -149,7 +159,9 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                         </div>
                         <div className="min-w-0 flex-1 text-left">
                           <p className="text-sm font-medium truncate">{project.title}</p>
-                          <p className="text-xs text-muted-foreground">0 pages</p>
+                          <p className="text-xs text-muted-foreground">
+                            {getProjectPageCount(project.id)} {getProjectPageCount(project.id) === 1 ? 'page' : 'pages'}
+                          </p>
                         </div>
                       </div>
                     </div>

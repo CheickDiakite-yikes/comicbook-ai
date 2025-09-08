@@ -147,7 +147,7 @@ export default function Dashboard() {
       <Navigation onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} showMobileToggle={true} />
       
       <div className="flex min-h-[calc(100vh-64px)]">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} allPagesData={allPagesData} />
         
         <main 
           className="flex-1 overflow-y-auto p-4 sm:p-6 w-full md:w-auto"
