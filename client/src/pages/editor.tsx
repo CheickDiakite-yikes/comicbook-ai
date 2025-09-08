@@ -7,11 +7,12 @@ import PanelEditor from "@/components/panel-editor";
 import LayoutChangeModal from "@/components/layout-change-modal";
 import ComicPageLayout from "@/components/comic-page-layout";
 import StructuredScriptViewer from "@/components/structured-script-viewer";
+import { ComicReader } from "@/components/comic-reader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Save, Download, ChevronLeft, ChevronRight, Wand2, Loader2, Plus, Edit, Trash2, Cloud, FileText, Layout } from "lucide-react";
+import { ArrowLeft, Save, Download, ChevronLeft, ChevronRight, Wand2, Loader2, Plus, Edit, Trash2, Cloud, FileText, Layout, Play } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { aiService } from "@/lib/ai-service";
@@ -37,6 +38,7 @@ export default function Editor() {
   const [isMobile, setIsMobile] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [activeTab, setActiveTab] = useState<"editor" | "script">("editor");
+  const [showComicReader, setShowComicReader] = useState(false);
   
   // Detect mobile screen size
   useEffect(() => {
@@ -843,6 +845,18 @@ export default function Editor() {
                                 <ChevronRight className="h-4 w-4" aria-hidden="true" />
                               </Button>
                             )}
+                            {/* Play/Read Button */}
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => setShowComicReader(true)}
+                              className="min-h-[44px] w-[44px] p-2 ml-2 text-green-600 hover:text-green-700 hover:bg-green-50"
+                              aria-label="Read comic"
+                              data-testid="button-read-comic"
+                              title="Read comic in full-screen mode"
+                            >
+                              <Play className="h-4 w-4" aria-hidden="true" />
+                            </Button>
                           </div>
                         
                         {/* Action Buttons - Improved Responsive Layout */}
@@ -970,6 +984,18 @@ export default function Editor() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Comic Reader Modal */}
+      {showComicReader && (
+        <ComicReader
+          pages={pages}
+          panels={panels} // For now, just current page panels - can be enhanced later
+          currentPageIndex={currentPageIndex}
+          onPageChange={setCurrentPageIndex}
+          onClose={() => setShowComicReader(false)}
+          projectTitle={project?.title}
+        />
+      )}
     </div>
   );
 }
