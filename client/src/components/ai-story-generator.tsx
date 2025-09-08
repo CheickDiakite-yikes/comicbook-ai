@@ -28,7 +28,7 @@ interface GeneratedStoryData {
   genres: string[];
   length: string;
   artStyle: string;
-  tone: string;
+  tones: string[];
 }
 
 const genres = [
@@ -85,7 +85,7 @@ export default function AIStoryGenerator({ isOpen, onClose, onGenerate }: AIStor
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [selectedLength, setSelectedLength] = useState<string>("");
   const [selectedArtStyle, setSelectedArtStyle] = useState<string>("");
-  const [selectedTone, setSelectedTone] = useState<string>("");
+  const [selectedTones, setSelectedTones] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
   if (!isOpen) return null;
@@ -100,12 +100,20 @@ export default function AIStoryGenerator({ isOpen, onClose, onGenerate }: AIStor
     }
   };
 
+  const toggleTone = (toneId: string) => {
+    if (selectedTones.includes(toneId)) {
+      setSelectedTones(selectedTones.filter(t => t !== toneId));
+    } else if (selectedTones.length < 3) {
+      setSelectedTones([...selectedTones, toneId]);
+    }
+  };
+
   const canProceed = () => {
     switch (currentStep) {
       case 1: return selectedGenres.length > 0;
       case 2: return selectedLength !== "";
       case 3: return selectedArtStyle !== "";
-      case 4: return selectedTone !== "";
+      case 4: return selectedTones.length > 0;
       default: return false;
     }
   };
@@ -120,7 +128,7 @@ export default function AIStoryGenerator({ isOpen, onClose, onGenerate }: AIStor
       genres: selectedGenres,
       length: selectedLength,
       artStyle: selectedArtStyle,
-      tone: selectedTone
+      tones: selectedTones
     };
     
     onGenerate(storyData);
@@ -243,18 +251,18 @@ export default function AIStoryGenerator({ isOpen, onClose, onGenerate }: AIStor
           <div className="space-y-6">
             <div className="text-center">
               <h3 className="text-lg sm:text-xl lg:text-2xl font-bold mb-2">Story Tone</h3>
-              <p className="text-sm sm:text-base text-muted-foreground">What's the overall mood and feel?</p>
+              <p className="text-sm sm:text-base text-muted-foreground">Select up to 3 tones to blend emotional depth</p>
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
               {tones.map((tone) => (
                 <Card 
                   key={tone.id}
                   className={`cursor-pointer transition-all duration-200 hover:scale-105 ${
-                    selectedTone === tone.id 
+                    selectedTones.includes(tone.id) 
                       ? "border-primary bg-primary/10 shadow-lg" 
                       : "border-border hover:border-primary"
                   }`}
-                  onClick={() => setSelectedTone(tone.id)}
+                  onClick={() => toggleTone(tone.id)}
                 >
                   <CardContent className="p-2 sm:p-3 text-center">
                     <div className={`text-lg sm:text-xl lg:text-2xl mb-1 sm:mb-2 bg-gradient-to-r ${tone.color} bg-clip-text text-transparent`}>
@@ -265,18 +273,18 @@ export default function AIStoryGenerator({ isOpen, onClose, onGenerate }: AIStor
                 </Card>
               ))}
             </div>
-            {selectedTone && (
+            {selectedTones.length > 0 && (
               <div className="text-center">
-                <p className="text-sm text-muted-foreground">Selected tone: </p>
-                <div className="flex justify-center mt-2">
-                  {(() => {
-                    const tone = tones.find(t => t.id === selectedTone);
+                <p className="text-sm text-muted-foreground">Selected tones: </p>
+                <div className="flex justify-center gap-2 mt-2 flex-wrap">
+                  {selectedTones.map(toneId => {
+                    const tone = tones.find(t => t.id === toneId);
                     return (
-                      <Badge variant="secondary" className="text-sm">
+                      <Badge key={toneId} variant="secondary" className="text-sm">
                         {tone?.icon} {tone?.name}
                       </Badge>
                     );
-                  })()}
+                  })}
                 </div>
               </div>
             )}

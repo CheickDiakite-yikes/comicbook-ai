@@ -1148,7 +1148,7 @@ Create a script that tells a complete, satisfying story with strong visual story
     genres: string[];
     length: string;
     artStyle: string;
-    tone: string;
+    tones: string[];
   }): Promise<{
     title: string;
     genre: string;
@@ -1177,7 +1177,7 @@ REQUIREMENTS:
 - Genres: ${request.genres.join(" + ")} (blend these thoughtfully)
 - Length: ${request.length} story (${pageCount} pages)
 - Art Style: ${request.artStyle}
-- Tone: ${request.tone}
+- Tones: ${request.tones.join(" + ")} (blend these emotional elements)
 
 CREATE A COMPLETE STORY PACKAGE INCLUDING:
 
@@ -1200,7 +1200,7 @@ CREATE A COMPLETE STORY PACKAGE INCLUDING:
 STORYTELLING GUIDELINES:
 - Create compelling character arcs and conflicts
 - Include genre-appropriate elements (${request.genres.join(", ")})
-- Match the ${request.tone} tone throughout
+- Blend the ${request.tones.join(", ")} tones throughout the narrative
 - Design for ${request.artStyle} visual style
 - Ensure ${pageCount} pages tell a complete, satisfying story
 - Include strong opening, development, climax, and resolution

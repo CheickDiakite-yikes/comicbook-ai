@@ -212,7 +212,7 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
           genres: storyData.genres,
           length: storyData.length,
           artStyle: storyData.artStyle,
-          tone: storyData.tone
+          tones: storyData.tones
         }),
       });
 
@@ -236,7 +236,7 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
 ✅ ${completeStory.structuredScript.pages?.length || 6} pages with detailed metadata
 ✅ Rich character development and world-building
 ✅ Genre blend: ${storyData.genres.join(" + ")}
-✅ ${storyData.tone} tone with ${storyData.length} pacing
+✅ ${storyData.tones.join(" + ")} tones with ${storyData.length} pacing
 ✅ Optimized for ${storyData.artStyle} art style
 
 The complete structured script with full character details has been generated and is ready for your review.`;
@@ -246,7 +246,7 @@ The complete structured script with full character details has been generated an
 
       toast({
         title: "Story Generated Successfully!",
-        description: `Your ${storyData.genres.join(" + ")} ${storyData.length} story is ready to create!`,
+        description: `Your ${storyData.genres.join(" + ")} story with ${storyData.tones.join(" + ")} tones is ready to create!`,
       });
     } catch (error) {
       console.error("Error generating AI story:", error);

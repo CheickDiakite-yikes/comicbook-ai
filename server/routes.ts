@@ -879,20 +879,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Generate complete AI story (title, description, characters, script)
   app.post("/api/generate-complete-story", async (req, res) => {
     try {
-      const { genres, length, artStyle, tone } = req.body;
+      const { genres, length, artStyle, tones } = req.body;
       
       // Import GeminiService
       const { GeminiService } = await import("./gemini");
       const geminiService = new GeminiService();
       
-      console.log(`🎨 Generating complete story: genres=${genres.join("+")}, length=${length}, style=${artStyle}, tone=${tone}`);
+      console.log(`🎨 Generating complete story: genres=${genres.join("+")}, length=${length}, style=${artStyle}, tones=${tones.join("+")}`);
       
       // Generate complete story using AI
       const completeStory = await geminiService.generateCompleteStory({
         genres,
         length,
         artStyle,
-        tone
+        tones
       });
       
       console.log(`✅ Complete story generated: "${completeStory.title}" with ${completeStory.structuredScript?.pages?.length || 0} pages`);
