@@ -200,14 +200,13 @@ export default function Characters() {
               </p>
             </div>
             
-            <div className="flex gap-3">
-              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button onClick={resetForm} data-testid="button-create-character" className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Character
-                  </Button>
-                </DialogTrigger>
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={resetForm} data-testid="button-create-character" className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Character
+                </Button>
+              </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>Create New Character</DialogTitle>
@@ -221,11 +220,6 @@ export default function Characters() {
                 />
               </DialogContent>
             </Dialog>
-            
-            <Button variant="outline" onClick={() => window.location.href = '/dashboard'} data-testid="button-import-from-projects">
-              Import from Projects
-            </Button>
-            </div>
           </div>
 
           {/* Search and Stats */}
