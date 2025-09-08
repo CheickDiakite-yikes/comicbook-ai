@@ -2,7 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Compass, Users, User, Palette, Wand2, X, PanelLeftClose, PanelLeft } from "lucide-react";
+import { LayoutDashboard, Compass, Users, User, Palette, Wand2, X, PanelLeftClose, PanelLeft, Info } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import type { Project } from "@shared/schema";
 
 interface SidebarProps {
@@ -15,12 +16,20 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen = true, onClose, allPagesData = [], isCollapsed = false, onToggleCollapse }: SidebarProps) {
   const [location] = useLocation();
+  const { user } = useAuth();
   
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
   });
 
   const recentProjects = projects.slice(0, 2);
+  
+  // Credit system logic
+  const isAdmin = user?.email === "zorovt18@gmail.com";
+  const monthlyLimit = isAdmin ? Infinity : 250;
+  const currentCredits = isAdmin ? Infinity : 237; // Simulated current usage
+  const remainingCredits = isAdmin ? "Unlimited" : currentCredits;
+  const creditsPercentage = isAdmin ? 100 : (currentCredits / monthlyLimit) * 100;
 
   // Helper function to get page count for a project
   const getProjectPageCount = (projectId: string) => {
@@ -206,10 +215,30 @@ export default function Sidebar({ isOpen = true, onClose, allPagesData = [], isC
               <section className="pt-4 border-t border-border" aria-labelledby="ai-credits-heading">
                 <Card className="bg-gradient-to-r from-chart-1 to-chart-2 text-white border-0">
                   <CardContent className="p-4">
-                    <h3 id="ai-credits-heading" className="font-semibold text-sm">AI Credits</h3>
-                    <p className="text-xs opacity-90 mt-1">725 / 1,000 remaining</p>
-                    <div className="w-full bg-white/20 rounded-full h-2 mt-2">
-                      <div className="bg-white h-2 rounded-full" style={{ width: "72.5%" }}></div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 id="ai-credits-heading" className="font-semibold text-sm">AI Credits</h3>
+                      {isAdmin && (
+                        <span className="text-xs bg-white/20 px-2 py-1 rounded-full font-mono">Admin</span>
+                      )}
+                    </div>
+                    <p className="text-xs opacity-90 mt-1">
+                      {isAdmin ? "Unlimited" : `${remainingCredits} / ${monthlyLimit} remaining`}
+                    </p>
+                    {!isAdmin && (
+                      <div className="w-full bg-white/20 rounded-full h-2 mt-2">
+                        <div className="bg-white h-2 rounded-full" style={{ width: `${creditsPercentage}%` }}></div>
+                      </div>
+                    )}
+                    <div className="mt-3 pt-2 border-t border-white/20">
+                      <div className="flex items-center space-x-1 mb-1">
+                        <Info className="h-3 w-3 opacity-70" />
+                        <span className="text-xs opacity-70">How Credits Work</span>
+                      </div>
+                      <p className="text-xs opacity-80 leading-relaxed">
+                        1 credit = 1 panel generation. {!isAdmin && "250 credits refresh monthly."}
+                        <br />
+                        <span className="opacity-60">More credit options coming soon!</span>
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -218,8 +247,16 @@ export default function Sidebar({ isOpen = true, onClose, allPagesData = [], isC
             
             {isCollapsed && (
               <section className="pt-4 border-t border-border flex justify-center">
-                <div className="w-10 h-10 bg-gradient-to-r from-chart-1 to-chart-2 rounded-lg flex items-center justify-center" title="AI Credits: 725/1000">
+                <div 
+                  className="w-10 h-10 bg-gradient-to-r from-chart-1 to-chart-2 rounded-lg flex items-center justify-center relative" 
+                  title={isAdmin ? "AI Credits: Unlimited (Admin)" : `AI Credits: ${remainingCredits}/${monthlyLimit}`}
+                >
                   <Wand2 className="w-5 h-5 text-white" />
+                  {isAdmin && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full flex items-center justify-center">
+                      <span className="text-xs text-chart-1 font-bold">∞</span>
+                    </div>
+                  )}
                 </div>
               </section>
             )}
