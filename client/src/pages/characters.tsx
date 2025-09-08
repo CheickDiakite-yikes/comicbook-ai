@@ -204,6 +204,7 @@ export default function Characters() {
             isOpen={sidebarOpen}
             onClose={() => setSidebarOpen(false)}
             isCollapsed={sidebarCollapsed}
+            onToggleCollapse={toggleSidebarCollapse}
           />
           <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'md:pl-20' : 'md:pl-64'}`}>
             <div className="container mx-auto p-8">
@@ -236,6 +237,7 @@ export default function Characters() {
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           isCollapsed={sidebarCollapsed}
+          onToggleCollapse={toggleSidebarCollapse}
         />
         <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'md:pl-20' : 'md:pl-64'}`}>
         <div className="px-8 py-0 pt-[10px] pb-[10px]">

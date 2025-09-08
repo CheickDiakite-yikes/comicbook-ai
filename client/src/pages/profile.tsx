@@ -201,6 +201,7 @@ export default function Profile() {
           isOpen={sidebarOpen} 
           onClose={() => setSidebarOpen(false)}
           isCollapsed={sidebarCollapsed}
+          onToggleCollapse={toggleSidebarCollapse}
         />
         
         <main 

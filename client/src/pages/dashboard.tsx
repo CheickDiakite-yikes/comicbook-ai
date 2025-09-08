@@ -174,6 +174,7 @@ export default function Dashboard() {
           onClose={() => setSidebarOpen(false)} 
           allPagesData={allPagesData}
           isCollapsed={sidebarCollapsed}
+          onToggleCollapse={toggleSidebarCollapse}
         />
         
         <main 

@@ -167,6 +167,7 @@ export default function Explore() {
           isOpen={sidebarOpen} 
           onClose={() => setSidebarOpen(false)}
           isCollapsed={sidebarCollapsed}
+          onToggleCollapse={toggleSidebarCollapse}
         />
         
         <main 

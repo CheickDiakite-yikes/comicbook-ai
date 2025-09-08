@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Compass, Users, User, Palette, Wand2, X } from "lucide-react";
+import { LayoutDashboard, Compass, Users, User, Palette, Wand2, X, PanelLeftClose, PanelLeft } from "lucide-react";
 import type { Project } from "@shared/schema";
 
 interface SidebarProps {
@@ -10,9 +10,10 @@ interface SidebarProps {
   onClose?: () => void;
   allPagesData?: any[];
   isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-export default function Sidebar({ isOpen = true, onClose, allPagesData = [], isCollapsed = false }: SidebarProps) {
+export default function Sidebar({ isOpen = true, onClose, allPagesData = [], isCollapsed = false, onToggleCollapse }: SidebarProps) {
   const [location] = useLocation();
   
   const { data: projects = [] } = useQuery<Project[]>({
@@ -73,6 +74,26 @@ export default function Sidebar({ isOpen = true, onClose, allPagesData = [], isC
             </div>
           )}
           <div className="space-y-6">
+            {/* Collapse Toggle Button */}
+            {onToggleCollapse && (
+              <div className="flex justify-end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onToggleCollapse}
+                  className="min-h-[44px] w-[44px] p-2 hidden md:flex"
+                  aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                  data-testid="button-sidebar-toggle"
+                >
+                  {isCollapsed ? (
+                    <PanelLeft className="h-5 w-5" aria-hidden="true" />
+                  ) : (
+                    <PanelLeftClose className="h-5 w-5" aria-hidden="true" />
+                  )}
+                </Button>
+              </div>
+            )}
+            
             <nav className="space-y-2" role="navigation" aria-label="Main menu">
               {!isCollapsed && <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Navigation</h3>}
               <ul className="space-y-1" role="list">

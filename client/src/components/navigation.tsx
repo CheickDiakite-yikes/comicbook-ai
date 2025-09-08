@@ -36,35 +36,6 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
         aria-label="Main navigation"
       >
         <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
-          {showMobileToggle && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="md:hidden min-h-[44px] w-[44px] p-2"
-              onClick={onToggleSidebar}
-              aria-label="Toggle sidebar menu"
-              data-testid="button-mobile-menu"
-            >
-              <Menu className="h-5 w-5" aria-hidden="true" />
-            </Button>
-          )}
-          
-          {showDesktopToggle && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="hidden md:flex min-h-[44px] w-[44px] p-2"
-              onClick={onToggleSidebar}
-              aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
-              data-testid="button-desktop-sidebar-toggle"
-            >
-              {sidebarOpen ? (
-                <PanelLeftClose className="h-5 w-5" aria-hidden="true" />
-              ) : (
-                <PanelLeft className="h-5 w-5" aria-hidden="true" />
-              )}
-            </Button>
-          )}
           <div className="flex items-center space-x-2 min-w-0">
             <Palette className="text-primary text-2xl flex-shrink-0" aria-hidden="true" />
             <h1 className="text-lg sm:text-xl font-serif font-bold text-primary truncate">ComicAI Studio</h1>
