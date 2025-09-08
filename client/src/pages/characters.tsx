@@ -189,22 +189,25 @@ export default function Characters() {
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-3xl font-bold flex items-center gap-2">
-                <Users className="w-8 h-8 text-chart-4" />
+              <h1 className="text-3xl font-bold flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg">
+                  <Users className="w-8 h-8 text-white" />
+                </div>
                 Character Library
               </h1>
-              <p className="text-muted-foreground mt-2">
-                Manage your character collection and reuse them across projects
+              <p className="text-muted-foreground mt-2 text-lg">
+                Create and manage your personal character collection
               </p>
             </div>
             
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={resetForm} data-testid="button-create-character">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Character
-                </Button>
-              </DialogTrigger>
+            <div className="flex gap-3">
+              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button onClick={resetForm} data-testid="button-create-character" className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Character
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>Create New Character</DialogTitle>
@@ -218,40 +221,73 @@ export default function Characters() {
                 />
               </DialogContent>
             </Dialog>
+            
+            <Button variant="outline" onClick={() => window.location.href = '/dashboard'} data-testid="button-import-from-projects">
+              Import from Projects
+            </Button>
+            </div>
           </div>
 
           {/* Search and Stats */}
-          <div className="flex items-center gap-4 mb-6">
+          <div className="flex items-center gap-4 mb-8">
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
                 placeholder="Search characters..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 h-11 bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800 focus:border-purple-300 focus:ring-purple-200"
                 data-testid="input-search-characters"
               />
             </div>
-            <Badge variant="secondary" className="text-sm">
+            <Badge variant="secondary" className="text-sm px-4 py-2 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border-purple-200">
               {filteredCharacters.length} character{filteredCharacters.length !== 1 ? 's' : ''}
             </Badge>
           </div>
 
           {/* Characters Grid */}
           {filteredCharacters.length === 0 && !searchTerm ? (
-            <Card className="text-center py-12">
-              <CardContent>
-                <UserCircle className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No characters yet</h3>
-                <p className="text-muted-foreground mb-4">
-                  Create your first character to start building your library
+            <div className="text-center py-16">
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 rounded-2xl p-12 max-w-2xl mx-auto">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full w-24 h-24 mx-auto opacity-20 animate-pulse"></div>
+                  <UserCircle className="w-24 h-24 text-purple-500 mx-auto mb-6 relative" />
+                </div>
+                
+                <h3 className="text-2xl font-bold mb-4 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  Build Your Character Library
+                </h3>
+                
+                <p className="text-muted-foreground mb-2 text-lg leading-relaxed">
+                  Your Character Library is empty, but I noticed you have characters in your comic projects!
                 </p>
-                <Button onClick={() => setIsCreateDialogOpen(true)} data-testid="button-create-first-character">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Your First Character
-                </Button>
-              </CardContent>
-            </Card>
+                
+                <p className="text-sm text-muted-foreground mb-8 max-w-lg mx-auto">
+                  Characters in your library can be reused across multiple projects, while project characters stay within their specific comics.
+                </p>
+                
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <Button 
+                    onClick={() => setIsCreateDialogOpen(true)} 
+                    data-testid="button-create-first-character"
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create New Character
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    onClick={() => window.location.href = '/dashboard'}
+                    data-testid="button-go-to-projects"
+                    className="border-purple-200 hover:bg-purple-50"
+                  >
+                    <Users className="w-4 h-4 mr-2" />
+                    View Project Characters
+                  </Button>
+                </div>
+              </div>
+            </div>
           ) : filteredCharacters.length === 0 ? (
             <Card className="text-center py-12">
               <CardContent>
@@ -424,7 +460,7 @@ interface CharacterCardProps {
 
 function CharacterCard({ character, onEdit, onDelete }: CharacterCardProps) {
   return (
-    <Card className="group hover:shadow-lg transition-shadow">
+    <Card className="group hover:shadow-xl transition-all duration-300 hover:scale-[1.02] border-gray-200 dark:border-gray-800 bg-gradient-to-br from-white to-gray-50/50 dark:from-gray-900 dark:to-gray-950/50">
       <CardContent className="p-6">
         {/* Character Header */}
         <div className="flex items-start justify-between mb-4">
