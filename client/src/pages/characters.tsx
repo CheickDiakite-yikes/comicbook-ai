@@ -190,7 +190,7 @@ export default function Characters() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-3xl font-bold flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg">
+                <div className="p-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
                   <Users className="w-8 h-8 text-white" />
                 </div>
                 Character Library
@@ -203,7 +203,7 @@ export default function Characters() {
             <div className="flex gap-3">
               <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button onClick={resetForm} data-testid="button-create-character" className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
+                  <Button onClick={resetForm} data-testid="button-create-character" className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600">
                     <Plus className="w-4 h-4 mr-2" />
                     Create Character
                   </Button>
@@ -236,11 +236,11 @@ export default function Characters() {
                 placeholder="Search characters..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-11 bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800 focus:border-purple-300 focus:ring-purple-200"
+                className="pl-10 h-11 bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800 focus:border-blue-300 focus:ring-blue-200"
                 data-testid="input-search-characters"
               />
             </div>
-            <Badge variant="secondary" className="text-sm px-4 py-2 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border-purple-200">
+            <Badge variant="secondary" className="text-sm px-4 py-2 bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-700 border-blue-200">
               {filteredCharacters.length} character{filteredCharacters.length !== 1 ? 's' : ''}
             </Badge>
           </div>
@@ -248,13 +248,13 @@ export default function Characters() {
           {/* Characters Grid */}
           {filteredCharacters.length === 0 && !searchTerm ? (
             <div className="text-center py-16">
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 rounded-2xl p-12 max-w-2xl mx-auto">
+              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 rounded-2xl p-12 max-w-2xl mx-auto">
                 <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full w-24 h-24 mx-auto opacity-20 animate-pulse"></div>
-                  <UserCircle className="w-24 h-24 text-purple-500 mx-auto mb-6 relative" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full w-24 h-24 mx-auto opacity-20 animate-pulse"></div>
+                  <UserCircle className="w-24 h-24 text-blue-500 mx-auto mb-6 relative" />
                 </div>
                 
-                <h3 className="text-2xl font-bold mb-4 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                <h3 className="text-2xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
                   Build Your Character Library
                 </h3>
                 
@@ -270,7 +270,7 @@ export default function Characters() {
                   <Button 
                     onClick={() => setIsCreateDialogOpen(true)} 
                     data-testid="button-create-first-character"
-                    className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+                    className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Create New Character
@@ -280,7 +280,7 @@ export default function Characters() {
                     variant="outline" 
                     onClick={() => window.location.href = '/dashboard'}
                     data-testid="button-go-to-projects"
-                    className="border-purple-200 hover:bg-purple-50"
+                    className="border-blue-200 hover:bg-blue-50"
                   >
                     <Users className="w-4 h-4 mr-2" />
                     View Project Characters
