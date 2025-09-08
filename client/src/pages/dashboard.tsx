@@ -190,7 +190,7 @@ export default function Dashboard() {
           {/* Quick Actions */}
           <section className="mb-6 sm:mb-8" aria-labelledby="quick-actions-heading">
             <h2 id="quick-actions-heading" className="sr-only">Quick Actions</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <Button
                 variant="ghost"
                 className="bg-gradient-to-br from-chart-1 to-chart-2 text-white cursor-pointer hover:shadow-lg transition-shadow border-0 h-auto p-0 rounded-lg min-h-[120px]"
@@ -208,42 +208,25 @@ export default function Dashboard() {
                 </CardContent>
               </Button>
             
-              <Link href="/templates">
+              <Link href="/explore">
                 <Button
                   variant="ghost"
                   className="bg-gradient-to-br from-chart-3 to-chart-4 text-white cursor-pointer hover:shadow-lg transition-shadow border-0 h-auto p-0 rounded-lg min-h-[120px] w-full"
-                  aria-label="Browse panel templates"
+                  aria-label="Explore comics"
+                  data-testid="card-explore"
                 >
                   <CardContent className="p-4 sm:p-6 w-full">
                     <div className="flex items-center justify-between mb-4">
                       <svg className="h-6 w-6 sm:h-8 sm:w-8" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M3 3h18v18H3V3zm16 16V5H5v14h14zM7 7h2v2H7V7zm4 0h2v2h-2V7zm4 0h2v2h-2V7zM7 11h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2zM7 15h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2z"/>
+                        <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8Z"/>
                       </svg>
                       <span className="bg-white/20 px-2 py-1 rounded-full text-xs sm:text-sm">Browse</span>
                     </div>
-                    <h3 className="text-lg sm:text-xl font-semibold mb-2">Panel Templates</h3>
-                    <p className="text-white/80 text-xs sm:text-sm">Explore layout options for your pages</p>
+                    <h3 className="text-lg sm:text-xl font-semibold mb-2">Explore</h3>
+                    <p className="text-white/80 text-xs sm:text-sm">Discover amazing comics from the community</p>
                   </CardContent>
                 </Button>
               </Link>
-
-              <Button
-                variant="ghost"
-                className="bg-gradient-to-br from-chart-5 to-destructive text-white cursor-pointer hover:shadow-lg transition-shadow border-0 h-auto p-0 rounded-lg min-h-[120px]"
-                aria-label="Generate AI ideas"
-                onClick={() => setShowCreateModal(true)}
-              >
-                <CardContent className="p-4 sm:p-6 w-full">
-                  <div className="flex items-center justify-between mb-4">
-                    <svg className="h-6 w-6 sm:h-8 sm:w-8" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-                    </svg>
-                    <span className="bg-white/20 px-2 py-1 rounded-full text-xs sm:text-sm">AI</span>
-                  </div>
-                  <h3 className="text-lg sm:text-xl font-semibold mb-2">Generate Ideas</h3>
-                  <p className="text-white/80 text-xs sm:text-sm">Get AI-powered story and character suggestions</p>
-                </CardContent>
-              </Button>
             </div>
           </section>
 
