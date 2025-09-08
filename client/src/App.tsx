@@ -9,6 +9,8 @@ import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import Editor from "@/pages/editor";
 import Templates from "@/pages/templates";
+import Explore from "@/pages/explore";
+import Profile from "@/pages/profile";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -22,6 +24,8 @@ function Router() {
           <Route path="/" component={Dashboard} />
           <Route path="/editor/:projectId" component={Editor} />
           <Route path="/templates" component={Templates} />
+          <Route path="/explore" component={Explore} />
+          <Route path="/profile" component={Profile} />
         </>
       )}
       <Route component={NotFound} />
