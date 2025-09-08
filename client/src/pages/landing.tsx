@@ -5,6 +5,9 @@ import { FaGoogle } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { ParticleSystem } from "@/components/ParticleSystem";
 import { ScrollProgress } from "@/components/ScrollProgress";
+import { MagicalMascot } from "@/components/MagicalMascot";
+import { TypewriterText, AnimatedText } from "@/components/TypewriterText";
+import { MagicalBackground } from "@/components/MagicalBackground";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import { animationVariants } from "@/lib/animations";
 
@@ -15,11 +18,18 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden" style={{ paddingTop: 'var(--safe-top)' }}>
+      {/* Enhanced magical background */}
+      <MagicalBackground 
+        density="medium" 
+        theme="magical" 
+        className="opacity-40"
+      />
+      
       {/* Magical particle background */}
       <ParticleSystem 
-        particleCount={30}
+        particleCount={25}
         interactive={true}
-        className="opacity-60"
+        className="opacity-50"
       />
       
       {/* Comic book style scroll progress */}
@@ -64,49 +74,135 @@ export default function Landing() {
         {/* Hero Section with Animation */}
         <motion.div 
           ref={heroSection.ref}
-          className="text-center mb-12 sm:mb-16"
+          className="text-center mb-12 sm:mb-16 relative"
           initial="hidden"
           animate={heroSection.isIntersecting ? "visible" : "hidden"}
           variants={animationVariants.staggerContainer}
         >
-          <motion.h2 
+          {/* Floating Mascot */}
+          <motion.div
+            className="absolute -top-16 left-8 sm:left-16 lg:left-32"
+            variants={animationVariants.comicPop}
+          >
+            <MagicalMascot size="lg" interactive={true} />
+          </motion.div>
+
+          {/* Main title with typewriter effect */}
+          <motion.div 
             className="font-serif font-bold mb-4 sm:mb-6 text-foreground relative" 
             style={{ fontSize: 'var(--text-hero)' }}
             variants={animationVariants.slideDown}
           >
-            Create Amazing Comics with AI
-            {/* Magic sparkles effect */}
+            <AnimatedText 
+              text="Create Amazing Comics with AI"
+              comicEffect="glow"
+              className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent"
+            />
+            
+            {/* Enhanced magic sparkles */}
             <motion.span
-              className="absolute -top-4 -right-4 text-yellow-400 text-2xl"
-              variants={animationVariants.sparkle}
+              className="absolute -top-4 -right-4 text-yellow-400 text-4xl"
+              animate={{
+                rotate: [0, 360],
+                scale: [1, 1.2, 1],
+                opacity: [0.7, 1, 0.7]
+              }}
+              transition={{
+                duration: 3,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
             >
               ✨
             </motion.span>
-          </motion.h2>
-          <motion.p 
+            
+            <motion.span
+              className="absolute -top-8 left-4 text-blue-400 text-2xl"
+              animate={{
+                y: [0, -10, 0],
+                rotate: [0, 180, 360],
+                opacity: [0.5, 1, 0.5]
+              }}
+              transition={{
+                duration: 4,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: 1
+              }}
+            >
+              🌟
+            </motion.span>
+          </motion.div>
+          {/* Subtitle with typewriter effect */}
+          <motion.div 
             className="text-lg sm:text-xl text-muted-foreground mb-6 sm:mb-8 max-w-3xl mx-auto"
             variants={animationVariants.slideUp}
           >
-            The ultimate comic creation platform powered by AI. Build your story bible once, 
-            then generate stunning comic pages while maintaining perfect character and style consistency.
-          </motion.p>
+            <TypewriterText
+              text="The ultimate comic creation platform powered by AI. Build your story bible once, then generate stunning comic pages while maintaining perfect character and style consistency."
+              speed={30}
+              delay={1000}
+              className="leading-relaxed"
+            />
+          </motion.div>
           <motion.div 
             className="flex flex-col gap-4 justify-center items-center"
             variants={animationVariants.slideUp}
           >
             <motion.div
-              whileHover={animationVariants.hoverGlow}
+              whileHover={{
+                scale: 1.05,
+                boxShadow: "0 20px 40px rgba(220, 38, 38, 0.4)",
+                y: -5
+              }}
               whileTap={{ scale: 0.95 }}
+              className="relative"
             >
               <Button 
                 size="lg"
                 onClick={() => window.location.href = '/api/auth/google'}
-                className="bg-red-600 hover:bg-red-700 text-white text-lg px-8 py-3 shadow-lg"
+                className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white text-lg px-8 py-3 shadow-lg border-2 border-red-800 relative overflow-hidden"
                 data-testid="button-get-started-google"
               >
-                <FaGoogle className="mr-2 h-5 w-5" />
-                Get Started with Google
+                <motion.div
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20"
+                  animate={{
+                    x: ['-100%', '100%']
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "linear"
+                  }}
+                />
+                <FaGoogle className="mr-2 h-5 w-5 relative z-10" />
+                <span className="relative z-10">Get Started with Google</span>
               </Button>
+              
+              {/* Comic book action lines */}
+              <motion.div
+                className="absolute inset-0 pointer-events-none"
+                whileHover={{
+                  opacity: 1
+                }}
+                initial={{ opacity: 0 }}
+              >
+                {[...Array(6)].map((_, i) => (
+                  <motion.div
+                    key={i}
+                    className="absolute bg-red-400 h-0.5 w-8"
+                    style={{
+                      transformOrigin: 'center',
+                      left: '50%',
+                      top: '50%',
+                      transform: `rotate(${i * 30}deg) translateX(60px)`
+                    }}
+                    initial={{ scaleX: 0 }}
+                    whileHover={{ scaleX: 1 }}
+                    transition={{ delay: i * 0.05 }}
+                  />
+                ))}
+              </motion.div>
             </motion.div>
             <motion.div 
               className="text-muted-foreground text-sm"
@@ -115,19 +211,74 @@ export default function Landing() {
               or
             </motion.div>
             <motion.div
-              whileHover={animationVariants.hover}
+              whileHover={{
+                scale: 1.05,
+                boxShadow: "0 20px 40px rgba(59, 130, 246, 0.3)",
+                y: -5
+              }}
               whileTap={{ scale: 0.95 }}
+              className="relative"
             >
               <Button 
                 size="lg"
                 onClick={() => window.location.href = '/api/login'}
                 variant="outline"
-                className="border-primary text-primary hover:bg-primary hover:text-primary-foreground text-lg px-8 py-3"
+                className="border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground text-lg px-8 py-3 bg-gradient-to-r from-transparent to-transparent hover:from-primary hover:to-primary transition-all duration-300 relative overflow-hidden"
                 data-testid="button-get-started-replit"
               >
-                <Wand2 className="mr-2 h-5 w-5" />
-                Get Started with Replit
+                <motion.div
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-primary to-transparent opacity-10"
+                  animate={{
+                    x: ['-100%', '100%']
+                  }}
+                  transition={{
+                    duration: 3,
+                    repeat: Infinity,
+                    ease: "linear"
+                  }}
+                />
+                <motion.div
+                  className="mr-2 h-5 w-5 relative z-10"
+                  animate={{
+                    rotate: [0, 15, -15, 0]
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                >
+                  <Wand2 />
+                </motion.div>
+                <span className="relative z-10">Get Started with Replit</span>
               </Button>
+              
+              {/* Magic sparkles on hover */}
+              <motion.div
+                className="absolute inset-0 pointer-events-none"
+                whileHover={{
+                  opacity: 1
+                }}
+                initial={{ opacity: 0 }}
+              >
+                {[...Array(4)].map((_, i) => (
+                  <motion.div
+                    key={i}
+                    className="absolute text-yellow-400 text-lg"
+                    style={{
+                      left: `${20 + i * 20}%`,
+                      top: `${20 + (i % 2) * 60}%`
+                    }}
+                    whileHover={{
+                      scale: [0, 1, 0],
+                      rotate: [0, 180, 360]
+                    }}
+                    transition={{ delay: i * 0.1, duration: 0.6 }}
+                  >
+                    ✨
+                  </motion.div>
+                ))}
+              </motion.div>
             </motion.div>
           </motion.div>
         </motion.div>
