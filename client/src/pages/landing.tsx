@@ -9,7 +9,7 @@ import { TypewriterText, AnimatedText } from "@/components/TypewriterText";
 import { MagicalBackground } from "@/components/MagicalBackground";
 import { ComicPanel, ComicSpeechBubble } from "@/components/ComicPanel";
 import { ComicBurst, ComicWOW, ComicZAP, ComicNEW } from "@/components/ComicBurst";
-import { TheaterStage, MarqueeHeading, TheaterControls } from "@/components/TheaterStage";
+import { TheaterStage, MarqueeHeading } from "@/components/TheaterStage";
 import { ScrollStorytellingSection, StoryChapter } from "@/components/ScrollStorytellingSection";
 import { MobileAwareComponent, TouchFriendlyButton, MobileOptimizedAnimation, MobileParticleSystem } from "@/components/MobileOptimizations";
 import { PerformanceAnimation, LazyLoadWrapper, OptimizedParticleSystem } from "@/components/PerformanceOptimizations";
@@ -469,10 +469,6 @@ export default function Landing() {
                 />
               </div>
               
-              {/* Theater controls */}
-              <div className="mt-6 flex justify-center">
-                <TheaterControls />
-              </div>
             </TheaterStage>
           </motion.div>
 
