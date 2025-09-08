@@ -967,6 +967,7 @@ export class DatabaseStorage implements IStorage {
         genre: projects.genre,
         artStyle: projects.artStyle,
         isPublic: projects.isPublic,
+        coverArt: projects.coverArt,
         createdAt: projects.createdAt,
         updatedAt: projects.updatedAt,
         userEmail: users.email,
@@ -989,6 +990,7 @@ export class DatabaseStorage implements IStorage {
           genre: projects.genre,
           artStyle: projects.artStyle,
           isPublic: projects.isPublic,
+          coverArt: projects.coverArt,
           createdAt: projects.createdAt,
           updatedAt: projects.updatedAt,
           userEmail: users.email,
@@ -1022,6 +1024,7 @@ export class DatabaseStorage implements IStorage {
 
         return {
           ...project,
+          previewImageUrl: project.coverArt, // Map coverArt to previewImageUrl for frontend
           user: {
             id: project.userId,
             email: project.userEmail,
