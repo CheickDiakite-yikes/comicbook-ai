@@ -136,16 +136,26 @@ export default function Landing() {
         <section className="text-center" aria-labelledby="demo-heading">
           <h3 id="demo-heading" className="text-2xl sm:text-3xl font-serif font-bold mb-6 sm:mb-8">See It In Action</h3>
           <div className="bg-card rounded-xl border border-border p-4 sm:p-8">
-            <div className="aspect-video bg-gradient-to-br from-muted to-accent rounded-lg flex items-center justify-center">
-              <div className="text-center">
-                <Palette className="h-16 w-16 text-primary mx-auto mb-4" aria-hidden="true" />
-                <p className="text-lg font-medium text-muted-foreground">
-                  Interactive Demo Coming Soon
-                </p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Experience the full comic creation workflow
-                </p>
-              </div>
+            <div className="aspect-video rounded-lg overflow-hidden border border-border">
+              <img 
+                src="/demo.gif" 
+                alt="Nerrame Demo - Comic creation platform interface walkthrough"
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            </div>
+            <div className="mt-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                Watch how easy it is to create comics with AI assistance
+              </p>
+              <a 
+                href="/demo.gif" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center text-primary hover:text-primary/80 text-sm mt-2 underline"
+              >
+                View full demo
+              </a>
             </div>
           </div>
         </section>
