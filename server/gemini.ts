@@ -1004,7 +1004,7 @@ CHARACTERS:`;
    - Total page count (target: ${request.pageCount || 12} pages)
 
 2. Page-by-Page Breakdown:
-   - Each page should have 3-6 panels for optimal comic pacing
+   - Each page should have 1-5 panels for optimal comic pacing
    - Page title and overall mood
    - Setting and characters present
    - Brief narrative description
