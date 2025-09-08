@@ -14,7 +14,7 @@ export default function Landing() {
         >
           <div className="flex items-center space-x-2 min-w-0">
             <Palette className="text-primary text-2xl" aria-hidden="true" />
-            <h1 className="text-lg sm:text-xl font-serif font-bold text-primary truncate">ComicAI Studio</h1>
+            <h1 className="text-lg sm:text-xl font-serif font-bold text-primary truncate">Nerrame</h1>
             <span className="text-xs bg-chart-3 text-white px-2 py-1 rounded-full font-mono">Beta</span>
           </div>
           <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
@@ -41,7 +41,6 @@ export default function Landing() {
           </div>
         </nav>
       </header>
-
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-20">
         <div className="text-center mb-12 sm:mb-16">
@@ -151,7 +150,6 @@ export default function Landing() {
           </div>
         </section>
       </main>
-
       {/* Footer */}
       <footer 
         className="bg-card border-t border-border py-6 sm:py-8" 
