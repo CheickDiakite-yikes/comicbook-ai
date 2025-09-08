@@ -795,7 +795,114 @@ export default function Editor() {
         {/* Editor Header */}
         <div className={`flex-1 flex flex-col w-full lg:w-auto transition-all duration-300 ${sidebarCollapsed ? 'md:pl-20' : 'md:pl-64'}`}>
           <header className="bg-card border-b border-border px-4 sm:px-6 py-3 sm:py-4" role="banner">
-            <div className="flex items-center justify-between">
+            {/* Mobile Layout: Two Rows */}
+            <div className="block sm:hidden">
+              {/* Top Row: Back Button + Title */}
+              <div className="flex items-center space-x-2 mb-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setLocation("/")}
+                  className="min-h-[36px] w-[36px] p-2 flex-shrink-0"
+                  aria-label="Back to dashboard"
+                  data-testid="button-back-dashboard"
+                >
+                  <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                </Button>
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-lg font-semibold truncate leading-tight">{project?.title || 'Comic Editor'}</h1>
+                  <p className="text-xs text-muted-foreground leading-tight">
+                    Page {currentPageIndex + 1} of {Math.max(pages.length, 1)}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Bottom Row: Action Buttons */}
+              <div className="flex items-center justify-between space-x-1">
+                <div className="flex items-center space-x-1">
+                  <Button 
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setPanelEditorOpen(true)}
+                    className="min-h-[36px] w-[36px] p-2"
+                    aria-label="Open panel editor"
+                    data-testid="button-mobile-panel-editor"
+                  >
+                    <Edit className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                  <Button 
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => saveProjectMutation.mutate()}
+                    disabled={saveProjectMutation.isPending}
+                    className="min-h-[36px] px-3"
+                    data-testid="button-save"
+                  >
+                    <Save className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                  <Button 
+                    size="sm"
+                    className="min-h-[36px] px-3"
+                    onClick={handleExportComic}
+                    disabled={isExporting}
+                    data-testid="button-export"
+                  >
+                    {isExporting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <Download className="h-4 w-4" aria-hidden="true" />
+                    )}
+                  </Button>
+                </div>
+                
+                <div className="flex items-center space-x-1">
+                  {/* Public/Private Toggle - Compact */}
+                  <div className="flex items-center space-x-1">
+                    {project?.isPublic ? (
+                      <Globe className="h-4 w-4 text-emerald-600" />
+                    ) : (
+                      <Lock className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <Switch
+                      id="project-public-toggle"
+                      checked={project?.isPublic || false}
+                      onCheckedChange={(checked) => {
+                        if (project) {
+                          // Update project visibility
+                          apiRequest("PUT", "/api/projects/" + project.id, {
+                            ...project,
+                            isPublic: checked
+                          }).then(() => {
+                            queryClient.invalidateQueries({ queryKey: [`/api/projects/${project.id}`] });
+                            toast({
+                              title: checked ? "Project is now public" : "Project is now private",
+                              description: checked ? "Others can now discover and view your comic" : "Your comic is now private"
+                            });
+                          });
+                        }
+                      }}
+                      disabled={false}
+                      className="scale-75"
+                      data-testid="switch-project-public"
+                    />
+                  </div>
+
+                  {/* Share Button */}
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowShareDialog(true)}
+                    className="min-h-[36px] px-3"
+                    data-testid="button-share"
+                  >
+                    <Share className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop Layout: Single Row */}
+            <div className="hidden sm:flex items-center justify-between">
               <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
                 <Button 
                   variant="ghost" 
@@ -815,31 +922,19 @@ export default function Editor() {
                 </div>
               </div>
               <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
-                {isMobile && (
-                  <Button 
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setPanelEditorOpen(true)}
-                    className="min-h-[44px] w-[44px] p-2 lg:hidden"
-                    aria-label="Open panel editor"
-                    data-testid="button-mobile-panel-editor"
-                  >
-                    <Edit className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-                )}
                 <Button 
                   variant="secondary"
-                  size={isMobile ? "sm" : "default"}
+                  size="default"
                   onClick={() => saveProjectMutation.mutate()}
                   disabled={saveProjectMutation.isPending}
                   className="min-h-[44px]"
                   data-testid="button-save"
                 >
-                  <Save className="mr-1 sm:mr-2 h-4 w-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">Save</span>
+                  <Save className="mr-2 h-4 w-4" aria-hidden="true" />
+                  <span>Save</span>
                 </Button>
                 <Button 
-                  size={isMobile ? "sm" : "default"}
+                  size="default"
                   className="min-h-[44px]"
                   onClick={handleExportComic}
                   disabled={isExporting}
@@ -847,19 +942,19 @@ export default function Editor() {
                 >
                   {isExporting ? (
                     <>
-                      <Loader2 className="mr-1 sm:mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-                      <span className="hidden sm:inline">Exporting...</span>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                      <span>Exporting...</span>
                     </>
                   ) : (
                     <>
-                      <Download className="mr-1 sm:mr-2 h-4 w-4" aria-hidden="true" />
-                      <span className="hidden sm:inline">Export</span>
+                      <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+                      <span>Export</span>
                     </>
                   )}
                 </Button>
                 
                 {/* Public/Private Toggle */}
-                <div className="flex items-center space-x-2 pl-1 sm:pl-2 border-l border-border">
+                <div className="flex items-center space-x-2 pl-2 border-l border-border">
                   <Label htmlFor="project-public-toggle" className="sr-only">
                     Make project public
                   </Label>
@@ -888,7 +983,7 @@ export default function Editor() {
                         }
                       }}
                       disabled={false}
-                      className="scale-75 sm:scale-100"
+                      className="scale-100"
                       data-testid="switch-project-public"
                     />
                   </div>
@@ -900,13 +995,13 @@ export default function Editor() {
                 {/* Share Button */}
                 <Button 
                   variant="outline"
-                  size={isMobile ? "sm" : "default"}
+                  size="default"
                   onClick={() => setShowShareDialog(true)}
                   className="min-h-[44px]"
                   data-testid="button-share"
                 >
-                  <Share className="mr-1 sm:mr-2 h-4 w-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">Share</span>
+                  <Share className="mr-2 h-4 w-4" aria-hidden="true" />
+                  <span>Share</span>
                 </Button>
               </div>
             </div>
