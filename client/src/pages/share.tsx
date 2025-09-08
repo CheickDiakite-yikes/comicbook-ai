@@ -133,22 +133,6 @@ export default function SharePage() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          {/* Comic Preview */}
-          {pages && pages.length > 0 && (
-            <div className="mb-8">
-              <Card className="overflow-hidden">
-                <div className="aspect-[8.5/11] bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center">
-                  {/* Could show first page preview here */}
-                  <div className="text-center">
-                    <BookOpen className="h-16 w-16 text-primary/50 mx-auto mb-4" />
-                    <p className="text-lg font-medium">{pages.length} Page{pages.length !== 1 ? 's' : ''}</p>
-                    <p className="text-sm text-muted-foreground">Click "Read Comic" to start</p>
-                  </div>
-                </div>
-              </Card>
-            </div>
-          )}
-
           {/* Project Info Grid */}
           <div className="grid md:grid-cols-3 gap-6">
             {/* Description */}
