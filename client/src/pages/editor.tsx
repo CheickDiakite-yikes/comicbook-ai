@@ -603,24 +603,67 @@ export default function Editor() {
       const allPanelsArrays = await Promise.all(allPanelsPromises);
       const allPanels = allPanelsArrays.flat();
 
-      // Build data maps for export
+      // Build complete data maps for export with ALL pages
       const generatedImagesMap: {[pageId: string]: {[panelNumber: number]: string}} = {};
       const generatedBackgroundsMap: {[pageId: string]: {[panelNumber: number]: string}} = {};
       const pageBackgroundsMap: {[pageId: string]: string} = {};
 
-      // For now, we only have data for the current page, but this structure supports all pages
+      // Process each page's data from the database
+      pages.forEach(page => {
+        const pagePanels = allPanels.filter(panel => panel.pageId === page.id);
+        
+        // Build image map from actual panel data (not just current page state)
+        const pageImages: {[panelNumber: number]: string} = {};
+        const pageBackgrounds: {[panelNumber: number]: string} = {};
+        
+        pagePanels.forEach(panel => {
+          if (panel.imageUrl) {
+            pageImages[panel.panelNumber] = panel.imageUrl;
+          }
+          // Note: Panel backgrounds would be stored in panel data if supported
+        });
+
+        generatedImagesMap[page.id] = pageImages;
+        generatedBackgroundsMap[page.id] = pageBackgrounds;
+        
+        // Add page background if available
+        if (page.backgroundImageUrl) {
+          pageBackgroundsMap[page.id] = page.backgroundImageUrl;
+        }
+      });
+
+      // Also include current page's in-memory data if not saved yet
       if (currentPage) {
-        generatedImagesMap[currentPage.id] = generatedImages;
-        generatedBackgroundsMap[currentPage.id] = generatedBackgrounds;
+        // Merge current page state with database data
+        generatedImagesMap[currentPage.id] = {
+          ...generatedImagesMap[currentPage.id],
+          ...generatedImages
+        };
+        generatedBackgroundsMap[currentPage.id] = {
+          ...generatedBackgroundsMap[currentPage.id],
+          ...generatedBackgrounds
+        };
         if (pageBackground) {
           pageBackgroundsMap[currentPage.id] = pageBackground;
         }
       }
 
-      // Export as PDF
+      // Export as PDF with complete data
       await exportComicAsPDF(
-        pages,
-        allPanels,
+        pages.map(page => ({
+          id: page.id,
+          pageNumber: page.pageNumber,
+          title: page.scriptSnippet || `Page ${page.pageNumber}`,
+          layoutTemplate: page.layoutTemplate,
+          backgroundImageUrl: page.backgroundImageUrl || undefined,
+        })),
+        allPanels.map(panel => ({
+          id: panel.id,
+          pageId: panel.pageId,
+          panelNumber: panel.panelNumber,
+          imageUrl: panel.imageUrl || '',
+          action: panel.prompt || `Panel ${panel.panelNumber}`,
+        })),
         generatedImagesMap,
         generatedBackgroundsMap,
         pageBackgroundsMap,
@@ -629,7 +672,7 @@ export default function Editor() {
 
       toast({
         title: "Export successful!",
-        description: `Your comic "${project.title}" has been exported as PDF.`,
+        description: `Your comic "${project.title}" has been exported as PDF with ${pages.length} pages.`,
       });
     } catch (error) {
       console.error('Export failed:', error);
