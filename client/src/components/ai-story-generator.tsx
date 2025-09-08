@@ -58,10 +58,26 @@ const artStyles = [
 ];
 
 const tones = [
-  { id: "heroic", name: "Heroic", description: "Inspiring and uplifting", icon: <Sparkles className="h-5 w-5" />, color: "from-yellow-400 to-orange-500" },
-  { id: "dark", name: "Dark", description: "Serious and intense", icon: <Skull className="h-5 w-5" />, color: "from-gray-700 to-black" },
-  { id: "lighthearted", name: "Lighthearted", description: "Fun and optimistic", icon: <Smile className="h-5 w-5" />, color: "from-green-400 to-blue-500" },
-  { id: "mysterious", name: "Mysterious", description: "Intriguing and suspenseful", icon: <Zap className="h-5 w-5" />, color: "from-indigo-600 to-purple-700" }
+  { id: "heroic", name: "Heroic", icon: "🦸", color: "from-yellow-400 to-orange-500" },
+  { id: "dark", name: "Dark", icon: "🌑", color: "from-gray-700 to-black" },
+  { id: "lighthearted", name: "Lighthearted", icon: "☀️", color: "from-green-400 to-blue-500" },
+  { id: "mysterious", name: "Mysterious", icon: "🔮", color: "from-indigo-600 to-purple-700" },
+  { id: "funny", name: "Funny", icon: "😂", color: "from-yellow-500 to-pink-500" },
+  { id: "dramatic", name: "Dramatic", icon: "🎭", color: "from-red-600 to-purple-600" },
+  { id: "touching", name: "Touching", icon: "💝", color: "from-pink-500 to-rose-500" },
+  { id: "sad", name: "Sad", icon: "😢", color: "from-blue-600 to-gray-600" },
+  { id: "epic", name: "Epic", icon: "⚔️", color: "from-orange-500 to-red-600" },
+  { id: "romantic", name: "Romantic", icon: "💕", color: "from-pink-400 to-red-500" },
+  { id: "suspenseful", name: "Suspenseful", icon: "😰", color: "from-purple-600 to-black" },
+  { id: "adventurous", name: "Adventurous", icon: "🗺️", color: "from-green-500 to-teal-500" },
+  { id: "whimsical", name: "Whimsical", icon: "🌈", color: "from-purple-400 to-pink-400" },
+  { id: "gritty", name: "Gritty", icon: "🔧", color: "from-gray-600 to-red-800" },
+  { id: "nostalgic", name: "Nostalgic", icon: "📸", color: "from-amber-400 to-orange-600" },
+  { id: "intense", name: "Intense", icon: "🔥", color: "from-red-500 to-orange-700" },
+  { id: "peaceful", name: "Peaceful", icon: "🕊️", color: "from-blue-400 to-green-400" },
+  { id: "chaotic", name: "Chaotic", icon: "💥", color: "from-red-600 to-yellow-500" },
+  { id: "inspiring", name: "Inspiring", icon: "✨", color: "from-cyan-400 to-blue-500" },
+  { id: "melancholy", name: "Melancholy", icon: "🍂", color: "from-gray-500 to-blue-700" }
 ];
 
 export default function AIStoryGenerator({ isOpen, onClose, onGenerate }: AIStoryGeneratorProps) {
@@ -229,7 +245,7 @@ export default function AIStoryGenerator({ isOpen, onClose, onGenerate }: AIStor
               <h3 className="text-lg sm:text-xl lg:text-2xl font-bold mb-2">Story Tone</h3>
               <p className="text-sm sm:text-base text-muted-foreground">What's the overall mood and feel?</p>
             </div>
-            <div className="space-y-4">
+            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
               {tones.map((tone) => (
                 <Card 
                   key={tone.id}
@@ -240,20 +256,30 @@ export default function AIStoryGenerator({ isOpen, onClose, onGenerate }: AIStor
                   }`}
                   onClick={() => setSelectedTone(tone.id)}
                 >
-                  <CardContent className="p-3 sm:p-6">
-                    <div className="flex items-center gap-3 sm:gap-4">
-                      <div className={`text-xl sm:text-2xl bg-gradient-to-r ${tone.color} bg-clip-text text-transparent flex-shrink-0`}>
-                        {tone.icon}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-sm sm:text-base lg:text-lg">{tone.name}</h4>
-                        <p className="text-xs sm:text-sm text-muted-foreground">{tone.description}</p>
-                      </div>
+                  <CardContent className="p-2 sm:p-3 text-center">
+                    <div className={`text-lg sm:text-xl lg:text-2xl mb-1 sm:mb-2 bg-gradient-to-r ${tone.color} bg-clip-text text-transparent`}>
+                      {tone.icon}
                     </div>
+                    <p className="text-xs sm:text-sm font-medium">{tone.name}</p>
                   </CardContent>
                 </Card>
               ))}
             </div>
+            {selectedTone && (
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">Selected tone: </p>
+                <div className="flex justify-center mt-2">
+                  {(() => {
+                    const tone = tones.find(t => t.id === selectedTone);
+                    return (
+                      <Badge variant="secondary" className="text-sm">
+                        {tone?.icon} {tone?.name}
+                      </Badge>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
           </div>
         );
 
