@@ -38,7 +38,7 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
         <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
           <div className="flex items-center space-x-2 min-w-0">
             <Palette className="text-primary text-2xl flex-shrink-0" aria-hidden="true" />
-            <h1 className="text-lg sm:text-xl font-serif font-bold text-primary truncate">ComicAI Studio</h1>
+            <h1 className="text-lg sm:text-xl font-serif font-bold text-primary truncate">Narrame</h1>
             <span className="text-xs bg-chart-3 text-white px-2 py-1 rounded-full font-mono">Beta</span>
           </div>
         </div>
