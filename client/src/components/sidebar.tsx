@@ -47,12 +47,13 @@ export default function Sidebar({ isOpen = true, onClose, allPagesData = [], isC
       {/* Sidebar */}
       <aside 
         className={`
-          ${isCollapsed ? 'w-16' : 'w-64'} bg-card border-r border-border overflow-y-auto fixed left-0 top-0 h-screen transition-all duration-300 z-40
-          md:translate-x-0 md:block
+          ${isCollapsed ? 'w-16' : 'w-64'} bg-card border-r border-border overflow-y-auto fixed left-0 h-screen transition-all duration-300 z-40
+          md:translate-x-0 md:block pt-16
           ${onClose ? `mobile-sidebar ${isOpen ? 'open' : ''}` : ''}
           ${!isOpen && onClose ? 'hidden md:block' : ''}
           ${isCollapsed ? 'md:w-16' : 'md:w-64'}
         `}
+        style={{ top: '64px', height: 'calc(100vh - 64px)' }}
         role="navigation"
         aria-label="Sidebar navigation"
       >
