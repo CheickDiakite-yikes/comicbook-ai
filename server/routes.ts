@@ -810,7 +810,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           title: pageData.title || "",
           setting: pageData.setting || "",
           mood: pageData.mood || "",
-          characters: pageData.characters || [],
           timeOfDay: pageData.timeOfDay || "",
           location: pageData.location || "",
           weatherConditions: pageData.weatherConditions || "",
@@ -829,7 +828,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             visualNotes: panelData.visualNotes,
             timing: panelData.timing,
             soundEffects: panelData.soundEffects || [],
-            characters: pageData.characters || [],
           });
 
           // Save dialogue for this panel

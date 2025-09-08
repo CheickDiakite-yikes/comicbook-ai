@@ -100,9 +100,46 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
         });
       }
       
-      // Generate structured script if description is provided or if we have a preview
-      if (data.description || generatedStructuredScript) {
+      // Save structured script if we have a preview, otherwise generate fresh one
+      if (generatedStructuredScript) {
         try {
+          // Use the existing generated script data that user already approved in preview
+          console.log("Saving existing structured script with", generatedStructuredScript.pages?.length, "pages");
+          await apiRequest("POST", `/api/projects/${project.id}/save-structured-script`, {
+            title: generatedStructuredScript.title || data.title,
+            logline: generatedStructuredScript.logline || data.description,
+            pages: generatedStructuredScript.pages || []
+          });
+          console.log("Existing structured script saved successfully");
+        } catch (scriptError) {
+          console.error("Failed to save existing structured script:", scriptError);
+          // Fall back to generating a fresh one if saving the existing one fails
+          try {
+            const characterData = validCharacters.map(char => ({
+              name: char.name,
+              role: char.role,
+              bio: char.bio,
+              visualDescriptors: char.visualDescriptors || ""
+            }));
+            
+            await apiRequest("POST", `/api/projects/${project.id}/generate-structured-script`, {
+              title: data.title,
+              description: data.description,
+              genre: data.genre,
+              characters: characterData,
+              settings: [{ name: "Metro City", description: "A bustling metropolis with towering skyscrapers and busy streets." }],
+              pageCount: 12,
+              tone: data.genre,
+              logline: data.description
+            });
+            console.log("Fallback: Fresh structured script generated successfully");
+          } catch (fallbackError) {
+            console.error("Failed to generate fallback structured script:", fallbackError);
+          }
+        }
+      } else if (data.description) {
+        try {
+          // Generate fresh script if no preview exists but description is provided
           const characterData = validCharacters.map(char => ({
             name: char.name,
             role: char.role,
@@ -110,8 +147,6 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
             visualDescriptors: char.visualDescriptors || ""
           }));
           
-          // If we already have a generated script from preview, we still need to generate a fresh one for the actual project
-          // because the preview used a temporary project
           await apiRequest("POST", `/api/projects/${project.id}/generate-structured-script`, {
             title: data.title,
             description: data.description,
@@ -122,11 +157,10 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
             tone: data.genre,
             logline: data.description
           });
-          console.log("Structured script generated successfully");
+          console.log("Fresh structured script generated successfully");
         } catch (scriptError) {
-          console.error("Failed to generate structured script:", scriptError);
+          console.error("Failed to generate fresh structured script:", scriptError);
           // Don't fail the entire project creation if script generation fails
-          // The project will still be created successfully without the structured script
         }
       }
       
