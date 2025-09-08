@@ -35,8 +35,13 @@ export default function Editor() {
   const [pageBackground, setPageBackground] = useState<string | null>(null);
   const [isGeneratingFullPage, setIsGeneratingFullPage] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [panelEditorOpen, setPanelEditorOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  
+  const toggleSidebarCollapse = () => {
+    setSidebarCollapsed(!sidebarCollapsed);
+  };
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [activeTab, setActiveTab] = useState<"editor" | "script">("editor");
   const [showComicReader, setShowComicReader] = useState(false);
@@ -769,17 +774,21 @@ export default function Editor() {
     <div className="min-h-screen bg-background" style={{ paddingTop: 'var(--safe-top)' }}>
       <Navigation 
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} 
-        showMobileToggle={true} 
+        showMobileToggle={true}
+        showDesktopToggle={false}
+        sidebarOpen={!sidebarCollapsed}
       />
       
       <div className="flex min-h-[calc(100vh-64px)]">
         <Sidebar 
           isOpen={sidebarOpen} 
-          onClose={() => setSidebarOpen(false)} 
+          onClose={() => setSidebarOpen(false)}
+          isCollapsed={sidebarCollapsed}
+          onToggleCollapse={toggleSidebarCollapse}
         />
         
         {/* Editor Header */}
-        <div className="flex-1 flex flex-col w-full lg:w-auto">
+        <div className={`flex-1 flex flex-col w-full lg:w-auto transition-all duration-300 ${sidebarCollapsed ? 'md:pl-20' : 'md:pl-64'}`}>
           <header className="bg-card border-b border-border px-4 sm:px-6 py-3 sm:py-4" role="banner">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
