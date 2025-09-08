@@ -266,7 +266,7 @@ export default function Characters() {
                   Characters in your library can be reused across multiple projects, while project characters stay within their specific comics.
                 </p>
                 
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <div className="flex justify-center">
                   <Button 
                     onClick={() => setIsCreateDialogOpen(true)} 
                     data-testid="button-create-first-character"
@@ -274,16 +274,6 @@ export default function Characters() {
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Create New Character
-                  </Button>
-                  
-                  <Button 
-                    variant="outline" 
-                    onClick={() => window.location.href = '/dashboard'}
-                    data-testid="button-go-to-projects"
-                    className="border-blue-200 hover:bg-blue-50"
-                  >
-                    <Users className="w-4 h-4 mr-2" />
-                    View Project Characters
                   </Button>
                 </div>
               </div>
