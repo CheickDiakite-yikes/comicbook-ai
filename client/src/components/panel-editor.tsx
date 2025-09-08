@@ -580,11 +580,11 @@ export default function PanelEditor({
             </div>
             <div>
               <label className="text-sm font-medium block mb-2">Color Palette</label>
-              <div className="flex space-x-2">
-                <div className="w-8 h-8 bg-chart-1 rounded-full cursor-pointer border-2 border-white shadow-sm" data-testid="color-1"></div>
-                <div className="w-8 h-8 bg-chart-2 rounded-full cursor-pointer border-2 border-white shadow-sm" data-testid="color-2"></div>
-                <div className="w-8 h-8 bg-chart-3 rounded-full cursor-pointer border-2 border-white shadow-sm" data-testid="color-3"></div>
-                <div className="w-8 h-8 bg-chart-4 rounded-full cursor-pointer border-2 border-white shadow-sm" data-testid="color-4"></div>
+              <div className="flex items-center justify-center p-3 bg-muted/30 rounded-lg border border-dashed border-muted-foreground/30">
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground font-medium">🎨 Custom Color Palettes</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">Coming soon!</p>
+                </div>
               </div>
             </div>
           </div>
