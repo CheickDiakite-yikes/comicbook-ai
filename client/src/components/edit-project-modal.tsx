@@ -183,8 +183,8 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
   // Structured script generation mutation
   const generateScriptMutation = useMutation({
     mutationFn: async () => {
-      // Enforce minimum 5 pages for all scripts
-      const MIN_PAGES = 5;
+      // Enforce minimum 6 pages for all scripts
+      const MIN_PAGES = 6;
       const DEFAULT_PAGES = 12;
       const pageCount = Math.max(MIN_PAGES, DEFAULT_PAGES);
       

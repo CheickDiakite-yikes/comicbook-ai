@@ -236,8 +236,8 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
       const tempProject = await tempProjectResponse.json() as Project;
       
       try {
-        // Generate structured script (minimum 5 pages for all scripts)
-        const MIN_PAGES = 5;
+        // Generate structured script (minimum 6 pages for all scripts)
+        const MIN_PAGES = 6;
         const DEFAULT_PAGES = 12;
         const pageCount = Math.max(MIN_PAGES, DEFAULT_PAGES);
         
