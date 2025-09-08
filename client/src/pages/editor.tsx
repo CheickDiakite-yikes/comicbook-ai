@@ -8,12 +8,15 @@ import LayoutChangeModal from "@/components/layout-change-modal";
 import ComicPageLayout from "@/components/comic-page-layout";
 import StructuredScriptViewer from "@/components/structured-script-viewer";
 import { ComicReader } from "@/components/comic-reader";
+import { ShareDialog } from "@/components/share-dialog";
 import { exportComicAsPDF, exportCurrentPage } from "@/lib/comic-export";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Save, Download, ChevronLeft, ChevronRight, Wand2, Loader2, Plus, Edit, Trash2, Cloud, FileText, Layout, Play, Zap } from "lucide-react";
+import { ArrowLeft, Save, Download, ChevronLeft, ChevronRight, Wand2, Loader2, Plus, Edit, Trash2, Cloud, FileText, Layout, Play, Zap, Share, Globe, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { aiService } from "@/lib/ai-service";
@@ -46,6 +49,7 @@ export default function Editor() {
   const [activeTab, setActiveTab] = useState<"editor" | "script" | "animate">("editor");
   const [showComicReader, setShowComicReader] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
   
   // Detect mobile screen size
   useEffect(() => {
@@ -853,6 +857,60 @@ export default function Editor() {
                     </>
                   )}
                 </Button>
+                
+                {/* Public/Private Toggle */}
+                <div className="flex items-center space-x-2 pl-1 sm:pl-2 border-l border-border">
+                  <Label htmlFor="project-public-toggle" className="sr-only">
+                    Make project public
+                  </Label>
+                  <div className="flex items-center space-x-1">
+                    {project?.isPublic ? (
+                      <Globe className="h-4 w-4 text-emerald-600" />
+                    ) : (
+                      <Lock className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <Switch
+                      id="project-public-toggle"
+                      checked={project?.isPublic || false}
+                      onCheckedChange={(checked) => {
+                        if (project) {
+                          // Update project visibility
+                          apiRequest(`/api/projects/${project.id}`, {
+                            method: "PUT",
+                            body: JSON.stringify({
+                              ...project,
+                              isPublic: checked
+                            })
+                          }).then(() => {
+                            queryClient.invalidateQueries({ queryKey: [`/api/projects/${project.id}`] });
+                            toast({
+                              title: checked ? "Project is now public" : "Project is now private",
+                              description: checked ? "Others can now discover and view your comic" : "Your comic is now private"
+                            });
+                          });
+                        }
+                      }}
+                      disabled={false}
+                      className="scale-75 sm:scale-100"
+                      data-testid="switch-project-public"
+                    />
+                  </div>
+                  <span className="hidden lg:inline text-xs text-muted-foreground">
+                    {project?.isPublic ? 'Public' : 'Private'}
+                  </span>
+                </div>
+
+                {/* Share Button */}
+                <Button 
+                  variant="outline"
+                  size={isMobile ? "sm" : "default"}
+                  onClick={() => setShowShareDialog(true)}
+                  className="min-h-[44px]"
+                  data-testid="button-share"
+                >
+                  <Share className="mr-1 sm:mr-2 h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Share</span>
+                </Button>
               </div>
             </div>
           </header>
@@ -1156,6 +1214,13 @@ export default function Editor() {
           projectTitle={project?.title}
         />
       )}
+
+      {/* Share Dialog */}
+      <ShareDialog 
+        open={showShareDialog}
+        onOpenChange={setShowShareDialog}
+        project={project}
+      />
     </div>
   );
 }
