@@ -29,7 +29,7 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
   };
 
   return (
-    <header role="banner">
+    <header role="banner" className="sticky top-0 z-50">
       <nav 
         className="bg-card border-b border-border px-4 sm:px-6 py-3 flex items-center justify-between shadow-sm"
         style={{ paddingTop: 'calc(0.75rem + var(--safe-top))' }}

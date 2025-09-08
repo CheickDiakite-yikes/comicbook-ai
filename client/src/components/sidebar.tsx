@@ -46,7 +46,7 @@ export default function Sidebar({ isOpen = true, onClose, allPagesData = [], isC
       {/* Sidebar */}
       <aside 
         className={`
-          ${isCollapsed ? 'w-16' : 'w-64'} bg-card border-r border-border overflow-y-auto fixed left-0 top-0 h-screen transition-all duration-300
+          ${isCollapsed ? 'w-16' : 'w-64'} bg-card border-r border-border overflow-y-auto fixed left-0 top-0 h-screen transition-all duration-300 z-40
           md:translate-x-0 md:block
           ${onClose ? `mobile-sidebar ${isOpen ? 'open' : ''}` : ''}
           ${!isOpen && onClose ? 'hidden md:block' : ''}
