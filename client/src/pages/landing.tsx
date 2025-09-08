@@ -13,6 +13,8 @@ import { ComicBurst, ComicWOW, ComicZAP, ComicNEW } from "@/components/ComicBurs
 import { TheaterStage, MarqueeHeading, TheaterControls } from "@/components/TheaterStage";
 import { ScrollStorytellingSection, StoryChapter } from "@/components/ScrollStorytellingSection";
 import { MobileAwareComponent, TouchFriendlyButton, MobileOptimizedAnimation, MobileParticleSystem } from "@/components/MobileOptimizations";
+import { PerformanceAnimation, LazyLoadWrapper, OptimizedParticleSystem } from "@/components/PerformanceOptimizations";
+import { SkipLinks, AccessibleButton, ScreenReaderAnnouncement } from "@/components/AccessibilityEnhancements";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import { animationVariants } from "@/lib/animations";
 
@@ -23,6 +25,8 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden" style={{ paddingTop: 'var(--safe-top)' }}>
+      {/* Skip links for accessibility */}
+      <SkipLinks />
       {/* Enhanced magical background */}
       <MagicalBackground 
         density="medium" 
@@ -30,14 +34,14 @@ export default function Landing() {
         className="opacity-40"
       />
       
-      {/* Magical particle background - desktop */}
+      {/* Optimized particle background */}
       <MobileAwareComponent
-        mobileChildren={<MobileParticleSystem particleCount={12} className="opacity-40" />}
+        mobileChildren={<MobileParticleSystem particleCount={8} className="opacity-30" />}
       >
-        <ParticleSystem 
-          particleCount={25}
-          interactive={true}
-          className="opacity-50"
+        <OptimizedParticleSystem 
+          particleCount={20}
+          maxParticles={30}
+          className="opacity-40"
         />
       </MobileAwareComponent>
       
@@ -79,7 +83,7 @@ export default function Landing() {
         </nav>
       </header>
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-20 relative z-10">
+      <main id="main-content" className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-20 relative z-10" role="main">
         {/* Hero Section with Animation */}
         <motion.div 
           ref={heroSection.ref}
@@ -323,14 +327,19 @@ export default function Landing() {
         </motion.div>
 
         {/* Features Grid */}
-        <motion.section 
-          ref={featuresSection.ref}
-          className="feature-grid mb-12 sm:mb-16"
-          aria-labelledby="features-heading"
-          initial="hidden"
-          animate={featuresSection.isIntersecting ? "visible" : "hidden"}
-          variants={animationVariants.staggerContainer}
-        >
+        <LazyLoadWrapper>
+          <PerformanceAnimation
+            className="mb-12 sm:mb-16"
+            animationLevel="reduced"
+          >
+            <motion.section 
+              ref={featuresSection.ref}
+              className="feature-grid"
+              aria-labelledby="features-heading"
+              initial="hidden"
+              animate={featuresSection.isIntersecting ? "visible" : "hidden"}
+              variants={animationVariants.staggerContainer}
+            >
           <h3 id="features-heading" className="sr-only">Platform Features</h3>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
             {/* Story Bible Panel */}
@@ -493,7 +502,9 @@ export default function Landing() {
               </ComicPanel>
             </motion.div>
           </div>
-        </motion.section>
+            </motion.section>
+          </PerformanceAnimation>
+        </LazyLoadWrapper>
 
         {/* Theater Demo Section */}
         <motion.section 
@@ -572,24 +583,25 @@ export default function Landing() {
         </motion.section>
 
         {/* Scroll Storytelling Chapters */}
-        <div className="mt-20 space-y-16">
-          <StoryChapter
-            chapterNumber={1}
-            title="Create Your Universe"
-            theme="hero"
-            content={
-              <div className="space-y-4">
-                <p className="text-lg leading-relaxed">
-                  Every great comic begins with a world. Define your characters, settings, and rules once in your Story Bible.
-                </p>
-                <div className="flex items-center space-x-4 text-sm">
-                  <span className="bg-blue-600 px-3 py-1 rounded-full">Characters</span>
-                  <span className="bg-purple-600 px-3 py-1 rounded-full">Settings</span>
-                  <span className="bg-indigo-600 px-3 py-1 rounded-full">Art Style</span>
+        <LazyLoadWrapper rootMargin="100px">
+          <div className="mt-20 space-y-16" role="region" aria-label="Story chapters">
+            <StoryChapter
+              chapterNumber={1}
+              title="Create Your Universe"
+              theme="hero"
+              content={
+                <div className="space-y-4">
+                  <p className="text-lg leading-relaxed">
+                    Every great comic begins with a world. Define your characters, settings, and rules once in your Story Bible.
+                  </p>
+                  <div className="flex items-center space-x-4 text-sm" role="list" aria-label="Features">
+                    <span className="bg-blue-600 px-3 py-1 rounded-full" role="listitem">Characters</span>
+                    <span className="bg-purple-600 px-3 py-1 rounded-full" role="listitem">Settings</span>
+                    <span className="bg-indigo-600 px-3 py-1 rounded-full" role="listitem">Art Style</span>
+                  </div>
                 </div>
-              </div>
-            }
-          />
+              }
+            />
 
           <StoryChapter
             chapterNumber={2}
@@ -625,7 +637,8 @@ export default function Landing() {
               </div>
             }
           />
-        </div>
+          </div>
+        </LazyLoadWrapper>
       </main>
       {/* Footer */}
       <footer 
