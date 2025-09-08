@@ -41,7 +41,7 @@ import {
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql, count } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -115,6 +115,13 @@ export interface IStorage {
   // Comments
   getProjectComments(projectId: string): Promise<any[]>;
   createProjectComment(comment: InsertProjectComment): Promise<ProjectComment>;
+
+  // Character library operations
+  getUserLibraryCharacters(userId: string): Promise<Character[]>;
+  createLibraryCharacter(userId: string, character: Omit<InsertCharacter, 'projectId'>): Promise<Character>;
+  updateLibraryCharacter(id: string, userId: string, updates: Partial<InsertCharacter>): Promise<Character | undefined>;
+  deleteLibraryCharacter(id: string, userId: string): Promise<boolean>;
+  copyCharacterToProject(characterId: string, projectId: string, userId: string): Promise<Character>;
 }
 
 export class MemStorage implements IStorage {
@@ -167,6 +174,8 @@ export class MemStorage implements IStorage {
       script: projectData.script || null,
       settings: projectData.settings || null,
       canonRules: projectData.canonRules || null,
+      isPublic: projectData.isPublic || false,
+      publicDescription: projectData.publicDescription || null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -772,6 +781,96 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ========================================
+  // Character Library Operations
+  // ========================================
+
+  // Get all library characters for a user
+  async getUserLibraryCharacters(userId: string): Promise<Character[]> {
+    return await db
+      .select()
+      .from(characters)
+      .where(and(eq(characters.userId, userId), eq(characters.isLibraryCharacter, true)))
+      .orderBy(desc(characters.createdAt));
+  }
+
+  // Create a library character
+  async createLibraryCharacter(userId: string, characterData: Omit<InsertCharacter, 'projectId'>): Promise<Character> {
+    const [character] = await db
+      .insert(characters)
+      .values({
+        ...characterData,
+        userId,
+        isLibraryCharacter: true,
+        projectId: null,
+      })
+      .returning();
+    return character;
+  }
+
+  // Update a library character (only if owned by user)
+  async updateLibraryCharacter(id: string, userId: string, updates: Partial<InsertCharacter>): Promise<Character | undefined> {
+    const [character] = await db
+      .update(characters)
+      .set(updates)
+      .where(and(
+        eq(characters.id, id),
+        eq(characters.userId, userId),
+        eq(characters.isLibraryCharacter, true)
+      ))
+      .returning();
+    return character || undefined;
+  }
+
+  // Delete a library character (only if owned by user)
+  async deleteLibraryCharacter(id: string, userId: string): Promise<boolean> {
+    const result = await db
+      .delete(characters)
+      .where(and(
+        eq(characters.id, id),
+        eq(characters.userId, userId),
+        eq(characters.isLibraryCharacter, true)
+      ));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Copy a library character to a project
+  async copyCharacterToProject(characterId: string, projectId: string, userId: string): Promise<Character> {
+    // First get the library character
+    const [libraryCharacter] = await db
+      .select()
+      .from(characters)
+      .where(and(
+        eq(characters.id, characterId),
+        eq(characters.userId, userId),
+        eq(characters.isLibraryCharacter, true)
+      ));
+
+    if (!libraryCharacter) {
+      throw new Error("Library character not found or not owned by user");
+    }
+
+    // Create a project character copy (without library character fields)
+    const [projectCharacter] = await db
+      .insert(characters)
+      .values({
+        projectId,
+        userId: null, // Project characters don't have userId
+        name: libraryCharacter.name,
+        role: libraryCharacter.role,
+        bio: libraryCharacter.bio,
+        visualDescriptors: libraryCharacter.visualDescriptors,
+        alwaysTraits: libraryCharacter.alwaysTraits,
+        neverTraits: libraryCharacter.neverTraits,
+        referenceImageUrl: libraryCharacter.referenceImageUrl,
+        colorScheme: libraryCharacter.colorScheme,
+        isLibraryCharacter: false,
+      })
+      .returning();
+
+    return projectCharacter;
+  }
+
+  // ========================================
   // Social Features Operations
   // ========================================
 
@@ -826,7 +925,26 @@ export class DatabaseStorage implements IStorage {
       .where(eq(projects.isPublic, true));
 
     if (genre) {
-      query = query.where(and(eq(projects.isPublic, true), eq(projects.genre, genre)));
+      query = db
+        .select({
+          id: projects.id,
+          userId: projects.userId,
+          title: projects.title,
+          description: projects.description,
+          publicDescription: projects.publicDescription,
+          genre: projects.genre,
+          artStyle: projects.artStyle,
+          isPublic: projects.isPublic,
+          createdAt: projects.createdAt,
+          updatedAt: projects.updatedAt,
+          userEmail: users.email,
+          userFirstName: users.firstName,
+          userLastName: users.lastName,
+          userProfileImageUrl: users.profileImageUrl,
+        })
+        .from(projects)
+        .innerJoin(users, eq(projects.userId, users.id))
+        .where(and(eq(projects.isPublic, true), eq(projects.genre, genre)));
     }
 
     const publicProjects = await query.orderBy(desc(projects.createdAt));
@@ -834,11 +952,19 @@ export class DatabaseStorage implements IStorage {
     // Enrich with like/comment counts and current user like status
     const enrichedProjects = await Promise.all(
       publicProjects.map(async (project) => {
-        // Get likes count using $count
-        const likesCount = await db.$count(projectLikes, eq(projectLikes.projectId, project.id));
+        // Get likes count
+        const [likesResult] = await db
+          .select({ count: count() })
+          .from(projectLikes)
+          .where(eq(projectLikes.projectId, project.id));
+        const likesCount = likesResult?.count || 0;
 
-        // Get comments count using $count
-        const commentsCount = await db.$count(projectComments, eq(projectComments.projectId, project.id));
+        // Get comments count
+        const [commentsResult] = await db
+          .select({ count: count() })
+          .from(projectComments)
+          .where(eq(projectComments.projectId, project.id));
+        const commentsCount = commentsResult?.count || 0;
 
         return {
           ...project,
@@ -871,13 +997,25 @@ export class DatabaseStorage implements IStorage {
     const enrichedProjects = await Promise.all(
       userProjects.map(async (project) => {
         // Get likes count
-        const likesCount = await db.$count(projectLikes, eq(projectLikes.projectId, project.id));
+        const [likesResult] = await db
+          .select({ count: count() })
+          .from(projectLikes)
+          .where(eq(projectLikes.projectId, project.id));
+        const likesCount = likesResult?.count || 0;
 
         // Get comments count
-        const commentsCount = await db.$count(projectComments, eq(projectComments.projectId, project.id));
+        const [commentsResult] = await db
+          .select({ count: count() })
+          .from(projectComments)
+          .where(eq(projectComments.projectId, project.id));
+        const commentsCount = commentsResult?.count || 0;
 
         // Get pages count
-        const pagesCount = await db.$count(pages, eq(pages.projectId, project.id));
+        const [pagesResult] = await db
+          .select({ count: count() })
+          .from(pages)
+          .where(eq(pages.projectId, project.id));
+        const pagesCount = pagesResult?.count || 0;
 
         return {
           ...project,

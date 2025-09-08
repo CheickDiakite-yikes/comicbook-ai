@@ -67,10 +67,11 @@ export const projects = pgTable("projects", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Characters table
+// Characters table - supports both library characters and project characters
 export const characters = pgTable("characters", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  projectId: varchar("project_id").notNull().references(() => projects.id),
+  projectId: varchar("project_id").references(() => projects.id), // nullable for library characters
+  userId: varchar("user_id").references(() => users.id), // for library characters
   name: varchar("name").notNull(),
   role: varchar("role"),
   bio: text("bio"),
@@ -79,6 +80,7 @@ export const characters = pgTable("characters", {
   neverTraits: text("never_traits"),
   referenceImageUrl: varchar("reference_image_url"),
   colorScheme: varchar("color_scheme"),
+  isLibraryCharacter: boolean("is_library_character").default(false), // true for library characters
   createdAt: timestamp("created_at").defaultNow(),
 });
 
