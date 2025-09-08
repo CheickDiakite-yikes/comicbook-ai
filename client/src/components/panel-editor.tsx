@@ -129,7 +129,7 @@ export default function PanelEditor({
       if (prompt.trim()) {
         autoSavePanelMutation.mutate({ 
           prompt, 
-          speechBubbles: currentPanelData?.speechBubbles || [] 
+          speechBubbles: (currentPanelData?.speechBubbles as any[]) || [] 
         });
       }
     }, 2000); // Auto-save after 2 seconds of inactivity
@@ -621,7 +621,7 @@ export default function PanelEditor({
                           className={`inline-block w-3 h-3 rounded-full ${
                             index === 0 ? 'bg-chart-1' : index === 1 ? 'bg-chart-2' : 'bg-chart-3'
                           }`}
-                        ></span>
+                        />
                         <span className="text-sm">{character.name}</span>
                         {character.role && (
                           <span className="text-xs text-muted-foreground">({character.role})</span>
