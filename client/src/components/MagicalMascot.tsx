@@ -139,49 +139,7 @@ export function MagicalMascot({
           </motion.div>
         </motion.div>
 
-        {/* Main body circle */}
-        <motion.div
-          className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 rounded-full border-4 border-white shadow-lg relative overflow-hidden"
-          animate={isActive ? { 
-            boxShadow: [
-              "0 0 20px rgba(59, 130, 246, 0.5)",
-              "0 0 40px rgba(59, 130, 246, 0.8)",
-              "0 0 20px rgba(59, 130, 246, 0.5)"
-            ]
-          } : {}}
-        >
-          {/* Eyes */}
-          <div className="absolute top-1/3 left-1/4 w-2 h-2 bg-white rounded-full">
-            <motion.div 
-              className="w-1 h-1 bg-black rounded-full m-0.5"
-              animate={controls}
-            />
-          </div>
-          <div className="absolute top-1/3 right-1/4 w-2 h-2 bg-white rounded-full">
-            <motion.div 
-              className="w-1 h-1 bg-black rounded-full m-0.5"
-              animate={controls}
-            />
-          </div>
-
-          {/* Smile */}
-          <motion.div
-            className="absolute bottom-1/3 left-1/2 transform -translate-x-1/2 w-4 h-2 border-2 border-white rounded-b-full border-t-0"
-            animate={isActive ? { scale: [1, 1.2, 1] } : {}}
-          />
-
-          {/* Magic wand */}
-          <motion.div
-            className="absolute bottom-0 right-0 transform translate-x-1 translate-y-1"
-            animate={isActive ? { 
-              rotate: [0, 45, -45, 0],
-              scale: [1, 1.2, 1]
-            } : { rotate: 15 }}
-            transition={{ duration: 0.6 }}
-          >
-            <Wand2 className="w-6 h-6 text-yellow-500" />
-          </motion.div>
-        </motion.div>
+        
 
         {/* Magic sparkles around the mascot */}
         {isActive && (
