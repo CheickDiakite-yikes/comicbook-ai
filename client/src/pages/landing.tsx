@@ -260,7 +260,7 @@ export default function Landing() {
               className="feature-grid"
               aria-labelledby="features-heading"
               initial="hidden"
-              animate={featuresSection.isIntersecting ? "visible" : "hidden"}
+              animate="visible"
               variants={animationVariants.staggerContainer}
             >
           <h3 id="features-heading" className="sr-only">Platform Features</h3>
