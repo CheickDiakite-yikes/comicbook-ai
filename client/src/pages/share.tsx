@@ -1,24 +1,75 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useParams, useLocation } from "wouter";
-import type { Project, Page, Panel, User } from "@shared/schema";
+import type { Project, Page, Panel, User, ProjectComment } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Textarea } from "@/components/ui/textarea";
 import { ComicReader } from "@/components/comic-reader";
-import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Play, Heart, Eye, Calendar, Palette, BookOpen, ExternalLink } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeft, Play, Heart, Eye, Calendar, Palette, BookOpen, ExternalLink, MessageCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+
+interface PublicProject extends Project {
+  user: User;
+  likesCount: number;
+  commentsCount: number;
+  isLikedByCurrentUser: boolean;
+}
+
+interface CommentWithUser extends ProjectComment {
+  user: User;
+}
 
 export default function SharePage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [, setLocation] = useLocation();
   const [showComicReader, setShowComicReader] = useState(false);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [newComment, setNewComment] = useState("");
+  const [showComments, setShowComments] = useState(false);
+  
+  const { user: currentUser } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  // Fetch public project data
-  const { data: project, isLoading: projectLoading, error: projectError } = useQuery<Project & { user: User }>({
+  // Fetch public project data with like/comment counts
+  const { data: project, isLoading: projectLoading, error: projectError } = useQuery<PublicProject>({
     queryKey: [`/api/public/projects/${projectId}`],
+    queryFn: async () => {
+      // First get the basic project data
+      const projectResponse = await fetch(`/api/public/projects/${projectId}`, { credentials: "include" });
+      if (!projectResponse.ok) {
+        throw new Error(`Failed to fetch project: ${projectResponse.status}`);
+      }
+      const projectData = await projectResponse.json();
+      
+      // Then get like/comment data from explore API to get counts
+      const exploreResponse = await fetch("/api/explore/projects", { credentials: "include" });
+      if (exploreResponse.ok) {
+        const exploreProjects = await exploreResponse.json();
+        const exploreProject = exploreProjects.find((p: any) => p.id === projectId);
+        if (exploreProject) {
+          return {
+            ...projectData,
+            likesCount: exploreProject.likesCount || 0,
+            commentsCount: exploreProject.commentsCount || 0,
+            isLikedByCurrentUser: exploreProject.isLikedByCurrentUser || false,
+          };
+        }
+      }
+      
+      // Fallback if explore data not available
+      return {
+        ...projectData,
+        likesCount: 0,
+        commentsCount: 0,
+        isLikedByCurrentUser: false,
+      };
+    },
     retry: false,
   });
 
@@ -35,6 +86,91 @@ export default function SharePage() {
     enabled: !!project,
     retry: false,
   });
+
+  // Fetch comments for the project
+  const { data: projectComments = [] } = useQuery<CommentWithUser[]>({
+    queryKey: [`/api/projects/${projectId}/comments`],
+    enabled: !!project,
+  });
+
+  // Like/unlike mutation
+  const likeMutation = useMutation({
+    mutationFn: async ({ projectId, action }: { projectId: string; action: 'like' | 'unlike' }) => {
+      return await fetch(`/api/projects/${projectId}/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/public/projects/${projectId}`] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update like",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Comment mutation
+  const commentMutation = useMutation({
+    mutationFn: async ({ projectId, comment }: { projectId: string; comment: string }) => {
+      return await fetch(`/api/projects/${projectId}/comments`, {
+        method: "POST",
+        body: JSON.stringify({ comment }),
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/comments`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/public/projects/${projectId}`] });
+      setNewComment("");
+      toast({
+        title: "Comment added!",
+        description: "Your comment has been posted successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to post comment",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleLike = (project: PublicProject) => {
+    if (!currentUser) {
+      toast({
+        title: "Sign in required",
+        description: "You need to be signed in to like projects.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const action = project.isLikedByCurrentUser ? 'unlike' : 'like';
+    likeMutation.mutate({ projectId: project.id, action });
+  };
+
+  const handleComment = () => {
+    if (!currentUser) {
+      toast({
+        title: "Sign in required",
+        description: "You need to be signed in to comment.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!newComment.trim() || !project) return;
+    
+    commentMutation.mutate({ 
+      projectId: project.id, 
+      comment: newComment.trim() 
+    });
+  };
 
   const isLoading = projectLoading || pagesLoading || panelsLoading;
 
@@ -184,6 +320,38 @@ export default function SharePage() {
                   </span>
                 </div>
               </div>
+
+              {/* Like and Comment Actions */}
+              {project && (
+                <div className="flex items-center space-x-4 pt-4">
+                  {/* Like Button */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleLike(project)}
+                    disabled={likeMutation.isPending}
+                    className={`flex items-center space-x-2 ${
+                      project.isLikedByCurrentUser ? 'text-red-500' : 'text-muted-foreground'
+                    }`}
+                    data-testid={`like-button-${project.id}`}
+                  >
+                    <Heart className={`w-4 h-4 ${project.isLikedByCurrentUser ? 'fill-current' : ''}`} />
+                    <span>{project.likesCount}</span>
+                  </Button>
+
+                  {/* Comment Button */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowComments(!showComments)}
+                    className="flex items-center space-x-2 text-muted-foreground"
+                    data-testid={`comment-button-${project.id}`}
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>{project.commentsCount}</span>
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Sidebar Info */}
@@ -250,6 +418,85 @@ export default function SharePage() {
               </Card>
             </div>
           </div>
+
+          {/* Comments Section */}
+          {showComments && project && (
+            <div className="mt-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Comments ({project.commentsCount})</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Comments List */}
+                  <div className="space-y-4 max-h-96 overflow-y-auto">
+                    {projectComments.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-8">
+                        No comments yet. Be the first to comment!
+                      </p>
+                    ) : (
+                      projectComments.map((comment) => (
+                        <div key={comment.id} className="flex space-x-3 p-3 rounded-lg bg-muted/30">
+                          <Avatar className="w-8 h-8">
+                            <AvatarImage src={comment.user.profileImageUrl || ""} />
+                            <AvatarFallback className="text-xs">
+                              {comment.user.firstName?.charAt(0) || comment.user.email?.charAt(0) || "U"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center space-x-2">
+                              <span className="font-medium text-sm">
+                                {comment.user.firstName || comment.user.email?.split('@')[0] || 'Anonymous'}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString() : 'Unknown date'}
+                              </span>
+                            </div>
+                            <p className="text-sm">{comment.comment}</p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Add Comment */}
+                  {currentUser ? (
+                    <div className="border-t pt-4 space-y-3">
+                      <Textarea
+                        placeholder="Write a comment..."
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        className="resize-none"
+                        rows={3}
+                        data-testid="comment-input"
+                      />
+                      <div className="flex justify-end">
+                        <Button
+                          onClick={handleComment}
+                          disabled={!newComment.trim() || commentMutation.isPending}
+                          data-testid="post-comment"
+                        >
+                          {commentMutation.isPending ? "Posting..." : "Post Comment"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border-t pt-4 text-center">
+                      <p className="text-muted-foreground">
+                        <Button 
+                          variant="link" 
+                          className="p-0 h-auto"
+                          onClick={() => window.location.href = "/api/login"}
+                        >
+                          Sign in
+                        </Button>
+                        {" "}to leave a comment
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       </main>
 
