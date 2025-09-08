@@ -185,7 +185,7 @@ export default function Characters() {
     <>
       <Sidebar />
       <main className="flex-1 pl-64">
-        <div className="container mx-auto pt-2 px-8 pb-8">
+        <div className="px-8 py-0">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
