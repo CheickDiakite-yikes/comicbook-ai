@@ -120,24 +120,7 @@ export function MagicalMascot({
     >
       {/* Main mascot body - a friendly wizard */}
       <div className="relative w-full h-full cursor-pointer">
-        {/* Wizard hat */}
-        <motion.div
-          className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-8 h-12 bg-gradient-to-b from-purple-600 to-purple-800 rounded-full"
-          animate={isActive ? { rotate: [0, 15, -15, 0] } : {}}
-          transition={{ duration: 0.5 }}
-        >
-          {/* Hat tip */}
-          <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-yellow-400 rounded-full" />
-          
-          {/* Stars on hat */}
-          <motion.div
-            className="absolute top-2 left-1 text-yellow-300 text-xs"
-            animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 2, repeat: Infinity }}
-          >
-            ✨
-          </motion.div>
-        </motion.div>
+        
 
         
 
