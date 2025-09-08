@@ -45,8 +45,8 @@ export default function Sidebar({ isOpen = true, onClose, allPagesData = [] }: S
       {/* Sidebar */}
       <aside 
         className={`
-          w-64 bg-card border-r border-border overflow-y-auto
-          md:relative md:translate-x-0 md:block
+          w-64 bg-card border-r border-border overflow-y-auto fixed left-0 top-0 h-screen
+          md:translate-x-0 md:block
           ${onClose ? `mobile-sidebar ${isOpen ? 'open' : ''}` : ''}
           ${!isOpen && onClose ? 'hidden md:block' : ''}
         `}
