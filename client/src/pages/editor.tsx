@@ -875,7 +875,7 @@ export default function Editor() {
                       onCheckedChange={(checked) => {
                         if (project) {
                           // Update project visibility
-                          apiRequest("/api/projects/" + project.id, "PUT", {
+                          apiRequest("PUT", "/api/projects/" + project.id, {
                             ...project,
                             isPublic: checked
                           }).then(() => {

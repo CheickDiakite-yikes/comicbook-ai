@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -102,6 +102,9 @@ export function ShareDialog({ open, onOpenChange, project }: ShareDialogProps) {
             <Share className="h-5 w-5" />
             Share Your Comic
           </DialogTitle>
+          <DialogDescription>
+            Generate shareable links and share your comic on social media
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">

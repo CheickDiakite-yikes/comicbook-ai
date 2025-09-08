@@ -1107,8 +1107,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Project not found or not public" });
       }
 
-      const panels = await storage.getProjectPanels(projectId);
-      res.json(panels);
+      // Get all pages for the project, then get panels for each page
+      const pages = await storage.getProjectPages(projectId);
+      const allPanels = [];
+      
+      for (const page of pages) {
+        const pagePanels = await storage.getPagePanels(page.id);
+        allPanels.push(...pagePanels);
+      }
+      
+      res.json(allPanels);
     } catch (error) {
       console.error("Error fetching public project panels:", error);
       res.status(500).json({ message: "Failed to fetch public project panels" });
