@@ -37,14 +37,14 @@ export const comicLayouts: ComicLayout[] = [
     description: "3 panels - Google's 16:9 + squares",
     panelCount: 3,
     svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-      <rect x="10" y="10" width="180" height="50" fill="none" stroke="#666" stroke-width="2"/>
-      <rect x="10" y="70" width="85" height="85" fill="none" stroke="#666" stroke-width="2"/>
-      <rect x="105" y="70" width="85" height="85" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="15" width="180" height="55" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="80" width="85" height="105" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="105" y="80" width="85" height="105" fill="none" stroke="#666" stroke-width="2"/>
     </svg>`,
     panels: [
-      { x: 0.025, y: 0.02, width: 0.95, height: 0.3 },     // 16:9 (Google native)
-      { x: 0.025, y: 0.35, width: 0.46, height: 0.46 },   // 1:1 (Google native)
-      { x: 0.515, y: 0.35, width: 0.46, height: 0.46 },   // 1:1 (Google native)
+      { x: 0.025, y: 0.05, width: 0.95, height: 0.35 },     // 16:9 (Google native) - larger and better centered
+      { x: 0.025, y: 0.43, width: 0.46, height: 0.52 },     // 1:1 (Google native) - taller to fill space
+      { x: 0.515, y: 0.43, width: 0.46, height: 0.52 },     // 1:1 (Google native) - taller to fill space
     ],
   },
   {
@@ -53,14 +53,14 @@ export const comicLayouts: ComicLayout[] = [
     description: "3 panels - Google's 4:3 format",
     panelCount: 3,
     svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-      <rect x="10" y="10" width="180" height="45" fill="none" stroke="#666" stroke-width="2"/>
-      <rect x="10" y="65" width="180" height="45" fill="none" stroke="#666" stroke-width="2"/>
-      <rect x="10" y="120" width="180" height="45" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="20" width="180" height="50" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="80" width="180" height="50" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="140" width="180" height="50" fill="none" stroke="#666" stroke-width="2"/>
     </svg>`,
     panels: [
-      { x: 0.025, y: 0.02, width: 0.95, height: 0.3 },    // 4:3 (Google native)
-      { x: 0.025, y: 0.34, width: 0.95, height: 0.3 },   // 4:3 (Google native)
-      { x: 0.025, y: 0.66, width: 0.95, height: 0.3 },   // 4:3 (Google native)
+      { x: 0.025, y: 0.08, width: 0.95, height: 0.28 },    // 4:3 (Google native) - better centered
+      { x: 0.025, y: 0.38, width: 0.95, height: 0.28 },    // 4:3 (Google native) - better centered  
+      { x: 0.025, y: 0.68, width: 0.95, height: 0.28 },    // 4:3 (Google native) - extends to bottom
     ],
   },
   {
@@ -69,14 +69,14 @@ export const comicLayouts: ComicLayout[] = [
     description: "3 panels - Google's 3:4 portrait",
     panelCount: 3,
     svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-      <rect x="10" y="10" width="54" height="72" fill="none" stroke="#666" stroke-width="2"/>
-      <rect x="73" y="10" width="54" height="72" fill="none" stroke="#666" stroke-width="2"/>
-      <rect x="136" y="10" width="54" height="72" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="15" width="54" height="170" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="73" y="15" width="54" height="170" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="136" y="15" width="54" height="170" fill="none" stroke="#666" stroke-width="2"/>
     </svg>`,
     panels: [
-      { x: 0.025, y: 0.02, width: 0.305, height: 0.6 },   // 3:4 (Google native)
-      { x: 0.3475, y: 0.02, width: 0.305, height: 0.6 }, // 3:4 (Google native)
-      { x: 0.67, y: 0.02, width: 0.305, height: 0.6 },   // 3:4 (Google native)
+      { x: 0.025, y: 0.05, width: 0.305, height: 0.9 },    // 3:4 (Google native) - much taller to fill space
+      { x: 0.3475, y: 0.05, width: 0.305, height: 0.9 },   // 3:4 (Google native) - much taller to fill space
+      { x: 0.67, y: 0.05, width: 0.305, height: 0.9 },     // 3:4 (Google native) - much taller to fill space
     ],
   },
   {
@@ -175,14 +175,14 @@ export const comicLayouts: ComicLayout[] = [
     description: "3 panels - horizontal strips",
     panelCount: 3,
     svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-      <rect x="10" y="10" width="180" height="56" fill="none" stroke="#666" stroke-width="2"/>
-      <rect x="10" y="72" width="180" height="56" fill="none" stroke="#666" stroke-width="2"/>
-      <rect x="10" y="134" width="180" height="56" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="20" width="180" height="50" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="80" width="180" height="50" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="140" width="180" height="50" fill="none" stroke="#666" stroke-width="2"/>
     </svg>`,
     panels: [
-      { x: 0.025, y: 0.02, width: 0.95, height: 0.3 },
-      { x: 0.025, y: 0.34, width: 0.95, height: 0.3 },
-      { x: 0.025, y: 0.66, width: 0.95, height: 0.3 },
+      { x: 0.025, y: 0.08, width: 0.95, height: 0.28 },    // Better centered vertically
+      { x: 0.025, y: 0.38, width: 0.95, height: 0.28 },    // Better centered vertically
+      { x: 0.025, y: 0.68, width: 0.95, height: 0.28 },    // Extends to bottom
     ],
   },
   {
@@ -191,14 +191,14 @@ export const comicLayouts: ComicLayout[] = [
     description: "3 panels - one large + two small",
     panelCount: 3,
     svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-      <rect x="10" y="10" width="120" height="120" fill="none" stroke="#666" stroke-width="2"/>
-      <rect x="138" y="10" width="52" height="56" fill="none" stroke="#666" stroke-width="2"/>
-      <rect x="138" y="74" width="52" height="56" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="15" width="120" height="170" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="138" y="15" width="52" height="82" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="138" y="103" width="52" height="82" fill="none" stroke="#666" stroke-width="2"/>
     </svg>`,
     panels: [
-      { x: 0.025, y: 0.02, width: 0.6, height: 0.62 },   // Large panel
-      { x: 0.645, y: 0.02, width: 0.33, height: 0.3 },   // Small top
-      { x: 0.645, y: 0.34, width: 0.33, height: 0.3 },   // Small bottom
+      { x: 0.025, y: 0.05, width: 0.6, height: 0.9 },     // Large panel - much taller
+      { x: 0.645, y: 0.05, width: 0.33, height: 0.43 },   // Small top - taller
+      { x: 0.645, y: 0.52, width: 0.33, height: 0.43 },   // Small bottom - taller
     ],
   },
   {
@@ -207,14 +207,14 @@ export const comicLayouts: ComicLayout[] = [
     description: "3 panels - dynamic triangle layout",
     panelCount: 3,
     svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-      <rect x="60" y="10" width="80" height="50" fill="none" stroke="#666" stroke-width="2"/>
-      <rect x="10" y="70" width="85" height="120" fill="none" stroke="#666" stroke-width="2"/>
-      <rect x="105" y="70" width="85" height="120" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="60" y="15" width="80" height="55" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="80" width="85" height="105" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="105" y="80" width="85" height="105" fill="none" stroke="#666" stroke-width="2"/>
     </svg>`,
     panels: [
-      { x: 0.3, y: 0.02, width: 0.4, height: 0.28 },     // Top center
-      { x: 0.025, y: 0.32, width: 0.46, height: 0.66 },  // Bottom left
-      { x: 0.515, y: 0.32, width: 0.46, height: 0.66 },  // Bottom right
+      { x: 0.3, y: 0.05, width: 0.4, height: 0.32 },     // Top center - better positioned
+      { x: 0.025, y: 0.4, width: 0.46, height: 0.55 },   // Bottom left - taller to fill space
+      { x: 0.515, y: 0.4, width: 0.46, height: 0.55 },   // Bottom right - taller to fill space
     ],
   },
   {
@@ -223,14 +223,14 @@ export const comicLayouts: ComicLayout[] = [
     description: "3 panels - descending staircase",
     panelCount: 3,
     svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-      <rect x="10" y="10" width="60" height="60" fill="none" stroke="#666" stroke-width="2"/>
-      <rect x="80" y="40" width="60" height="60" fill="none" stroke="#666" stroke-width="2"/>
-      <rect x="40" y="110" width="150" height="80" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="15" width="70" height="70" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="90" y="45" width="70" height="70" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="25" y="125" width="150" height="60" fill="none" stroke="#666" stroke-width="2"/>
     </svg>`,
     panels: [
-      { x: 0.025, y: 0.02, width: 0.32, height: 0.32 },   // Top left
-      { x: 0.38, y: 0.18, width: 0.32, height: 0.32 },    // Middle right
-      { x: 0.18, y: 0.56, width: 0.8, height: 0.42 },     // Large bottom
+      { x: 0.025, y: 0.05, width: 0.36, height: 0.36 },   // Top left - slightly larger
+      { x: 0.42, y: 0.22, width: 0.36, height: 0.36 },    // Middle right - better centered
+      { x: 0.11, y: 0.62, width: 0.78, height: 0.33 },    // Large bottom - extends to bottom
     ],
   },
   {
@@ -239,14 +239,14 @@ export const comicLayouts: ComicLayout[] = [
     description: "3 panels - center focus design",
     panelCount: 3,
     svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-      <rect x="10" y="10" width="180" height="40" fill="none" stroke="#666" stroke-width="2"/>
-      <rect x="60" y="60" width="80" height="80" fill="none" stroke="#666" stroke-width="2"/>
-      <rect x="10" y="150" width="180" height="40" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="15" width="180" height="50" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="50" y="75" width="100" height="100" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="185" width="180" height="50" fill="none" stroke="#666" stroke-width="2"/>
     </svg>`,
     panels: [
-      { x: 0.025, y: 0.02, width: 0.95, height: 0.22 },   // Top wide
-      { x: 0.28, y: 0.28, width: 0.44, height: 0.44 },    // Center square
-      { x: 0.025, y: 0.76, width: 0.95, height: 0.22 },   // Bottom wide
+      { x: 0.025, y: 0.05, width: 0.95, height: 0.28 },   // Top wide - taller
+      { x: 0.22, y: 0.36, width: 0.56, height: 0.56 },    // Center square - larger
+      { x: 0.025, y: 0.72, width: 0.95, height: 0.23 },   // Bottom wide - extends to bottom
     ],
   },
   {
@@ -255,14 +255,14 @@ export const comicLayouts: ComicLayout[] = [
     description: "3 panels - vertical hero + two stack",
     panelCount: 3,
     svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-      <rect x="10" y="10" width="90" height="180" fill="none" stroke="#666" stroke-width="2"/>
-      <rect x="110" y="10" width="80" height="85" fill="none" stroke="#666" stroke-width="2"/>
-      <rect x="110" y="105" width="80" height="85" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="10" y="15" width="90" height="170" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="110" y="15" width="80" height="82" fill="none" stroke="#666" stroke-width="2"/>
+      <rect x="110" y="103" width="80" height="82" fill="none" stroke="#666" stroke-width="2"/>
     </svg>`,
     panels: [
-      { x: 0.025, y: 0.02, width: 0.47, height: 0.96 },   // Large left
-      { x: 0.52, y: 0.02, width: 0.455, height: 0.46 },   // Top right
-      { x: 0.52, y: 0.52, width: 0.455, height: 0.46 },   // Bottom right
+      { x: 0.025, y: 0.05, width: 0.47, height: 0.9 },    // Large left - better centered
+      { x: 0.52, y: 0.05, width: 0.455, height: 0.43 },   // Top right - taller
+      { x: 0.52, y: 0.52, width: 0.455, height: 0.43 },   // Bottom right - taller to fill space
     ],
   },
   {
