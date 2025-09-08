@@ -102,41 +102,68 @@ export default function SharePage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Avatar>
-                <AvatarImage src={project?.user?.profileImageUrl || ""} />
-                <AvatarFallback>
-                  {project?.user?.firstName?.charAt(0) || project?.user?.email?.charAt(0) || "U"}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <h1 className="text-xl font-semibold">{project?.title}</h1>
-                <p className="text-sm text-muted-foreground">
-                  by {project?.user?.firstName || project?.user?.email || "Unknown"}
-                </p>
-              </div>
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center space-x-3">
+            <Avatar className="w-8 h-8 sm:w-10 sm:h-10">
+              <AvatarImage src={project?.user?.profileImageUrl || ""} />
+              <AvatarFallback className="text-xs sm:text-sm">
+                {project?.user?.firstName?.charAt(0) || project?.user?.email?.charAt(0) || "U"}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg sm:text-xl font-semibold truncate">{project?.title}</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                by {project?.user?.firstName || project?.user?.email || "Unknown"}
+              </p>
             </div>
-            <Button 
-              onClick={() => setShowComicReader(true)}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-              data-testid="button-read-comic"
-            >
-              <Play className="mr-2 h-4 w-4" />
-              Read Comic
-            </Button>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-4 sm:py-8">
         <div className="max-w-4xl mx-auto">
+          {/* Cover Art Section */}
+          <div className="mb-6 sm:mb-8">
+            <Card className="overflow-hidden">
+              <div className="relative group cursor-pointer" onClick={() => setShowComicReader(true)}>
+                {/* Cover Art */}
+                <div className="aspect-[2/3] sm:aspect-[8.5/11] md:aspect-[2/3] max-w-md mx-auto bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center">
+                  {project?.coverArt ? (
+                    <img 
+                      src={project.coverArt} 
+                      alt={`${project.title} cover art`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-center">
+                      <BookOpen className="h-16 w-16 text-primary/50 mx-auto mb-4" />
+                      <p className="text-lg font-medium">{pages?.length || 0} Page{pages?.length !== 1 ? 's' : ''}</p>
+                    </div>
+                  )}
+                  
+                  {/* Play Button Overlay */}
+                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center">
+                    <div className="bg-white/90 hover:bg-white group-hover:scale-110 transition-all duration-300 rounded-full p-4 sm:p-6 shadow-lg">
+                      <Play className="h-8 w-8 sm:h-12 sm:w-12 text-primary ml-1" fill="currentColor" />
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Mobile Call-to-Action Text */}
+                <div className="absolute bottom-4 left-4 right-4 text-center sm:hidden">
+                  <div className="bg-black/70 text-white px-3 py-2 rounded-full text-sm font-medium">
+                    Tap to Read Comic
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+
           {/* Project Info Grid */}
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid lg:grid-cols-3 gap-6">
             {/* Description */}
-            <div className="md:col-span-2 space-y-6">
+            <div className="lg:col-span-2 space-y-6">
               <div>
                 <h2 className="text-lg font-semibold mb-3">About This Comic</h2>
                 <p className="text-muted-foreground leading-relaxed">
@@ -145,14 +172,14 @@ export default function SharePage() {
               </div>
 
               {/* Stats */}
-              <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-4 sm:space-x-6 text-sm">
                 <div className="flex items-center space-x-2">
                   <BookOpen className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{pages?.length || 0} pages</span>
+                  <span>{pages?.length || 0} pages</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">
+                  <span>
                     {project?.createdAt ? new Date(project.createdAt).toLocaleDateString() : "Unknown"}
                   </span>
                 </div>
@@ -160,7 +187,7 @@ export default function SharePage() {
             </div>
 
             {/* Sidebar Info */}
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* Creator Info */}
               <Card>
                 <CardContent className="p-4">
@@ -217,7 +244,7 @@ export default function SharePage() {
                     data-testid="button-create-comic"
                   >
                     <ExternalLink className="mr-2 h-3 w-3" />
-                    Try ComicAI Studio
+                    Try Nerrame
                   </Button>
                 </CardContent>
               </Card>
