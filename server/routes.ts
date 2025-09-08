@@ -1039,6 +1039,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========================================
+  // Public Sharing API Routes (No Authentication Required)
+  // ========================================
+
+  // Get public project data for sharing
+  app.get("/api/public/projects/:id", async (req, res) => {
+    try {
+      const projectId = req.params.id;
+      
+      // Get project and check if it's public
+      const project = await storage.getProject(projectId);
+      if (!project || !project.isPublic) {
+        return res.status(404).json({ message: "Project not found or not public" });
+      }
+
+      // Get user data for the project creator
+      const user = await storage.getUser(project.userId);
+      if (!user) {
+        return res.status(404).json({ message: "Project creator not found" });
+      }
+
+      // Return project data with user info
+      res.json({
+        ...project,
+        user: {
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          profileImageUrl: user.profileImageUrl
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching public project:", error);
+      res.status(500).json({ message: "Failed to fetch public project" });
+    }
+  });
+
+  // Get public project pages for sharing
+  app.get("/api/public/projects/:id/pages", async (req, res) => {
+    try {
+      const projectId = req.params.id;
+      
+      // Check if project exists and is public
+      const project = await storage.getProject(projectId);
+      if (!project || !project.isPublic) {
+        return res.status(404).json({ message: "Project not found or not public" });
+      }
+
+      const pages = await storage.getProjectPages(projectId);
+      res.json(pages);
+    } catch (error) {
+      console.error("Error fetching public project pages:", error);
+      res.status(500).json({ message: "Failed to fetch public project pages" });
+    }
+  });
+
+  // Get public project panels for sharing
+  app.get("/api/public/projects/:id/panels", async (req, res) => {
+    try {
+      const projectId = req.params.id;
+      
+      // Check if project exists and is public
+      const project = await storage.getProject(projectId);
+      if (!project || !project.isPublic) {
+        return res.status(404).json({ message: "Project not found or not public" });
+      }
+
+      const panels = await storage.getProjectPanels(projectId);
+      res.json(panels);
+    } catch (error) {
+      console.error("Error fetching public project panels:", error);
+      res.status(500).json({ message: "Failed to fetch public project panels" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
