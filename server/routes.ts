@@ -680,6 +680,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { projectId } = req.params;
       const { title, description, genre, characters, settings, pageCount, tone, logline } = req.body;
       
+      // Enforce minimum 5 pages for all scripts (server-side validation)
+      const MIN_PAGES = 5;
+      const validatedPageCount = Math.max(MIN_PAGES, pageCount || MIN_PAGES);
+      
       // Import GeminiService
       const { GeminiService } = await import("./gemini");
       const geminiService = new GeminiService();
@@ -691,7 +695,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         genre,
         characters,
         settings,
-        pageCount,
+        pageCount: validatedPageCount,
         tone,
         logline,
       });
