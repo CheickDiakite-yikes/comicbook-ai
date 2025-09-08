@@ -2,7 +2,15 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertProjectSchema, insertCharacterSchema, insertPageSchema, insertPanelSchema } from "@shared/schema";
+import { 
+  insertProjectSchema, 
+  insertCharacterSchema, 
+  insertPageSchema, 
+  insertPanelSchema,
+  insertUserProfileSchema,
+  insertProjectLikeSchema,
+  insertProjectCommentSchema
+} from "@shared/schema";
 import { geminiService } from "./gemini";
 import { z } from "zod";
 
@@ -753,6 +761,158 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating structured script:", error);
       res.status(500).json({ message: "Failed to generate structured script" });
+    }
+  });
+
+  // ========================================
+  // Social Features API Routes
+  // ========================================
+
+  // Explore routes - Get public projects with stats
+  app.get("/api/explore/projects", async (req: any, res) => {
+    try {
+      const { genre } = req.query;
+      const publicProjects = await storage.getPublicProjects(genre);
+      res.json(publicProjects);
+    } catch (error) {
+      console.error("Error fetching public projects:", error);
+      res.status(500).json({ message: "Failed to fetch public projects" });
+    }
+  });
+
+  // Profile routes
+  app.get("/api/profile", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const profile = await storage.getUserProfile(userId);
+      res.json(profile);
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ message: "Failed to fetch user profile" });
+    }
+  });
+
+  app.put("/api/profile", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const profileData = insertUserProfileSchema.parse({
+        ...req.body,
+        userId,
+      });
+      const profile = await storage.updateUserProfile(userId, profileData);
+      res.json(profile);
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      res.status(400).json({ message: "Failed to update user profile" });
+    }
+  });
+
+  app.get("/api/profile/projects", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const projects = await storage.getUserProjectsWithStats(userId);
+      res.json(projects);
+    } catch (error) {
+      console.error("Error fetching user projects with stats:", error);
+      res.status(500).json({ message: "Failed to fetch user projects" });
+    }
+  });
+
+  // Project public status
+  app.put("/api/projects/:id/public", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const project = await storage.getProject(req.params.id);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      const { isPublic } = req.body;
+      const updatedProject = await storage.updateProject(req.params.id, { isPublic });
+      res.json(updatedProject);
+    } catch (error) {
+      console.error("Error updating project public status:", error);
+      res.status(400).json({ message: "Failed to update project public status" });
+    }
+  });
+
+  // Like/Unlike project
+  app.post("/api/projects/:id/like", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const projectId = req.params.id;
+      
+      // Check if project exists and is public
+      const project = await storage.getProject(projectId);
+      if (!project || !project.isPublic) {
+        return res.status(404).json({ message: "Project not found or not public" });
+      }
+
+      const like = await storage.likeProject(projectId, userId);
+      res.json(like);
+    } catch (error) {
+      console.error("Error liking project:", error);
+      res.status(400).json({ message: "Failed to like project" });
+    }
+  });
+
+  app.post("/api/projects/:id/unlike", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const projectId = req.params.id;
+      
+      await storage.unlikeProject(projectId, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error unliking project:", error);
+      res.status(400).json({ message: "Failed to unlike project" });
+    }
+  });
+
+  // Comments
+  app.get("/api/projects/:id/comments", async (req: any, res) => {
+    try {
+      const projectId = req.params.id;
+      
+      // Check if project exists and is public
+      const project = await storage.getProject(projectId);
+      if (!project || !project.isPublic) {
+        return res.status(404).json({ message: "Project not found or not public" });
+      }
+
+      const comments = await storage.getProjectComments(projectId);
+      res.json(comments);
+    } catch (error) {
+      console.error("Error fetching project comments:", error);
+      res.status(500).json({ message: "Failed to fetch project comments" });
+    }
+  });
+
+  app.post("/api/projects/:id/comments", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const projectId = req.params.id;
+      
+      // Check if project exists and is public
+      const project = await storage.getProject(projectId);
+      if (!project || !project.isPublic) {
+        return res.status(404).json({ message: "Project not found or not public" });
+      }
+
+      const { comment } = req.body;
+      if (!comment || !comment.trim()) {
+        return res.status(400).json({ message: "Comment cannot be empty" });
+      }
+
+      const newComment = await storage.createProjectComment({
+        projectId,
+        userId,
+        comment: comment.trim(),
+      });
+      res.json(newComment);
+    } catch (error) {
+      console.error("Error creating project comment:", error);
+      res.status(400).json({ message: "Failed to create comment" });
     }
   });
 

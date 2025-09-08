@@ -8,6 +8,9 @@ import {
   scriptPages,
   scriptPanels,
   scriptDialogue,
+  userProfiles,
+  projectLikes,
+  projectComments,
   type User,
   type UpsertUser,
   type Project,
@@ -29,6 +32,12 @@ import {
   type FullStructuredScript,
   type ScriptPageWithPanels,
   type ScriptPanelWithDialogue,
+  type UserProfile,
+  type InsertUserProfile,
+  type ProjectLike,
+  type InsertProjectLike,
+  type ProjectComment,
+  type InsertProjectComment,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -89,6 +98,23 @@ export interface IStorage {
   getScriptDialogue(panelId: string): Promise<ScriptDialogue[]>;
   updateScriptDialogue(id: string, updates: Partial<InsertScriptDialogue>): Promise<ScriptDialogue | undefined>;
   deleteScriptDialogue(id: string): Promise<boolean>;
+
+  // Social features operations
+  // User profiles
+  getUserProfile(userId: string): Promise<UserProfile | undefined>;
+  updateUserProfile(userId: string, profile: Partial<InsertUserProfile>): Promise<UserProfile>;
+  
+  // Public projects
+  getPublicProjects(genre?: string): Promise<any[]>;
+  getUserProjectsWithStats(userId: string): Promise<any[]>;
+  
+  // Likes
+  likeProject(projectId: string, userId: string): Promise<ProjectLike>;
+  unlikeProject(projectId: string, userId: string): Promise<boolean>;
+  
+  // Comments
+  getProjectComments(projectId: string): Promise<any[]>;
+  createProjectComment(comment: InsertProjectComment): Promise<ProjectComment>;
 }
 
 export class MemStorage implements IStorage {
@@ -743,6 +769,206 @@ export class DatabaseStorage implements IStorage {
   async deleteScriptDialogue(id: string): Promise<boolean> {
     const result = await db.delete(scriptDialogue).where(eq(scriptDialogue.id, id));
     return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // ========================================
+  // Social Features Operations
+  // ========================================
+
+  // User profiles
+  async getUserProfile(userId: string): Promise<UserProfile | undefined> {
+    const [profile] = await db
+      .select()
+      .from(userProfiles)
+      .where(eq(userProfiles.userId, userId));
+    return profile || undefined;
+  }
+
+  async updateUserProfile(userId: string, profileData: Partial<InsertUserProfile>): Promise<UserProfile> {
+    const [profile] = await db
+      .insert(userProfiles)
+      .values({
+        ...profileData,
+        userId,
+      })
+      .onConflictDoUpdate({
+        target: userProfiles.userId,
+        set: {
+          ...profileData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return profile;
+  }
+
+  // Public projects with like/comment counts
+  async getPublicProjects(genre?: string): Promise<any[]> {
+    let query = db
+      .select({
+        id: projects.id,
+        userId: projects.userId,
+        title: projects.title,
+        description: projects.description,
+        publicDescription: projects.publicDescription,
+        genre: projects.genre,
+        artStyle: projects.artStyle,
+        isPublic: projects.isPublic,
+        createdAt: projects.createdAt,
+        updatedAt: projects.updatedAt,
+        userEmail: users.email,
+        userFirstName: users.firstName,
+        userLastName: users.lastName,
+        userProfileImageUrl: users.profileImageUrl,
+      })
+      .from(projects)
+      .innerJoin(users, eq(projects.userId, users.id))
+      .where(eq(projects.isPublic, true));
+
+    if (genre) {
+      query = query.where(and(eq(projects.isPublic, true), eq(projects.genre, genre)));
+    }
+
+    const publicProjects = await query.orderBy(desc(projects.createdAt));
+
+    // Enrich with like/comment counts and current user like status
+    const enrichedProjects = await Promise.all(
+      publicProjects.map(async (project) => {
+        // Get likes count
+        const [likesResult] = await db
+          .select({ count: db.select().from(projectLikes).where(eq(projectLikes.projectId, project.id)).as("count") })
+          .from(projectLikes)
+          .where(eq(projectLikes.projectId, project.id));
+        const likesCount = likesResult?.count || 0;
+
+        // Get comments count
+        const [commentsResult] = await db
+          .select({ count: db.select().from(projectComments).where(eq(projectComments.projectId, project.id)).as("count") })
+          .from(projectComments)
+          .where(eq(projectComments.projectId, project.id));
+        const commentsCount = commentsResult?.count || 0;
+
+        return {
+          ...project,
+          user: {
+            id: project.userId,
+            email: project.userEmail,
+            firstName: project.userFirstName,
+            lastName: project.userLastName,
+            profileImageUrl: project.userProfileImageUrl,
+          },
+          likesCount,
+          commentsCount,
+          isLikedByCurrentUser: false, // This will be set on the frontend per user
+        };
+      })
+    );
+
+    return enrichedProjects;
+  }
+
+  // User projects with stats for profile page
+  async getUserProjectsWithStats(userId: string): Promise<any[]> {
+    const userProjects = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.userId, userId))
+      .orderBy(desc(projects.updatedAt));
+
+    // Enrich with stats
+    const enrichedProjects = await Promise.all(
+      userProjects.map(async (project) => {
+        // Get likes count
+        const [likesResult] = await db
+          .select({ count: db.select().from(projectLikes).where(eq(projectLikes.projectId, project.id)).as("count") })
+          .from(projectLikes)
+          .where(eq(projectLikes.projectId, project.id));
+        const likesCount = likesResult?.count || 0;
+
+        // Get comments count
+        const [commentsResult] = await db
+          .select({ count: db.select().from(projectComments).where(eq(projectComments.projectId, project.id)).as("count") })
+          .from(projectComments)
+          .where(eq(projectComments.projectId, project.id));
+        const commentsCount = commentsResult?.count || 0;
+
+        // Get pages count
+        const [pagesResult] = await db
+          .select({ count: db.select().from(pages).where(eq(pages.projectId, project.id)).as("count") })
+          .from(pages)
+          .where(eq(pages.projectId, project.id));
+        const pagesCount = pagesResult?.count || 0;
+
+        return {
+          ...project,
+          likesCount,
+          commentsCount,
+          pagesCount,
+        };
+      })
+    );
+
+    return enrichedProjects;
+  }
+
+  // Likes
+  async likeProject(projectId: string, userId: string): Promise<ProjectLike> {
+    const [like] = await db
+      .insert(projectLikes)
+      .values({
+        projectId,
+        userId,
+      })
+      .onConflictDoNothing()
+      .returning();
+    return like;
+  }
+
+  async unlikeProject(projectId: string, userId: string): Promise<boolean> {
+    const result = await db
+      .delete(projectLikes)
+      .where(and(eq(projectLikes.projectId, projectId), eq(projectLikes.userId, userId)));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Comments
+  async getProjectComments(projectId: string): Promise<any[]> {
+    const comments = await db
+      .select({
+        id: projectComments.id,
+        projectId: projectComments.projectId,
+        userId: projectComments.userId,
+        comment: projectComments.comment,
+        createdAt: projectComments.createdAt,
+        updatedAt: projectComments.updatedAt,
+        userEmail: users.email,
+        userFirstName: users.firstName,
+        userLastName: users.lastName,
+        userProfileImageUrl: users.profileImageUrl,
+      })
+      .from(projectComments)
+      .innerJoin(users, eq(projectComments.userId, users.id))
+      .where(eq(projectComments.projectId, projectId))
+      .orderBy(desc(projectComments.createdAt));
+
+    return comments.map(comment => ({
+      ...comment,
+      user: {
+        id: comment.userId,
+        email: comment.userEmail,
+        firstName: comment.userFirstName,
+        lastName: comment.userLastName,
+        profileImageUrl: comment.userProfileImageUrl,
+      },
+    }));
+  }
+
+  async createProjectComment(commentData: InsertProjectComment): Promise<ProjectComment> {
+    const [comment] = await db
+      .insert(projectComments)
+      .values(commentData)
+      .returning();
+    return comment;
   }
 }
 
