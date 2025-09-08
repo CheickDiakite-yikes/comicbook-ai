@@ -39,7 +39,7 @@ interface ProjectWithStats extends Project {
 
 export default function Profile() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true); // Start collapsed to avoid blocking content
   const [isEditing, setIsEditing] = useState(false);
   const [profileData, setProfileData] = useState({
     bio: "",

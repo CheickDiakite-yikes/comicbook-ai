@@ -36,7 +36,7 @@ interface CommentWithUser extends ProjectComment {
 
 export default function Explore() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true); // Start collapsed to avoid blocking content
   const [selectedProject, setSelectedProject] = useState<PublicProject | null>(null);
   const [newComment, setNewComment] = useState("");
   const [genreFilter, setGenreFilter] = useState("all");

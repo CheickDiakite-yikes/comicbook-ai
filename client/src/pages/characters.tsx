@@ -23,7 +23,7 @@ export default function Characters() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true); // Start collapsed to avoid blocking content
 
   // Handle responsive behavior
   useEffect(() => {
