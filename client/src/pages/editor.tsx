@@ -8,6 +8,7 @@ import LayoutChangeModal from "@/components/layout-change-modal";
 import ComicPageLayout from "@/components/comic-page-layout";
 import StructuredScriptViewer from "@/components/structured-script-viewer";
 import { ComicReader } from "@/components/comic-reader";
+import { exportComicAsPDF, exportCurrentPage } from "@/lib/comic-export";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -39,6 +40,7 @@ export default function Editor() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [activeTab, setActiveTab] = useState<"editor" | "script">("editor");
   const [showComicReader, setShowComicReader] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   
   // Detect mobile screen size
   useEffect(() => {
@@ -581,6 +583,66 @@ export default function Editor() {
     });
   };
 
+  // Export handler
+  const handleExportComic = async () => {
+    if (!project || !pages || pages.length === 0) {
+      toast({
+        title: "Nothing to export",
+        description: "Please create some pages before exporting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      // Collect all panel data for all pages
+      const allPanelsPromises = pages.map(page => 
+        fetch(`/api/pages/${page.id}/panels`).then(res => res.json())
+      );
+      const allPanelsArrays = await Promise.all(allPanelsPromises);
+      const allPanels = allPanelsArrays.flat();
+
+      // Build data maps for export
+      const generatedImagesMap: {[pageId: string]: {[panelNumber: number]: string}} = {};
+      const generatedBackgroundsMap: {[pageId: string]: {[panelNumber: number]: string}} = {};
+      const pageBackgroundsMap: {[pageId: string]: string} = {};
+
+      // For now, we only have data for the current page, but this structure supports all pages
+      if (currentPage) {
+        generatedImagesMap[currentPage.id] = generatedImages;
+        generatedBackgroundsMap[currentPage.id] = generatedBackgrounds;
+        if (pageBackground) {
+          pageBackgroundsMap[currentPage.id] = pageBackground;
+        }
+      }
+
+      // Export as PDF
+      await exportComicAsPDF(
+        pages,
+        allPanels,
+        generatedImagesMap,
+        generatedBackgroundsMap,
+        pageBackgroundsMap,
+        project.title
+      );
+
+      toast({
+        title: "Export successful!",
+        description: `Your comic "${project.title}" has been exported as PDF.`,
+      });
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast({
+        title: "Export failed",
+        description: "There was an error exporting your comic. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // Show loading state while project data is being fetched
   if (isProjectLoading || !projectId) {
     return (
@@ -722,10 +784,21 @@ export default function Editor() {
                 <Button 
                   size={isMobile ? "sm" : "default"}
                   className="min-h-[44px]"
+                  onClick={handleExportComic}
+                  disabled={isExporting}
                   data-testid="button-export"
                 >
-                  <Download className="mr-1 sm:mr-2 h-4 w-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">Export</span>
+                  {isExporting ? (
+                    <>
+                      <Loader2 className="mr-1 sm:mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                      <span className="hidden sm:inline">Exporting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="mr-1 sm:mr-2 h-4 w-4" aria-hidden="true" />
+                      <span className="hidden sm:inline">Export</span>
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
@@ -988,8 +1061,20 @@ export default function Editor() {
       {/* Comic Reader Modal */}
       {showComicReader && (
         <ComicReader
-          pages={pages}
-          panels={panels} // For now, just current page panels - can be enhanced later
+          pages={pages.map(page => ({
+            id: page.id,
+            pageNumber: page.pageNumber,
+            title: page.scriptSnippet || `Page ${page.pageNumber}`,
+            layoutTemplate: page.layoutTemplate,
+            backgroundImageUrl: page.backgroundImageUrl || undefined,
+          }))}
+          panels={panels.map(panel => ({
+            id: panel.id,
+            pageId: panel.pageId,
+            panelNumber: panel.panelNumber,
+            imageUrl: panel.imageUrl || '',
+            action: panel.prompt || `Panel ${panel.panelNumber}`,
+          }))}
           currentPageIndex={currentPageIndex}
           onPageChange={setCurrentPageIndex}
           onClose={() => setShowComicReader(false)}
