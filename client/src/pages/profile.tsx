@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import type { UploadResult } from "@uppy/core";
+// Removed Uppy import as we're now using native file picker
 import { useAuth } from "@/hooks/useAuth";
 import Navigation from "@/components/navigation";
 import Sidebar from "@/components/sidebar";
@@ -30,7 +31,6 @@ import {
   Eye,
   Heart
 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
 import type { User as UserType, UserProfile, Project } from "@shared/schema";
 
 interface ProjectWithStats extends Project {
@@ -72,10 +72,7 @@ export default function Profile({ userId }: ProfileProps = {}) {
   // Image upload mutations
   const updateProfileImageMutation = useMutation({
     mutationFn: async (imageURL: string) => {
-      return apiRequest("/api/auth/user/profile-image", {
-        method: "PUT",
-        body: { imageURL },
-      });
+      return apiRequest("/api/auth/user/profile-image", "PUT", { imageURL });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
@@ -95,10 +92,7 @@ export default function Profile({ userId }: ProfileProps = {}) {
 
   const updateBannerImageMutation = useMutation({
     mutationFn: async (imageURL: string) => {
-      return apiRequest("/api/auth/user/banner-image", {
-        method: "PUT",
-        body: { imageURL },
-      });
+      return apiRequest("/api/auth/user/banner-image", "PUT", { imageURL });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
@@ -118,25 +112,23 @@ export default function Profile({ userId }: ProfileProps = {}) {
 
   // Upload helper functions
   const handleGetUploadParameters = async () => {
-    const response = await apiRequest("/api/upload/presigned-url", {
-      method: "POST",
-    });
+    const response = await apiRequest("/api/upload/presigned-url", "POST");
     return {
       method: "PUT" as const,
       url: response.uploadURL,
     };
   };
 
-  const handleProfileImageUpload = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+  const handleProfileImageUpload = (result: { successful: Array<{ uploadURL: string }> }) => {
     if (result.successful.length > 0) {
-      const uploadURL = result.successful[0].uploadURL as string;
+      const uploadURL = result.successful[0].uploadURL;
       updateProfileImageMutation.mutate(uploadURL);
     }
   };
 
-  const handleBannerImageUpload = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+  const handleBannerImageUpload = (result: { successful: Array<{ uploadURL: string }> }) => {
     if (result.successful.length > 0) {
-      const uploadURL = result.successful[0].uploadURL as string;
+      const uploadURL = result.successful[0].uploadURL;
       updateBannerImageMutation.mutate(uploadURL);
     }
   };
