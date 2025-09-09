@@ -64,9 +64,23 @@ app.use((req, res, next) => {
         const privateFile = await objectStorageService.getObjectEntityFile(`/objects/uploads/${filename}`);
         return objectStorageService.downloadObject(privateFile, res);
       } catch (privateError) {
-        // If not found in object storage either, return 404
-        console.log(`Image not found in local or object storage: ${filename}`);
-        return res.status(404).json({ error: "Image not found" });
+        // If not found in object storage either, serve a placeholder image
+        console.log(`Image not found in local or object storage: ${filename}, serving placeholder`);
+        
+        // Generate a simple placeholder image
+        const placeholderSvg = `
+          <svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
+            <rect width="400" height="400" fill="#f3f4f6"/>
+            <text x="200" y="200" font-family="Arial, sans-serif" font-size="16" fill="#6b7280" text-anchor="middle">
+              <tspan x="200" dy="0">Image Missing</tspan>
+              <tspan x="200" dy="20">Click to Regenerate</tspan>
+            </text>
+          </svg>
+        `;
+        
+        res.setHeader('Content-Type', 'image/svg+xml');
+        res.setHeader('Cache-Control', 'no-cache');
+        return res.send(placeholderSvg);
       }
     } catch (error) {
       console.error("Error serving generated image from object storage:", error);
