@@ -112,7 +112,7 @@ export default function Profile({ userId }: ProfileProps = {}) {
 
   // Upload helper functions
   const handleGetUploadParameters = async () => {
-    const response = await apiRequest("POST", "/api/objects/upload");
+    const response = await apiRequest("POST", "/api/upload/presigned-url");
     const data = await response.json();
     return {
       method: "PUT" as const,
