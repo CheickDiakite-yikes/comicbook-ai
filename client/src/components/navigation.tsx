@@ -161,6 +161,7 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
       {mobileMenuOpen && (
         <div
           className="fixed inset-0 z-50 md:hidden"
+          onClick={toggleMobileMenu}
           style={{
             background: `linear-gradient(135deg, 
               rgb(59, 130, 246) 0%, 
@@ -184,7 +185,7 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
           />
           
           {/* Menu Header */}
-          <div className="flex items-center justify-between p-4 border-b border-white/20">
+          <div className="flex items-center justify-between p-4 border-b border-white/20" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center space-x-2">
               <img 
                 src={kumayiriLogo} 
@@ -206,7 +207,7 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
           </div>
 
           {/* Navigation Links */}
-          <div className="flex flex-col px-4 py-8 space-y-6">
+          <div className="flex flex-col px-4 py-8 space-y-6" onClick={(e) => e.stopPropagation()}>
             {navigationLinks.map((link) => {
               if (link.requiresAuth && !user) return null;
               const Icon = link.icon;
@@ -242,7 +243,7 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
 
           {/* User Section */}
           {user && (
-            <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/20 bg-black/20">
+            <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/20 bg-black/20" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   {user.profileImageUrl ? (
@@ -279,7 +280,7 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
 
           {/* Sign In Section for non-authenticated users */}
           {!user && (
-            <div className="absolute bottom-0 left-0 right-0 p-4">
+            <div className="absolute bottom-0 left-0 right-0 p-4" onClick={(e) => e.stopPropagation()}>
               <Button
                 onClick={() => window.location.href = '/api/login'}
                 className="w-full bg-white text-gray-900 hover:bg-white/90 font-medium py-3 text-lg"
