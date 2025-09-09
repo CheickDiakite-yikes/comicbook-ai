@@ -9,13 +9,9 @@ import { MagicalBackground } from "@/components/MagicalBackground";
 import { PerformanceAnimation, LazyLoadWrapper } from "@/components/PerformanceOptimizations";
 import { MobileAwareComponent, MobileParticleSystem } from "@/components/MobileOptimizations";
 import { animationVariants } from "@/lib/animations";
-import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import kumayiriLogo from "@assets/ChatGPT Image Sep 8, 2025, 08_35_18 PM_1757378183961.png";
 
 export default function About() {
-  const heroSection = useIntersectionObserver({ threshold: 0.3 });
-  const storySection = useIntersectionObserver({ threshold: 0.2 });
-  const valuesSection = useIntersectionObserver({ threshold: 0.2 });
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden" style={{ paddingTop: 'var(--safe-top)' }}>
@@ -74,10 +70,9 @@ export default function About() {
         
         {/* Hero Section */}
         <motion.section 
-          ref={heroSection.ref}
           className="text-center mb-16"
           initial="hidden"
-          animate={heroSection.isIntersecting ? "visible" : "hidden"}
+          animate="visible"
           variants={animationVariants.fadeIn}
         >
           <motion.div variants={animationVariants.slideDown}>
@@ -110,10 +105,9 @@ export default function About() {
         {/* Story Section */}
         <LazyLoadWrapper>
           <motion.section 
-            ref={storySection.ref}
             className="mb-16"
             initial="hidden"
-            animate={storySection.isIntersecting ? "visible" : "hidden"}
+            animate="visible"
             variants={animationVariants.staggerContainer}
           >
             <motion.div variants={animationVariants.slideDown} className="text-center mb-12">
@@ -165,9 +159,8 @@ export default function About() {
         {/* Values Section */}
         <LazyLoadWrapper>
           <motion.section 
-            ref={valuesSection.ref}
             initial="hidden"
-            animate={valuesSection.isIntersecting ? "visible" : "hidden"}
+            animate="visible"
             variants={animationVariants.staggerContainer}
           >
             <motion.div variants={animationVariants.slideDown} className="text-center mb-12">
