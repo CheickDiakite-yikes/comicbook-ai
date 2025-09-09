@@ -794,10 +794,6 @@ Create a visual description that fits the ${selectedArtStyle || 'comic-book'} ar
             <div>
               <h3 className="text-lg font-semibold mb-4">Script (Optional)</h3>
               <div className="flex space-x-4 mb-4">
-                <Button type="button" variant="outline" data-testid="button-upload-script">
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload Script
-                </Button>
                 <Button 
                   type="button" 
                   variant="outline" 
