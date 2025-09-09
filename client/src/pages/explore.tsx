@@ -297,9 +297,11 @@ export default function Explore() {
                         </div>
                       )}
                       <div className="absolute top-3 right-3">
-                        {project.genre && (
+                        {(((project as any).userSelectedGenres && Array.isArray((project as any).userSelectedGenres) && (project as any).userSelectedGenres.length > 0) || project.genre) && (
                           <Badge variant="secondary" className="bg-background/80 backdrop-blur-sm">
-                            {project.genre}
+                            {(project as any).userSelectedGenres && Array.isArray((project as any).userSelectedGenres) && (project as any).userSelectedGenres.length > 0 
+                              ? ((project as any).userSelectedGenres as string[]).map(genre => genre.charAt(0).toUpperCase() + genre.slice(1)).join(', ')
+                              : project.genre}
                           </Badge>
                         )}
                       </div>

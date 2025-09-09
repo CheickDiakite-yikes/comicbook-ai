@@ -895,9 +895,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tones
       });
       
+      // Include the original user-selected genres for UI display
+      const responseData = {
+        ...completeStory,
+        userSelectedGenres: genres, // Keep original simple genres for UI
+        // genre field contains AI-enhanced description for generation
+      };
+      
       console.log(`✅ Complete story generated: "${completeStory.title}" with ${completeStory.structuredScript?.pages?.length || 0} pages`);
       
-      res.json(completeStory);
+      res.json(responseData);
     } catch (error) {
       console.error("🔥 Error generating complete story:", error);
       res.status(500).json({ message: "Failed to generate complete story" });

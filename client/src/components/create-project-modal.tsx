@@ -88,11 +88,22 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
   const createProjectMutation = useMutation({
     mutationFn: async (data: ProjectFormData) => {
       // Create the project first
-      const projectResponse = await apiRequest("POST", "/api/projects", {
+      const projectData = {
         ...data,
         artStyle: selectedArtStyle,
         settings: [{ name: "Metro City", description: "A bustling metropolis with towering skyscrapers and busy streets. The city has a modern feel with glass buildings reflecting sunlight." }],
-      });
+      };
+
+      // If we have generated story data, include both simple and detailed genres
+      if (generationState.status === 'completed' && generationState.generatedResult) {
+        const result = generationState.generatedResult as any;
+        if (result.userSelectedGenres) {
+          (projectData as any).userSelectedGenres = result.userSelectedGenres;
+        }
+        // Keep the AI-enhanced genre in the genre field
+      }
+
+      const projectResponse = await apiRequest("POST", "/api/projects", projectData);
       const project = await projectResponse.json() as Project;
       
       // Then create the characters

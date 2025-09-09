@@ -56,7 +56,8 @@ export const projects = pgTable("projects", {
   userId: varchar("user_id").notNull().references(() => users.id),
   title: varchar("title").notNull(),
   description: text("description"),
-  genre: varchar("genre"),
+  genre: varchar("genre"), // AI-enhanced detailed genre description for generation
+  userSelectedGenres: jsonb("user_selected_genres"), // Simple user-selected genres for UI display
   artStyle: varchar("art_style"),
   script: text("script"),
   settings: jsonb("settings"), // JSON array of setting objects

@@ -9,7 +9,8 @@ export interface GeneratedStoryData {
 
 export interface GeneratedStoryResult {
   title: string;
-  genre: string;
+  genre: string; // AI-enhanced detailed genre description
+  userSelectedGenres?: string[]; // Simple user-selected genres for UI display
   description: string;
   characters: Array<{
     name: string;
