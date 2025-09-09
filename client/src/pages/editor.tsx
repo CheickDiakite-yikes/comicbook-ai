@@ -95,12 +95,10 @@ export default function Editor() {
           
           panelsData.forEach((panel: any) => {
             if (panel.imageUrl) {
-              console.log(`🖼️ Loading panel ${panel.panelNumber} image: ${panel.imageUrl}`);
               imageMap[panel.panelNumber] = panel.imageUrl;
             }
           });
           
-          console.log(`🎨 Setting generatedImages state:`, imageMap);
           setGeneratedImages(imageMap);
           setGeneratedBackgrounds(backgroundMap);
           
