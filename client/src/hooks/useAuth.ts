@@ -4,6 +4,8 @@ export function useAuth() {
   const { data: user, isLoading } = useQuery({
     queryKey: ["/api/auth/user"],
     retry: false,
+    staleTime: 30 * 1000, // Check authentication every 30 seconds instead of caching forever
+    refetchOnWindowFocus: true, // Re-check auth when user returns to tab
   });
 
   return {

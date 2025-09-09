@@ -55,3 +55,16 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+// Global error handler for 401s to invalidate auth cache
+queryClient.getQueryCache().subscribe((event) => {
+  if (event?.query?.state?.error?.message?.includes('401')) {
+    queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+  }
+});
+
+queryClient.getMutationCache().subscribe((event) => {
+  if (event?.mutation?.state?.error?.message?.includes('401')) {
+    queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+  }
+});
