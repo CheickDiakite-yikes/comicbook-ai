@@ -553,31 +553,90 @@ export default function Profile() {
                     <p className="text-sm">Create your first comic to see it here!</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {userProjects.map((project) => (
-                      <div key={project.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3">
-                            <h3 className="font-medium" data-testid={`project-name-${project.id}`}>
-                              {project.title}
-                            </h3>
-                            {project.genre && (
-                              <Badge variant="secondary" className="text-xs">
-                                {project.genre}
-                              </Badge>
-                            )}
+                      <div key={project.id} className="group relative">
+                        {/* Project Card */}
+                        <div className="relative aspect-[3/4] rounded-lg overflow-hidden border-2 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg bg-gradient-to-br from-background to-muted">
+                          {/* Cover Art or Placeholder */}
+                          {project.coverArt ? (
+                            <img 
+                              src={project.coverArt} 
+                              alt={`${project.title} cover`}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center p-6 bg-gradient-to-br from-primary/10 to-secondary/20">
+                              <div className="text-center space-y-4">
+                                <div className="w-16 h-16 mx-auto bg-primary/20 rounded-full flex items-center justify-center">
+                                  <User className="w-8 h-8 text-primary" />
+                                </div>
+                                <h3 className="font-bold text-lg leading-tight text-center" data-testid={`project-name-${project.id}`}>
+                                  {project.title}
+                                </h3>
+                                {project.description && (
+                                  <p className="text-sm text-muted-foreground line-clamp-4 text-center">
+                                    {project.description}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Overlay with project info */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                            <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                              {project.coverArt && (
+                                <h3 className="font-bold text-lg mb-2" data-testid={`project-name-${project.id}`}>
+                                  {project.title}
+                                </h3>
+                              )}
+                              {project.description && project.coverArt && (
+                                <p className="text-sm text-white/90 line-clamp-3 mb-3">
+                                  {project.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Status badges */}
+                          <div className="absolute top-3 right-3 flex flex-col gap-2">
                             {project.isPublic && (
-                              <Badge variant="default" className="text-xs">
+                              <Badge variant="default" className="text-xs shadow-lg">
                                 <Globe className="w-3 h-3 mr-1" />
                                 Public
                               </Badge>
                             )}
+                            {project.genre && (
+                              <Badge variant="secondary" className="text-xs shadow-lg">
+                                {project.genre}
+                              </Badge>
+                            )}
                           </div>
                           
-                          <div className="flex items-center space-x-4 mt-1 text-sm text-muted-foreground">
-                            <span>{project.pagesCount} pages</span>
+                          {/* Privacy toggle (owner only) */}
+                          <div className="absolute top-3 left-3">
+                            <div className="flex items-center space-x-2 bg-background/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-lg">
+                              <Label htmlFor={`public-${project.id}`} className="text-xs">
+                                {project.isPublic ? <Globe className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                              </Label>
+                              <Switch
+                                id={`public-${project.id}`}
+                                checked={Boolean(project.isPublic)}
+                                onCheckedChange={(checked) => handleToggleProjectPublic(project.id, checked)}
+                                disabled={toggleProjectPublicMutation.isPending}
+                                data-testid={`switch-public-${project.id}`}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Project stats below the card */}
+                        <div className="mt-3 space-y-2">
+                          <div className="flex items-center justify-between text-sm text-muted-foreground">
+                            <span className="font-medium">{project.pagesCount} pages</span>
                             {project.isPublic && (
-                              <>
+                              <div className="flex items-center space-x-3">
                                 <div className="flex items-center space-x-1">
                                   <Eye className="w-3 h-3" />
                                   <span>Public</span>
@@ -586,24 +645,16 @@ export default function Profile() {
                                   <Heart className="w-3 h-3" />
                                   <span>{project.likesCount}</span>
                                 </div>
-                              </>
+                              </div>
                             )}
                           </div>
-                        </div>
-                        
-                        <div className="flex items-center space-x-2">
-                          <div className="flex items-center space-x-2">
-                            <Label htmlFor={`public-${project.id}`} className="text-sm">
-                              {project.isPublic ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                            </Label>
-                            <Switch
-                              id={`public-${project.id}`}
-                              checked={Boolean(project.isPublic)}
-                              onCheckedChange={(checked) => handleToggleProjectPublic(project.id, checked)}
-                              disabled={toggleProjectPublicMutation.isPending}
-                              data-testid={`switch-public-${project.id}`}
-                            />
-                          </div>
+                          
+                          {/* Project title if cover art exists (since it's in overlay) */}
+                          {project.coverArt && (
+                            <h3 className="font-semibold text-base leading-tight group-hover:text-primary transition-colors">
+                              {project.title}
+                            </h3>
+                          )}
                         </div>
                       </div>
                     ))}
