@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { imageProcessor } from "./image-processor";
 import { imageEnhancer } from "./image-enhancer";
+import { ObjectStorageService } from "./objectStorage";
 
 // Initialize Gemini AI client
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
@@ -156,6 +157,38 @@ export interface GenerateScriptResponse {
 }
 
 export class GeminiService {
+  private objectStorageService = new ObjectStorageService();
+
+  /**
+   * Helper function to save image buffer to object storage
+   */
+  private async saveImageToObjectStorage(buffer: Buffer, filename: string): Promise<string> {
+    try {
+      // Get upload URL from object storage
+      const uploadUrl = await this.objectStorageService.getObjectEntityUploadURL();
+      
+      // Upload the image buffer to object storage
+      const response = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: buffer,
+        headers: {
+          'Content-Type': 'image/png',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to upload to object storage: ${response.status}`);
+      }
+      
+      // Extract the object path from the upload URL
+      const normalizedPath = this.objectStorageService.normalizeObjectEntityPath(uploadUrl);
+      console.log(`Image saved to object storage: ${normalizedPath}`);
+      return normalizedPath;
+    } catch (error) {
+      console.error('Failed to save image to object storage:', error);
+      throw error;
+    }
+  }
   /**
    * Generate an image for a comic panel using Gemini's image generation
    */
@@ -187,18 +220,17 @@ export class GeminiService {
           }
           const buffer = Buffer.from(imageData, "base64");
           const filename = `panel_${request.panelId}_${Date.now()}.png`;
-          const imagePath = path.join(process.cwd(), "public", "generated", filename);
           
-          // Ensure directory exists
-          const dir = path.dirname(imagePath);
-          if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
+          // Save image to persistent object storage instead of local filesystem
+          let finalImageUrl = await this.saveImageToObjectStorage(buffer, filename);
+          
+          // For image processing, we need a temporary local file
+          const tempPath = path.join(process.cwd(), "temp", filename);
+          const tempDir = path.dirname(tempPath);
+          if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
           }
-          
-          fs.writeFileSync(imagePath, buffer);
-          
-          // Process image to fit panel dimensions
-          let finalImageUrl = `/generated/${filename}`;
+          fs.writeFileSync(tempPath, buffer);
           
           // Always try to enhance the image for better fitting
           try {
@@ -216,7 +248,7 @@ export class GeminiService {
             
             // Use the enhanced image processor for better results
             const enhancedImagePath = await imageEnhancer.fitImageToPanel(
-              imagePath,
+              tempPath,
               panelWidth,
               panelHeight,
               Number(request.panelId)
@@ -224,7 +256,9 @@ export class GeminiService {
             
             // Extract just the filename from the processed path
             const enhancedFile = path.basename(enhancedImagePath);
-            finalImageUrl = `/generated/${enhancedFile}`;
+            const enhancedBuffer = fs.readFileSync(enhancedImagePath);
+            const enhancedFilename = `panel_${request.panelId}_enhanced_${Date.now()}.png`;
+            finalImageUrl = await this.saveImageToObjectStorage(enhancedBuffer, enhancedFilename);
             console.log(`Image enhanced for panel ${request.panelId}: ${finalImageUrl}`);
             
           } catch (enhanceError) {
@@ -234,13 +268,14 @@ export class GeminiService {
             if (request.panelContext?.dimensions) {
               try {
                 const processedImagePath = await imageProcessor.processForComicPanel(
-                  imagePath,
+                  tempPath,
                   request.panelContext.dimensions.width,
                   request.panelContext.dimensions.height,
                   Number(request.panelId)
                 );
-                const processedFile = path.basename(processedImagePath);
-                finalImageUrl = `/generated/${processedFile}`;
+                const processedBuffer = fs.readFileSync(processedImagePath);
+                const processedFilename = `panel_${request.panelId}_processed_${Date.now()}.png`;
+                finalImageUrl = await this.saveImageToObjectStorage(processedBuffer, processedFilename);
               } catch (processError) {
                 console.error("All processing failed, using original:", processError);
               }
@@ -303,15 +338,15 @@ export class GeminiService {
           }
           const buffer = Buffer.from(imageData, "base64");
           const filename = `background_${request.panelId}_${Date.now()}.png`;
-          const imagePath = path.join(process.cwd(), "public", "generated", filename);
+          const tempPath = path.join(process.cwd(), "public", "generated", filename);
           
           // Ensure directory exists
-          const dir = path.dirname(imagePath);
+          const dir = path.dirname(tempPath);
           if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
           }
           
-          fs.writeFileSync(imagePath, buffer);
+          fs.writeFileSync(tempPath, buffer);
           
           // Process image to fit panel dimensions
           let finalImageUrl = `/generated/${filename}`;
@@ -332,7 +367,7 @@ export class GeminiService {
             
             // Use the enhanced image processor for better results
             const enhancedImagePath = await imageEnhancer.fitImageToPanel(
-              imagePath,
+              tempPath,
               panelWidth,
               panelHeight,
               Number(request.panelId)
@@ -340,7 +375,9 @@ export class GeminiService {
             
             // Extract just the filename from the processed path
             const enhancedFile = path.basename(enhancedImagePath);
-            finalImageUrl = `/generated/${enhancedFile}`;
+            const enhancedBuffer = fs.readFileSync(enhancedImagePath);
+            const enhancedFilename = `panel_${request.panelId}_enhanced_${Date.now()}.png`;
+            finalImageUrl = await this.saveImageToObjectStorage(enhancedBuffer, enhancedFilename);
             console.log(`Image enhanced for panel ${request.panelId}: ${finalImageUrl}`);
             
           } catch (enhanceError) {
@@ -350,13 +387,14 @@ export class GeminiService {
             if (request.panelContext?.dimensions) {
               try {
                 const processedImagePath = await imageProcessor.processForComicPanel(
-                  imagePath,
+                  tempPath,
                   request.panelContext.dimensions.width,
                   request.panelContext.dimensions.height,
                   Number(request.panelId)
                 );
-                const processedFile = path.basename(processedImagePath);
-                finalImageUrl = `/generated/${processedFile}`;
+                const processedBuffer = fs.readFileSync(processedImagePath);
+                const processedFilename = `panel_${request.panelId}_processed_${Date.now()}.png`;
+                finalImageUrl = await this.saveImageToObjectStorage(processedBuffer, processedFilename);
               } catch (processError) {
                 console.error("All processing failed, using original:", processError);
               }
@@ -605,15 +643,15 @@ export class GeminiService {
           }
           const buffer = Buffer.from(imageData, "base64");
           const filename = `cover_${request.projectId}_${Date.now()}.png`;
-          const imagePath = path.join(process.cwd(), "public", "generated", filename);
+          const tempPath = path.join(process.cwd(), "public", "generated", filename);
           
           // Ensure directory exists
-          const dir = path.dirname(imagePath);
+          const dir = path.dirname(tempPath);
           if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
           }
           
-          fs.writeFileSync(imagePath, buffer);
+          fs.writeFileSync(tempPath, buffer);
           
           // For cover art, we want a standard comic book cover aspect ratio (2:3)
           // Resize to 800x1200 for high quality cover art
@@ -622,7 +660,7 @@ export class GeminiService {
           try {
             // Use image enhancer to create proper cover art dimensions
             const enhancedImagePath = await imageEnhancer.fitImageToPanel(
-              imagePath,
+              tempPath,
               800, // Cover width
               1200, // Cover height (2:3 aspect ratio)
               0 // Use 0 for cover art
@@ -630,7 +668,9 @@ export class GeminiService {
             
             // Extract just the filename from the processed path
             const enhancedFile = path.basename(enhancedImagePath);
-            finalImageUrl = `/generated/${enhancedFile}`;
+            const enhancedBuffer = fs.readFileSync(enhancedImagePath);
+            const enhancedFilename = `panel_${request.panelId}_enhanced_${Date.now()}.png`;
+            finalImageUrl = await this.saveImageToObjectStorage(enhancedBuffer, enhancedFilename);
             console.log(`Cover art enhanced for project ${request.projectId}: ${finalImageUrl}`);
             
           } catch (enhanceError) {
