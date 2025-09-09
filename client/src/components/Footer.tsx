@@ -39,7 +39,7 @@ export function Footer({ className = "" }: FooterProps) {
               </li>
               <li>
                 <a 
-                  href="mailto:hello@kumayiri.com" 
+                  href="mailto:cheick@kumayiri.com" 
                   className="text-muted-foreground hover:text-foreground transition-colors"
                   data-testid="link-contact"
                 >
