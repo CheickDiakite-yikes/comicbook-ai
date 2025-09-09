@@ -72,7 +72,7 @@ export default function Profile({ userId }: ProfileProps = {}) {
   // Image upload mutations
   const updateProfileImageMutation = useMutation({
     mutationFn: async (imageURL: string) => {
-      return apiRequest("/api/auth/user/profile-image", "PUT", { imageURL });
+      return apiRequest("PUT", "/api/auth/user/profile-image", { imageURL });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
@@ -92,7 +92,7 @@ export default function Profile({ userId }: ProfileProps = {}) {
 
   const updateBannerImageMutation = useMutation({
     mutationFn: async (imageURL: string) => {
-      return apiRequest("/api/auth/user/banner-image", "PUT", { imageURL });
+      return apiRequest("PUT", "/api/auth/user/banner-image", { imageURL });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
@@ -112,10 +112,11 @@ export default function Profile({ userId }: ProfileProps = {}) {
 
   // Upload helper functions
   const handleGetUploadParameters = async () => {
-    const response = await apiRequest("/api/upload/presigned-url", "POST");
+    const response = await apiRequest("POST", "/api/objects/upload");
+    const data = await response.json();
     return {
       method: "PUT" as const,
-      url: response.uploadURL,
+      url: data.uploadURL,
     };
   };
 
