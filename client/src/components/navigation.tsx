@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Moon, Palette, Menu, PanelLeftClose, PanelLeft, LogOut } from "lucide-react";
+import { Moon, Menu, PanelLeftClose, PanelLeft, LogOut } from "lucide-react";
+import kumayiriLogo from "@assets/ChatGPT Image Sep 8, 2025, 08_35_18 PM_1757378183961.png";
 import { useState } from "react";
 import type { User } from "@shared/schema";
 
@@ -37,8 +38,13 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
       >
         <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
           <div className="flex items-center space-x-2 min-w-0">
-            <Palette className="text-primary text-2xl flex-shrink-0" aria-hidden="true" />
-            <h1 className="text-lg sm:text-xl font-serif font-bold text-primary truncate">Narrame</h1>
+            <img 
+              src={kumayiriLogo} 
+              alt="Kumayiri Logo" 
+              className="w-8 h-8 flex-shrink-0" 
+              aria-hidden="true" 
+            />
+            <h1 className="text-lg sm:text-xl font-serif font-bold text-primary truncate">Kumayiri</h1>
             <span className="text-xs bg-chart-3 text-white px-2 py-1 rounded-full font-mono">Beta</span>
           </div>
         </div>
