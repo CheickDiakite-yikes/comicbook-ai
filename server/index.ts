@@ -64,12 +64,13 @@ app.use((req, res, next) => {
         const privateFile = await objectStorageService.getObjectEntityFile(`/objects/uploads/${filename}`);
         return objectStorageService.downloadObject(privateFile, res);
       } catch (privateError) {
-        // Continue to next middleware if not found in object storage either
-        next();
+        // If not found in object storage either, return 404
+        console.log(`Image not found in local or object storage: ${filename}`);
+        return res.status(404).json({ error: "Image not found" });
       }
     } catch (error) {
       console.error("Error serving generated image from object storage:", error);
-      next();
+      return res.status(500).json({ error: "Internal server error" });
     }
   });
 
