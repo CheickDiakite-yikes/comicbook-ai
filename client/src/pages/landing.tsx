@@ -407,7 +407,7 @@ export default function Landing() {
                     }}
                     transition={{ duration: 2 }}
                   >
-                    <Palette className="h-8 w-8 text-white" aria-hidden="true" />
+                    <Wand2 className="h-8 w-8 text-white" aria-hidden="true" />
                   </motion.div>
                   
                   <h3 className="font-bold text-lg mb-2 text-black">Multiple Styles</h3>

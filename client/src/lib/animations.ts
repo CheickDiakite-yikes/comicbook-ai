@@ -1,4 +1,4 @@
-// Animation variants and utilities for Nerrame
+// Animation variants and utilities for Kumayiri
 
 export const animationVariants = {
   // Fade in animations

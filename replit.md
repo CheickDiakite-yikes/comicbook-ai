@@ -1,6 +1,6 @@
 # Overview
 
-ComicAI Studio is an AI-powered comic creation platform that allows users to design and generate comic books page by page, panel by panel. The application provides a "Story Bible" system where users define their comic's world once (characters, settings, tone, art style) and then generate consistent comic pages using AI while maintaining visual and narrative coherence. Users can either generate individual panels with custom prompts or use one-click page generation that automatically creates all panels based on the script.
+Kumayiri is an AI-powered comic creation platform that allows users to design and generate comic books page by page, panel by panel. The application provides a "Story Bible" system where users define their comic's world once (characters, settings, tone, art style) and then generate consistent comic pages using AI while maintaining visual and narrative coherence. Users can either generate individual panels with custom prompts or use one-click page generation that automatically creates all panels based on the script.
 
 # User Preferences
 
