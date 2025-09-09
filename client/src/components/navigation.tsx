@@ -1,9 +1,9 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Moon, Menu, PanelLeftClose, PanelLeft, LogOut } from "lucide-react";
+import { Moon, Menu, PanelLeftClose, PanelLeft, LogOut, User } from "lucide-react";
 import kumayiriLogo from "@assets/ChatGPT Image Sep 8, 2025, 08_35_18 PM_1757378183961.png";
 import { useState } from "react";
-import type { User } from "@shared/schema";
+import type { User as UserType } from "@shared/schema";
 
 interface NavigationProps {
   onToggleSidebar?: () => void;
@@ -13,7 +13,7 @@ interface NavigationProps {
 }
 
 export default function Navigation({ onToggleSidebar, showMobileToggle = false, sidebarOpen, showDesktopToggle = false }: NavigationProps) {
-  const { user } = useAuth() as { user: User | undefined };
+  const { user } = useAuth() as { user: UserType | undefined };
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   const toggleDarkMode = () => {
@@ -60,30 +60,45 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
             <Moon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           </Button>
           
-          <div className="flex items-center space-x-2">
-            {user?.profileImageUrl && (
-              <img 
-                src={user.profileImageUrl} 
-                alt="Profile picture" 
-                className="w-8 h-8 rounded-full border-2 border-primary object-cover" 
-              />
-            )}
-            <span className="text-sm font-medium hidden sm:inline" data-testid="text-username">
-              {user?.firstName || user?.email || "User"}
-            </span>
-          </div>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => window.location.href = '/api/logout'}
-            className="min-h-[44px] w-[44px] p-2 md:w-auto md:px-3"
-            aria-label="Logout"
-            data-testid="button-logout"
-          >
-            <LogOut className="h-4 w-4" aria-hidden="true" />
-            <span className="hidden md:ml-2 md:inline">Logout</span>
-          </Button>
+          {user ? (
+            <>
+              <div className="flex items-center space-x-2">
+                {user.profileImageUrl && (
+                  <img 
+                    src={user.profileImageUrl} 
+                    alt="Profile picture" 
+                    className="w-8 h-8 rounded-full border-2 border-primary object-cover" 
+                  />
+                )}
+                <span className="text-sm font-medium hidden sm:inline" data-testid="text-username">
+                  {user.firstName || user.email || "User"}
+                </span>
+              </div>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => window.location.href = '/api/logout'}
+                className="min-h-[44px] w-[44px] p-2 md:w-auto md:px-3"
+                aria-label="Logout"
+                data-testid="button-logout"
+              >
+                <LogOut className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden md:ml-2 md:inline">Logout</span>
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => window.location.href = '/api/auth/google'}
+              className="min-h-[44px] px-4"
+              data-testid="button-sign-in"
+            >
+              <User className="h-4 w-4 mr-2" aria-hidden="true" />
+              Sign In
+            </Button>
+          )}
         </div>
       </nav>
     </header>

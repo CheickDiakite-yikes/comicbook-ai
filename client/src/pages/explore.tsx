@@ -191,22 +191,25 @@ export default function Explore() {
             toggleMobileSidebar();
           }
         }}
-        showMobileToggle={true}
-        showDesktopToggle={true}
+        showMobileToggle={currentUser ? true : false}
+        showDesktopToggle={currentUser ? true : false}
         sidebarOpen={!sidebarCollapsed}
       />
       
       <div className="flex min-h-[calc(100vh-64px)]">
-        <Sidebar 
-          isOpen={sidebarOpen} 
-          onClose={() => setSidebarOpen(false)}
-          allPagesData={allPagesData}
-          isCollapsed={sidebarCollapsed}
-          onToggleCollapse={toggleSidebarCollapse}
-        />
+        {/* Only show sidebar for authenticated users */}
+        {currentUser && (
+          <Sidebar 
+            isOpen={sidebarOpen} 
+            onClose={() => setSidebarOpen(false)}
+            allPagesData={allPagesData}
+            isCollapsed={sidebarCollapsed}
+            onToggleCollapse={toggleSidebarCollapse}
+          />
+        )}
         
         <main 
-          className={`flex-1 overflow-y-auto p-4 sm:p-6 w-full transition-all duration-300 ${sidebarCollapsed ? 'md:pl-20' : 'md:pl-64'}`}
+          className={`flex-1 overflow-y-auto p-4 sm:p-6 w-full transition-all duration-300 ${currentUser ? (sidebarCollapsed ? 'md:pl-20' : 'md:pl-64') : 'md:pl-0'}`}
           style={{ paddingBottom: 'calc(1rem + var(--safe-bottom))' }}
         >
           <div className="max-w-6xl mx-auto space-y-6">
