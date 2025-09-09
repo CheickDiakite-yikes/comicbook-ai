@@ -63,7 +63,7 @@ export default function ComicPageLayout({
                     height: '100%'
                   }}
                   onError={() => {
-                    console.error(`Failed to load image for panel ${panelNumber}`);
+                    console.error(`❌ Failed to load image for panel ${panelNumber}, URL: ${hasImage}`);
                   }}
                 />
                 <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
