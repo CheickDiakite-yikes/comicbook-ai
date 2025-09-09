@@ -98,7 +98,7 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
             <Button
               variant="default"
               size="sm"
-              onClick={() => window.location.href = '/api/auth/google'}
+              onClick={() => window.location.href = '/api/login'}
               className="min-h-[44px] px-4"
               data-testid="button-sign-in"
             >

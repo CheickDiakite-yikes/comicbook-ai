@@ -77,7 +77,7 @@ export default function Landing() {
               <span className="hidden sm:inline">Google</span>
             </Button>
             <Button 
-              onClick={() => window.location.href = '/api/auth/google'}
+              onClick={() => window.location.href = '/api/login'}
               size="sm"
               className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-[44px] text-xs sm:text-sm"
               data-testid="button-replit-login"
