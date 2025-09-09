@@ -16,6 +16,9 @@ import Explore from "@/pages/explore";
 import Profile from "@/pages/profile";
 import Characters from "@/pages/characters";
 import SharePage from "@/pages/share";
+import About from "@/pages/about";
+import Privacy from "@/pages/privacy";
+import Terms from "@/pages/terms";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -26,6 +29,9 @@ function Router() {
       <Route path="/share/:projectId" component={SharePage} />
       <Route path="/comic/:projectId" component={SharePage} />
       <Route path="/login" component={Login} />
+      <Route path="/about" component={About} />
+      <Route path="/privacy" component={Privacy} />
+      <Route path="/terms" component={Terms} />
       
       {isLoading || !isAuthenticated ? (
         <Route path="/" component={Landing} />
