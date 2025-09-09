@@ -931,7 +931,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           bio: char.bio || "",
           visualDescriptors: char.visualDescriptors || undefined,
         })),
-        settings: project.settings || [],
+        settings: Array.isArray(project.settings) ? project.settings : [],
       };
       
       console.log(`🎨 Generating cover art for project: "${project.title}" (${projectId})`);
