@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { 
   insertProjectSchema, 
   insertCharacterSchema, 
@@ -53,6 +54,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating user:", error);
       res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  // Image upload routes
+  app.post("/api/upload/presigned-url", isAuthenticated, async (req: any, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error generating upload URL:", error);
+      res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
+  // Update user profile image
+  app.put("/api/auth/user/profile-image", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const { imageURL } = req.body;
+
+      if (!imageURL) {
+        return res.status(400).json({ error: "imageURL is required" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        imageURL,
+        {
+          owner: userId,
+          visibility: "public", // Profile images are public
+        }
+      );
+
+      // Update user's profile image URL
+      const updatedUser = await storage.updateUser(userId, {
+        profileImageUrl: objectPath,
+      });
+
+      res.json({ user: updatedUser, objectPath });
+    } catch (error) {
+      console.error("Error updating profile image:", error);
+      res.status(500).json({ error: "Failed to update profile image" });
+    }
+  });
+
+  // Update user banner image
+  app.put("/api/auth/user/banner-image", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const { imageURL } = req.body;
+
+      if (!imageURL) {
+        return res.status(400).json({ error: "imageURL is required" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        imageURL,
+        {
+          owner: userId,
+          visibility: "public", // Banner images are public
+        }
+      );
+
+      // Update or create user profile with banner image
+      await storage.updateUserProfile(userId, {
+        bannerImageUrl: objectPath,
+      });
+
+      res.json({ objectPath });
+    } catch (error) {
+      console.error("Error updating banner image:", error);
+      res.status(500).json({ error: "Failed to update banner image" });
+    }
+  });
+
+  // Serve uploaded images
+  app.get("/objects/:objectPath(*)", async (req, res) => {
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(
+        req.path,
+      );
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error serving object:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
     }
   });
 

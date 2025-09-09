@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { ObjectUploader } from "@/components/ObjectUploader";
+import type { UploadResult } from "@uppy/core";
 import { useAuth } from "@/hooks/useAuth";
 import Navigation from "@/components/navigation";
 import Sidebar from "@/components/sidebar";
@@ -66,6 +68,78 @@ export default function Profile({ userId }: ProfileProps = {}) {
   const isOwnProfile = !userId || (currentUser && currentUser.id === userId);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Image upload mutations
+  const updateProfileImageMutation = useMutation({
+    mutationFn: async (imageURL: string) => {
+      return apiRequest("/api/auth/user/profile-image", {
+        method: "PUT",
+        body: { imageURL },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "Success",
+        description: "Profile image updated successfully!",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update profile image. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateBannerImageMutation = useMutation({
+    mutationFn: async (imageURL: string) => {
+      return apiRequest("/api/auth/user/banner-image", {
+        method: "PUT",
+        body: { imageURL },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
+      toast({
+        title: "Success", 
+        description: "Banner image updated successfully!",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update banner image. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Upload helper functions
+  const handleGetUploadParameters = async () => {
+    const response = await apiRequest("/api/upload/presigned-url", {
+      method: "POST",
+    });
+    return {
+      method: "PUT" as const,
+      url: response.uploadURL,
+    };
+  };
+
+  const handleProfileImageUpload = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+    if (result.successful.length > 0) {
+      const uploadURL = result.successful[0].uploadURL as string;
+      updateProfileImageMutation.mutate(uploadURL);
+    }
+  };
+
+  const handleBannerImageUpload = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+    if (result.successful.length > 0) {
+      const uploadURL = result.successful[0].uploadURL as string;
+      updateBannerImageMutation.mutate(uploadURL);
+    }
+  };
 
   // Fetch user profile
   const { data: userProfile, isLoading: profileLoading } = useQuery<UserProfile>({
@@ -360,10 +434,17 @@ export default function Profile({ userId }: ProfileProps = {}) {
                   )}
                   {isEditing && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                      <Button variant="secondary" size="sm" data-testid="upload-banner">
+                      <ObjectUploader
+                        maxNumberOfFiles={1}
+                        maxFileSize={10485760} // 10MB
+                        onGetUploadParameters={handleGetUploadParameters}
+                        onComplete={handleBannerImageUpload}
+                        buttonClassName="bg-black/60 text-white hover:bg-black/70"
+                        allowedFileTypes={['image/jpeg', 'image/png', 'image/gif', 'image/webp']}
+                      >
                         <Upload className="w-4 h-4 mr-1" />
                         Upload Banner
-                      </Button>
+                      </ObjectUploader>
                     </div>
                   )}
                 </div>

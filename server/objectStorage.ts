@@ -7,7 +7,7 @@ import {
   canAccessObject,
   getObjectAclPolicy,
   setObjectAclPolicy,
-} from "./objectAcl";
+} from "./objectAcl.js";
 
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 
@@ -114,7 +114,7 @@ export class ObjectStorageService {
       // Stream the file to the response
       const stream = file.createReadStream();
 
-      stream.on("error", (err) => {
+      stream.on("error", (err: Error) => {
         console.error("Stream error:", err);
         if (!res.headersSent) {
           res.status(500).json({ error: "Error streaming file" });
