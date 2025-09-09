@@ -234,23 +234,12 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return next();
   } catch (error) {
     console.error("Token refresh failed:", error);
-    // Instead of immediately failing, try one more time with a delay
-    setTimeout(async () => {
-      try {
-        const config = await getOidcConfig();
-        const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
-        updateUserSession(user, tokenResponse);
-        console.log("Token refresh succeeded on retry");
-      } catch (retryError) {
-        console.error("Token refresh failed on retry:", retryError);
-      }
-    }, 1000);
     
-    // For now, still allow the request through if session is valid
-    // This prevents aggressive logouts
-    if (req.session && req.session.cookie && req.session.cookie.maxAge) {
-      console.log("Allowing request through despite token refresh failure - session still valid");
-      return next();
+    // Clear the session since refresh failed - force re-authentication
+    if (req.session) {
+      req.session.destroy((err) => {
+        if (err) console.error("Session destruction error:", err);
+      });
     }
     
     return res.status(401).json({ message: "Unauthorized" });
