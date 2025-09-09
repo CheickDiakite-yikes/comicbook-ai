@@ -48,6 +48,11 @@ export default function Profile() {
     isPublicProfile: true,
   });
 
+  const [nameData, setNameData] = useState({
+    firstName: "",
+    lastName: "",
+  });
+
   const toggleSidebarCollapse = () => setSidebarCollapsed(!sidebarCollapsed);
   const toggleMobileSidebar = () => setSidebarOpen(!sidebarOpen);
 
@@ -152,10 +157,37 @@ export default function Profile() {
         isPublicProfile: userProfile.isPublicProfile ?? true,
       });
     }
-  }, [userProfile]);
+    if (currentUser) {
+      setNameData({
+        firstName: currentUser.firstName || "",
+        lastName: currentUser.lastName || "",
+      });
+    }
+  }, [userProfile, currentUser]);
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
+    // Save profile data
     updateProfileMutation.mutate(profileData);
+    
+    // Save name data if changed
+    if (nameData.firstName !== (currentUser?.firstName || "") || 
+        nameData.lastName !== (currentUser?.lastName || "")) {
+      try {
+        const response = await fetch("/api/auth/user", {
+          method: "PUT", 
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            firstName: nameData.firstName,
+            lastName: nameData.lastName,
+          }),
+        });
+        if (response.ok) {
+          queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+        }
+      } catch (error) {
+        console.error("Failed to update name:", error);
+      }
+    }
   };
 
   const handleEditClick = () => {
@@ -165,6 +197,12 @@ export default function Profile() {
         location: userProfile.location || "",
         website: userProfile.website || "",
         isPublicProfile: userProfile.isPublicProfile ?? true,
+      });
+    }
+    if (currentUser) {
+      setNameData({
+        firstName: currentUser.firstName || "",
+        lastName: currentUser.lastName || "",
       });
     }
     setIsEditing(true);
@@ -177,6 +215,12 @@ export default function Profile() {
         location: userProfile.location || "",
         website: userProfile.website || "",
         isPublicProfile: userProfile.isPublicProfile ?? true,
+      });
+    }
+    if (currentUser) {
+      setNameData({
+        firstName: currentUser.firstName || "",
+        lastName: currentUser.lastName || "",
       });
     }
     setIsEditing(false);
@@ -247,7 +291,7 @@ export default function Profile() {
             </div>
 
             {/* Profile Card */}
-            <Card>
+            <Card className="overflow-hidden">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center space-x-2">
@@ -292,7 +336,7 @@ export default function Profile() {
               
               <CardContent className="space-y-6">
                 {/* Banner Area */}
-                <div className="relative h-32 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-lg overflow-hidden">
+                <div className="relative h-24 sm:h-32 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-lg overflow-hidden">
                   {userProfile?.bannerImageUrl ? (
                     <img 
                       src={userProfile.bannerImageUrl} 
@@ -318,9 +362,9 @@ export default function Profile() {
                 </div>
 
                 {/* Profile Picture & Basic Info */}
-                <div className="flex items-start space-x-4">
-                  <div className="relative">
-                    <Avatar className="w-20 h-20">
+                <div className="flex flex-col sm:flex-row sm:items-start space-y-4 sm:space-y-0 sm:space-x-4 -mt-10 sm:-mt-8">
+                  <div className="relative self-center sm:self-start">
+                    <Avatar className="w-16 h-16 sm:w-20 sm:h-20 border-4 border-background">
                       <AvatarImage src={currentUser?.profileImageUrl || ""} />
                       <AvatarFallback className="text-lg">
                         {currentUser?.firstName?.charAt(0) || currentUser?.email?.charAt(0) || "U"}
@@ -330,33 +374,59 @@ export default function Profile() {
                       <Button
                         variant="secondary"
                         size="sm"
-                        className="absolute -bottom-2 -right-2 w-8 h-8 p-0"
+                        className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 w-6 h-6 sm:w-8 sm:h-8 p-0"
                         data-testid="upload-avatar"
                       >
-                        <Upload className="w-3 h-3" />
+                        <Upload className="w-2 h-2 sm:w-3 sm:h-3" />
                       </Button>
                     )}
                   </div>
                   
-                  <div className="flex-1 space-y-2">
+                  <div className="flex-1 space-y-2 text-center sm:text-left">
                     <div>
-                      <h2 className="text-xl font-semibold">
+                      <h2 className="text-lg sm:text-xl font-semibold">
                         {currentUser?.firstName && currentUser?.lastName 
                           ? `${currentUser.firstName} ${currentUser.lastName}`
                           : currentUser?.firstName || currentUser?.email?.split('@')[0] || 'User'
                         }
                       </h2>
-                      <div className="flex items-center space-x-1 text-sm text-muted-foreground">
+                      <div className="flex items-center justify-center sm:justify-start space-x-1 text-sm text-muted-foreground">
                         <Mail className="w-3 h-3" />
                         <span>{currentUser?.email}</span>
                       </div>
-                      <div className="flex items-center space-x-1 text-sm text-muted-foreground">
+                      <div className="flex items-center justify-center sm:justify-start space-x-1 text-sm text-muted-foreground">
                         <Calendar className="w-3 h-3" />
                         <span>Joined {currentUser?.createdAt ? new Date(currentUser.createdAt).toLocaleDateString() : 'Unknown'}</span>
                       </div>
                     </div>
                   </div>
                 </div>
+
+                {/* Name Editing */}
+                {isEditing && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 border rounded-lg bg-muted/30">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName">First Name</Label>
+                      <Input
+                        id="firstName"
+                        placeholder="First name"
+                        value={nameData.firstName}
+                        onChange={(e) => setNameData({ ...nameData, firstName: e.target.value })}
+                        data-testid="input-first-name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="lastName">Last Name</Label>
+                      <Input
+                        id="lastName"
+                        placeholder="Last name"
+                        value={nameData.lastName}
+                        onChange={(e) => setNameData({ ...nameData, lastName: e.target.value })}
+                        data-testid="input-last-name"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Profile Fields */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -528,7 +598,7 @@ export default function Profile() {
                             </Label>
                             <Switch
                               id={`public-${project.id}`}
-                              checked={project.isPublic}
+                              checked={Boolean(project.isPublic)}
                               onCheckedChange={(checked) => handleToggleProjectPublic(project.id, checked)}
                               disabled={toggleProjectPublicMutation.isPending}
                               data-testid={`switch-public-${project.id}`}

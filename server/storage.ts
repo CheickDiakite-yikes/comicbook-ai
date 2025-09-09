@@ -170,10 +170,12 @@ export class MemStorage implements IStorage {
       title: projectData.title,
       description: projectData.description || null,
       genre: projectData.genre || null,
+      userSelectedGenres: projectData.userSelectedGenres || null,
       artStyle: projectData.artStyle || null,
       script: projectData.script || null,
       settings: projectData.settings || null,
       canonRules: projectData.canonRules || null,
+      coverArt: null,
       isPublic: projectData.isPublic || false,
       publicDescription: projectData.publicDescription || null,
       createdAt: new Date(),
@@ -213,6 +215,7 @@ export class MemStorage implements IStorage {
     const character: Character = {
       id: randomUUID(),
       projectId: characterData.projectId || null,
+      userId: characterData.userId || null,
       name: characterData.name,
       role: characterData.role || null,
       bio: characterData.bio || null,
@@ -221,6 +224,7 @@ export class MemStorage implements IStorage {
       neverTraits: characterData.neverTraits || null,
       referenceImageUrl: characterData.referenceImageUrl || null,
       colorScheme: characterData.colorScheme || null,
+      isLibraryCharacter: characterData.isLibraryCharacter || false,
       createdAt: new Date(),
     };
     this.characters.set(character.id, character);

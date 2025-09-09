@@ -39,6 +39,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const { firstName, lastName } = req.body;
+      
+      const updatedUser = await storage.updateUser(userId, {
+        firstName: firstName || null,
+        lastName: lastName || null,
+      });
+      
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
   // Project routes
   app.post("/api/projects", isAuthenticated, async (req: any, res) => {
     try {
