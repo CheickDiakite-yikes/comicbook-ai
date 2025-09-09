@@ -187,7 +187,7 @@ export default function SharePage() {
           </p>
           <Button onClick={() => window.location.href = window.location.origin}>
             <ExternalLink className="mr-2 h-4 w-4" />
-            Visit ComicAI Studio
+            Visit Kumayiri
           </Button>
         </div>
       </div>
@@ -412,7 +412,7 @@ export default function SharePage() {
                     data-testid="button-create-comic"
                   >
                     <ExternalLink className="mr-2 h-3 w-3" />
-                    Try Nerrame
+                    Try Kumayiri
                   </Button>
                 </CardContent>
               </Card>

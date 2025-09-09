@@ -52,7 +52,7 @@ export default function Login() {
               whileHover={{ scale: 1.05 }}
             >
               <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                Welcome to Nerrame
+                Welcome to Kumayiri
               </h1>
               
               {/* Floating sparkles */}

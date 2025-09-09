@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Palette, BookOpen, Wand2, Users } from "lucide-react";
+import { BookOpen, Wand2, Users } from "lucide-react";
 import { FaGoogle } from "react-icons/fa";
+import kumayiriLogo from "@assets/ChatGPT Image Sep 8, 2025, 08_35_18 PM_1757378183961.png";
 import { motion } from "framer-motion";
 import { ParticleSystem } from "@/components/ParticleSystem";
 import { ScrollProgress } from "@/components/ScrollProgress";
@@ -53,8 +54,13 @@ export default function Landing() {
           aria-label="Main navigation"
         >
           <div className="flex items-center space-x-2 min-w-0">
-            <Palette className="text-primary text-2xl" aria-hidden="true" />
-            <h1 className="text-lg sm:text-xl font-serif font-bold text-primary truncate">Nerrame</h1>
+            <img 
+              src={kumayiriLogo} 
+              alt="Kumayiri Logo" 
+              className="w-8 h-8 flex-shrink-0" 
+              aria-hidden="true" 
+            />
+            <h1 className="text-lg sm:text-xl font-serif font-bold text-primary truncate">Kumayiri</h1>
             <span className="text-xs bg-chart-3 text-white px-2 py-1 rounded-full font-mono">Beta</span>
           </div>
           <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
@@ -461,7 +467,7 @@ export default function Landing() {
               <div className="aspect-video rounded-lg overflow-hidden">
                 <iframe
                   src="https://www.youtube.com/embed/4XulgZqOhEw"
-                  title="Nerrame Demo - AI-Powered Comic Creation Platform"
+                  title="Kumayiri Demo - AI-Powered Comic Creation Platform"
                   className="w-full h-full"
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"

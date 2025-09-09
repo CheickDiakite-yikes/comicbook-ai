@@ -72,7 +72,7 @@ export function ShareDialog({ open, onOpenChange, project }: ShareDialogProps) {
       return;
     }
     
-    const text = `Check out my comic "${project.title}" created with ComicAI Studio!`;
+    const text = `Check out my comic "${project.title}" created with Kumayiri!`;
     const encodedText = encodeURIComponent(text);
     const encodedUrl = encodeURIComponent(shareUrl);
     
