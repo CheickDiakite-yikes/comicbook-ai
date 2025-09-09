@@ -57,7 +57,6 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
     { href: "/", label: "Dashboard", icon: Home, isActive: location === "/" },
     { href: "/explore", label: "Explore", icon: Compass, isActive: location === "/explore" },
     { href: "/profile", label: "Profile", icon: UserIcon, isActive: location === "/profile", requiresAuth: true },
-    { href: "/about", label: "About", icon: BookOpen, isActive: location === "/about" },
   ];
 
   return (
