@@ -40,8 +40,38 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
   
-  // Serve generated images
+  // Serve generated images with object storage fallback
   app.use("/generated", express.static(path.join(process.cwd(), "public", "generated")));
+  
+  // Fallback route for missing generated images - try object storage
+  app.get("/generated/:filename", async (req, res, next) => {
+    // If we get here, the static file wasn't found, so try object storage
+    try {
+      const { ObjectStorageService } = await import("./objectStorage");
+      const objectStorageService = new ObjectStorageService();
+      
+      // Try to find the image in object storage 
+      const filename = req.params.filename;
+      
+      // Check if file exists in public object storage paths
+      const publicFile = await objectStorageService.searchPublicObject(filename);
+      if (publicFile) {
+        return objectStorageService.downloadObject(publicFile, res);
+      }
+      
+      // If not found in public storage, check private storage (for backwards compatibility)
+      try {
+        const privateFile = await objectStorageService.getObjectEntityFile(`/objects/uploads/${filename}`);
+        return objectStorageService.downloadObject(privateFile, res);
+      } catch (privateError) {
+        // Continue to next middleware if not found in object storage either
+        next();
+      }
+    } catch (error) {
+      console.error("Error serving generated image from object storage:", error);
+      next();
+    }
+  });
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
