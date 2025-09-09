@@ -11,10 +11,8 @@ import Landing from "@/pages/landing";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import Editor from "@/pages/editor";
-import Templates from "@/pages/templates";
 import Explore from "@/pages/explore";
 import Profile from "@/pages/profile";
-import Characters from "@/pages/characters";
 import SharePage from "@/pages/share";
 import About from "@/pages/about";
 import Privacy from "@/pages/privacy";
@@ -32,6 +30,7 @@ function Router() {
       <Route path="/about" component={About} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
+      <Route path="/explore" component={Explore} />
       
       {isLoading || !isAuthenticated ? (
         <Route path="/" component={Landing} />
@@ -39,10 +38,7 @@ function Router() {
         <>
           <Route path="/" component={Dashboard} />
           <Route path="/editor/:projectId" component={Editor} />
-          <Route path="/templates" component={Templates} />
-          <Route path="/explore" component={Explore} />
           <Route path="/profile" component={Profile} />
-          <Route path="/characters" component={Characters} />
         </>
       )}
       <Route component={NotFound} />

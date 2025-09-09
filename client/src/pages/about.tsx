@@ -9,6 +9,7 @@ import { MagicalBackground } from "@/components/MagicalBackground";
 import { PerformanceAnimation, LazyLoadWrapper } from "@/components/PerformanceOptimizations";
 import { MobileAwareComponent, MobileParticleSystem } from "@/components/MobileOptimizations";
 import { animationVariants } from "@/lib/animations";
+import { Footer } from "@/components/Footer";
 import kumayiriLogo from "@assets/ChatGPT Image Sep 8, 2025, 08_35_18 PM_1757378183961.png";
 
 export default function About() {
@@ -242,14 +243,7 @@ export default function About() {
         </LazyLoadWrapper>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-card border-t border-border py-8 mt-16">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center">
-          <p className="text-muted-foreground">
-            © 2025 Kumayiri. Building the future of comic creation with AI.
-          </p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

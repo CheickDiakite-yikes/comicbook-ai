@@ -142,19 +142,6 @@ export default function Sidebar({ isOpen = true, onClose, allPagesData = [], isC
                   </Link>
                 </li>
                 <li role="listitem">
-                  <Link href="/characters">
-                    <Button
-                      variant="ghost"
-                      className={`w-full ${isCollapsed ? 'justify-center px-2' : 'justify-start space-x-3 px-3'} py-3 h-auto min-h-[44px] hover:bg-accent hover:text-accent-foreground transition-all`}
-                      data-testid="nav-characters"
-                      title={isCollapsed ? "Characters" : undefined}
-                    >
-                      <Users className="w-5 h-5" aria-hidden="true" />
-                      {!isCollapsed && <span>Characters</span>}
-                    </Button>
-                  </Link>
-                </li>
-                <li role="listitem">
                   <Link href="/profile">
                     <Button
                       variant="ghost"
