@@ -458,15 +458,17 @@ export default function Profile({ userId }: ProfileProps = {}) {
                         {currentUser?.firstName?.charAt(0) || currentUser?.email?.charAt(0) || "U"}
                       </AvatarFallback>
                     </Avatar>
-                    {isEditing && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 w-6 h-6 sm:w-8 sm:h-8 p-0"
-                        data-testid="upload-avatar"
+                    {isEditing && isOwnProfile && (
+                      <ObjectUploader
+                        maxNumberOfFiles={1}
+                        maxFileSize={10485760} // 10MB
+                        onGetUploadParameters={handleGetUploadParameters}
+                        onComplete={handleProfileImageUpload}
+                        buttonClassName="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 w-6 h-6 sm:w-8 sm:h-8 p-0"
+                        allowedFileTypes={['image/jpeg', 'image/png', 'image/gif', 'image/webp']}
                       >
                         <Upload className="w-2 h-2 sm:w-3 sm:h-3" />
-                      </Button>
+                      </ObjectUploader>
                     )}
                   </div>
                   
