@@ -189,6 +189,20 @@ export class GeminiService {
       throw error;
     }
   }
+
+  /**
+   * Helper function to clean up temporary files
+   */
+  private cleanupTempFile(tempPath: string): void {
+    try {
+      if (fs.existsSync(tempPath)) {
+        fs.unlinkSync(tempPath);
+        console.log(`Cleaned up temporary file: ${tempPath}`);
+      }
+    } catch (error) {
+      console.error(`Failed to cleanup temp file ${tempPath}:`, error);
+    }
+  }
   /**
    * Generate an image for a comic panel using Gemini's image generation
    */
@@ -338,18 +352,17 @@ export class GeminiService {
           }
           const buffer = Buffer.from(imageData, "base64");
           const filename = `background_${request.panelId}_${Date.now()}.png`;
-          const tempPath = path.join(process.cwd(), "public", "generated", filename);
           
-          // Ensure directory exists
-          const dir = path.dirname(tempPath);
-          if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
+          // Save image to persistent object storage instead of local filesystem
+          let finalImageUrl = await this.saveImageToObjectStorage(buffer, filename);
+          
+          // For image processing, we need a temporary local file
+          const tempPath = path.join(process.cwd(), "temp", filename);
+          const tempDir = path.dirname(tempPath);
+          if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
           }
-          
           fs.writeFileSync(tempPath, buffer);
-          
-          // Process image to fit panel dimensions
-          let finalImageUrl = `/generated/${filename}`;
           
           // Always try to enhance the image for better fitting
           try {
@@ -643,19 +656,17 @@ export class GeminiService {
           }
           const buffer = Buffer.from(imageData, "base64");
           const filename = `cover_${request.projectId}_${Date.now()}.png`;
-          const tempPath = path.join(process.cwd(), "public", "generated", filename);
           
-          // Ensure directory exists
-          const dir = path.dirname(tempPath);
-          if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
+          // Save image to persistent object storage instead of local filesystem
+          let finalImageUrl = await this.saveImageToObjectStorage(buffer, filename);
+          
+          // For image processing, we need a temporary local file
+          const tempPath = path.join(process.cwd(), "temp", filename);
+          const tempDir = path.dirname(tempPath);
+          if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
           }
-          
           fs.writeFileSync(tempPath, buffer);
-          
-          // For cover art, we want a standard comic book cover aspect ratio (2:3)
-          // Resize to 800x1200 for high quality cover art
-          let finalImageUrl = `/generated/${filename}`;
           
           try {
             // Use image enhancer to create proper cover art dimensions
@@ -669,7 +680,7 @@ export class GeminiService {
             // Extract just the filename from the processed path
             const enhancedFile = path.basename(enhancedImagePath);
             const enhancedBuffer = fs.readFileSync(enhancedImagePath);
-            const enhancedFilename = `panel_${request.panelId}_enhanced_${Date.now()}.png`;
+            const enhancedFilename = `cover_${request.projectId}_enhanced_${Date.now()}.png`;
             finalImageUrl = await this.saveImageToObjectStorage(enhancedBuffer, enhancedFilename);
             console.log(`Cover art enhanced for project ${request.projectId}: ${finalImageUrl}`);
             
