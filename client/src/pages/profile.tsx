@@ -37,7 +37,11 @@ interface ProjectWithStats extends Project {
   pagesCount: number;
 }
 
-export default function Profile() {
+interface ProfileProps {
+  userId?: string; // Optional - if provided, viewing someone else's profile
+}
+
+export default function Profile({ userId }: ProfileProps = {}) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true); // Start collapsed to avoid blocking content
   const [isEditing, setIsEditing] = useState(false);
@@ -57,6 +61,9 @@ export default function Profile() {
   const toggleMobileSidebar = () => setSidebarOpen(!sidebarOpen);
 
   const { user: currentUser } = useAuth();
+  
+  // Determine if this is the current user's own profile
+  const isOwnProfile = !userId || (currentUser && currentUser.id === userId);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -615,20 +622,22 @@ export default function Profile() {
                           </div>
                           
                           {/* Privacy toggle (owner only) */}
-                          <div className="absolute top-3 left-3">
-                            <div className="flex items-center space-x-2 bg-background/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-lg">
-                              <Label htmlFor={`public-${project.id}`} className="text-xs">
-                                {project.isPublic ? <Globe className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
-                              </Label>
-                              <Switch
-                                id={`public-${project.id}`}
-                                checked={Boolean(project.isPublic)}
-                                onCheckedChange={(checked) => handleToggleProjectPublic(project.id, checked)}
-                                disabled={toggleProjectPublicMutation.isPending}
-                                data-testid={`switch-public-${project.id}`}
-                              />
+                          {isOwnProfile && (
+                            <div className="absolute top-3 left-3">
+                              <div className="flex items-center space-x-2 bg-background/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-lg">
+                                <Label htmlFor={`public-${project.id}`} className="text-xs">
+                                  {project.isPublic ? <Globe className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                                </Label>
+                                <Switch
+                                  id={`public-${project.id}`}
+                                  checked={Boolean(project.isPublic)}
+                                  onCheckedChange={(checked) => handleToggleProjectPublic(project.id, checked)}
+                                  disabled={toggleProjectPublicMutation.isPending}
+                                  data-testid={`switch-public-${project.id}`}
+                                />
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                         
                         {/* Project stats below the card */}

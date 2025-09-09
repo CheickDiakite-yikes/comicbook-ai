@@ -118,7 +118,24 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
-  
+}
+
+/* Line clamp utilities for text truncation */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-4 {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@layer base {
   /* Enhanced focus styles for AA compliance */
   :focus-visible {
     outline: 2px solid hsl(var(--ring));
