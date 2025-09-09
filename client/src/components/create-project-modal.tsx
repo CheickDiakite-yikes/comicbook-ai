@@ -531,12 +531,13 @@ Create a visual description that fits the ${selectedArtStyle || 'comic-book'} ar
             <Button 
               variant="default"
               size="lg"
-              className="bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90"
+              className="bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-xs sm:text-sm whitespace-nowrap"
               onClick={() => setShowAIStoryGenerator(true)}
               data-testid="button-ai-story-generator"
             >
-              <Wand2 className="mr-2 h-5 w-5" />
-              AI Story Generator
+              <Wand2 className="mr-1 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+              <span className="hidden sm:inline">AI Story Generator</span>
+              <span className="sm:hidden">AI Story</span>
             </Button>
           </div>
         </div>
