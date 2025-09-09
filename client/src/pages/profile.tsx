@@ -397,10 +397,12 @@ export default function Profile({ userId }: ProfileProps = {}) {
                           : currentUser?.firstName || currentUser?.email?.split('@')[0] || 'User'
                         }
                       </h2>
-                      <div className="flex items-center justify-center sm:justify-start space-x-1 text-sm text-muted-foreground">
-                        <Mail className="w-3 h-3" />
-                        <span>{currentUser?.email}</span>
-                      </div>
+                      {isOwnProfile && (
+                        <div className="flex items-center justify-center sm:justify-start space-x-1 text-sm text-muted-foreground">
+                          <Mail className="w-3 h-3" />
+                          <span>{currentUser?.email}</span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-center sm:justify-start space-x-1 text-sm text-muted-foreground">
                         <Calendar className="w-3 h-3" />
                         <span>Joined {currentUser?.createdAt ? new Date(currentUser.createdAt).toLocaleDateString() : 'Unknown'}</span>
