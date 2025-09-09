@@ -196,8 +196,8 @@ export default function Profile() {
             <p className="text-muted-foreground">
               You need to be signed in to view your profile.
             </p>
-            <Button onClick={() => window.location.href = "/api/login"} className="mt-4">
-              Sign In
+            <Button onClick={() => window.location.href = "/api/auth/google"} className="mt-4">
+              Sign in with Google
             </Button>
           </CardContent>
         </Card>

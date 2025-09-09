@@ -56,11 +56,11 @@ export default function About() {
             Home
           </Button>
           <Button 
-            onClick={() => window.location.href = '/api/login'}
+            onClick={() => window.location.href = '/api/auth/google'}
             size="sm"
             data-testid="button-login"
           >
-            Sign In
+            Sign in with Google
           </Button>
         </div>
       </header>
@@ -228,12 +228,12 @@ export default function About() {
                   </p>
                   <Button 
                     size="lg" 
-                    onClick={() => window.location.href = '/api/login'}
+                    onClick={() => window.location.href = '/api/auth/google'}
                     className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                     data-testid="button-get-started"
                   >
                     <Sparkles className="mr-2 h-4 w-4" />
-                    Get Started Free
+                    Sign in with Google
                   </Button>
                 </CardContent>
               </ComicPanel>
@@ -246,7 +246,7 @@ export default function About() {
       <footer className="bg-card border-t border-border py-8 mt-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center">
           <p className="text-muted-foreground">
-            © 2024 Kumayiri. Building the future of comic creation with AI.
+            © 2025 Kumayiri. Building the future of comic creation with AI.
           </p>
         </div>
       </footer>

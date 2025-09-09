@@ -76,7 +76,7 @@ export default function Landing() {
               <span className="hidden sm:inline">Google</span>
             </Button>
             <Button 
-              onClick={() => window.location.href = '/api/login'}
+              onClick={() => window.location.href = '/api/auth/google'}
               size="sm"
               className="bg-primary text-primary-foreground hover:bg-primary/90 min-h-[44px] text-xs sm:text-sm"
               data-testid="button-replit-login"
@@ -607,7 +607,7 @@ export default function Landing() {
               <ul className="space-y-2 text-sm">
                 <li>
                   <a 
-                    href="/api/login" 
+                    href="/api/auth/google" 
                     className="text-muted-foreground hover:text-foreground transition-colors"
                     data-testid="link-get-started"
                   >
@@ -696,7 +696,7 @@ export default function Landing() {
           {/* Footer Bottom */}
           <div className="border-t border-border pt-6 text-center">
             <p className="text-muted-foreground text-sm mb-2">
-              © 2024 Kumayiri. All rights reserved.
+              © 2025 Kumayiri. All rights reserved.
             </p>
             <p className="text-muted-foreground text-xs">
               Built for the Nano Banana Hackathon • Powered by AI • Made with ❤️

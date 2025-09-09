@@ -17,8 +17,8 @@ export default function Terms() {
       
       {/* Background */}
       <MagicalBackground 
-        density="low" 
-        theme="minimal" 
+        density="light" 
+        theme="magical" 
         className="opacity-20"
       />
 
@@ -299,7 +299,7 @@ export default function Terms() {
           {/* Contact Information */}
           <ComicPanel panelStyle="action" className="max-w-2xl mx-auto">
             <CardContent className="p-8 text-center">
-              <ComicWOW className="mx-auto mb-4 scale-75">HELP!</ComicWOW>
+              <ComicWOW className="mx-auto mb-4 scale-75" />
               <h3 className="text-xl font-bold mb-4">Questions About These Terms?</h3>
               <p className="text-muted-foreground mb-6">
                 Need clarification or have concerns about these terms? We're here to help.
@@ -321,7 +321,7 @@ export default function Terms() {
       <footer className="bg-card border-t border-border py-8 mt-16">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
           <p className="text-muted-foreground text-sm">
-            © 2024 Kumayiri. These terms protect both you and our platform.
+            © 2025 Kumayiri. These terms protect both you and our platform.
           </p>
         </div>
       </footer>

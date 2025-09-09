@@ -17,8 +17,8 @@ export default function Privacy() {
       
       {/* Background */}
       <MagicalBackground 
-        density="low" 
-        theme="minimal" 
+        density="light" 
+        theme="magical" 
         className="opacity-20"
       />
 
@@ -259,7 +259,7 @@ export default function Privacy() {
           {/* Contact Information */}
           <ComicPanel panelStyle="action" className="max-w-2xl mx-auto">
             <CardContent className="p-8 text-center">
-              <ComicWOW className="mx-auto mb-4 scale-75">CONTACT!</ComicWOW>
+              <ComicWOW className="mx-auto mb-4 scale-75" />
               <h3 className="text-xl font-bold mb-4">Questions About Privacy?</h3>
               <p className="text-muted-foreground mb-6">
                 We're here to help! Contact us with any privacy-related questions or concerns.
@@ -281,7 +281,7 @@ export default function Privacy() {
       <footer className="bg-card border-t border-border py-8 mt-16">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
           <p className="text-muted-foreground text-sm">
-            © 2024 Kumayiri. Your privacy is protected by this policy and applicable laws.
+            © 2025 Kumayiri. Your privacy is protected by this policy and applicable laws.
           </p>
         </div>
       </footer>

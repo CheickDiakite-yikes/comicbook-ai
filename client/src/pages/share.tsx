@@ -485,7 +485,7 @@ export default function SharePage() {
                         <Button 
                           variant="link" 
                           className="p-0 h-auto"
-                          onClick={() => window.location.href = "/api/login"}
+                          onClick={() => window.location.href = "/api/auth/google"}
                         >
                           Sign in
                         </Button>
