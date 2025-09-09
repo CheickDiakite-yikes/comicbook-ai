@@ -841,33 +841,17 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
                         <Wand2 className="mr-2 h-5 w-5 text-primary" />
                         <h3 className="font-semibold">AI Script Generation</h3>
                       </div>
-                      <div className="flex space-x-2">
-                        <label htmlFor="script-upload" className="cursor-pointer">
-                          <input
-                            id="script-upload"
-                            type="file"
-                            accept=".txt"
-                            onChange={handleFileUpload}
-                            className="hidden"
-                            data-testid="input-script-upload"
-                          />
-                          <Button type="button" variant="outline" size="sm">
-                            <Upload className="mr-2 h-4 w-4" />
-                            Upload Script
-                          </Button>
-                        </label>
-                        <Button
-                          type="button"
-                          variant="default"
-                          size="sm"
-                          onClick={handleGenerateScript}
-                          disabled={isGeneratingScript}
-                          data-testid="button-generate-script"
-                        >
-                          <Wand2 className="mr-2 h-4 w-4" />
-                          {isGeneratingScript ? "Generating..." : "Generate Script"}
-                        </Button>
-                      </div>
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="sm"
+                        onClick={handleGenerateScript}
+                        disabled={isGeneratingScript}
+                        data-testid="button-generate-script"
+                      >
+                        <Wand2 className="mr-2 h-4 w-4" />
+                        {isGeneratingScript ? "Generating..." : "Generate Script"}
+                      </Button>
                     </div>
                     <p className="text-sm text-muted-foreground">
                       Generate an AI-powered script based on your project details and characters, or upload your own script file.
