@@ -71,8 +71,8 @@ export function BackgroundGenerationProvider({ children }: { children: ReactNode
       { step: 'Analyzing Story Requirements', description: 'Processing your creative preferences', completed: false },
       { step: 'Crafting Story Concept', description: 'Generating title and plot outline', completed: false },
       { step: 'Building Characters', description: 'Creating detailed character profiles', completed: false },
-      { step: 'Writing Script', description: 'Generating complete structured script', completed: false },
-      { step: 'Finalizing Details', description: 'Polishing and optimizing content', completed: false }
+      { step: 'Parallel Script Generation', description: 'Using AI parallel processing for faster generation', completed: false },
+      { step: 'Finalizing Epic Story', description: 'Combining and optimizing all story elements', completed: false }
     ];
 
     setState({

@@ -1654,7 +1654,8 @@ Generate a professional-quality story concept that comic creators would be excit
   }
 
   /**
-   * Generate long stories (15+ pages) in chunks to avoid API timeouts
+   * Generate long stories (15+ pages) with PARALLEL processing to avoid timeouts
+   * Major improvements: parallel chunk generation, better error handling, retry logic
    */
   private async generateLongStoryInChunks(request: {
     genres: string[];
@@ -1734,16 +1735,17 @@ NO SCRIPT - Just the concept foundation for a ${totalPages}-page story.`;
     const storyConcept = JSON.parse(storyConceptText);
     console.log(`✅ Story concept generated: "${storyConcept.title}"`);
 
-    // Now generate the script in chunks (6-8 pages per chunk to avoid timeouts)
-    const chunkSize = 6;
-    const chunks: any[] = [];
+    // 🚀 PARALLEL GENERATION: Generate script chunks simultaneously for speed
+    const chunkSize = 5; // Reduced chunk size for better parallelization
+    const chunkPromises: Promise<{startPage: number; endPage: number; pages: any[]}>[] = [];
     
+    // Create all chunk generation promises in parallel
     for (let startPage = 1; startPage <= totalPages; startPage += chunkSize) {
       const endPage = Math.min(startPage + chunkSize - 1, totalPages);
       const isFirstChunk = startPage === 1;
       const isLastChunk = endPage === totalPages;
 
-      console.log(`🎨 Step 2: Generating pages ${startPage}-${endPage} of ${totalPages}...`);
+      console.log(`⚡ Preparing parallel generation for pages ${startPage}-${endPage} of ${totalPages}...`);
 
       const scriptPrompt = `You are an expert comic script writer. Generate pages ${startPage}-${endPage} of a ${totalPages}-page comic script.
 
@@ -1771,78 +1773,34 @@ CRITICAL PANEL NUMBERING RULE:
 
 Ensure story continuity and ${request.tones.join(" + ")} tones.`;
 
-      const scriptResponse = await ai.models.generateContent({
-        model: "gemini-2.5-pro",
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "object",
-            properties: {
-              pages: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    pageNumber: { type: "number" },
-                    title: { type: "string" },
-                    setting: { type: "string" },
-                    overallMood: { type: "string" },
-                    characters: { type: "array", items: { type: "string" } },
-                    narrative: { type: "string" },
-                    panels: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          panelNumber: { type: "number" },
-                          visualDescription: { type: "string" },
-                          cameraAngle: { type: "string" },
-                          shotType: { type: "string" },
-                          mood: { type: "string" },
-                          visualNotes: { type: "string" },
-                          timing: { type: "string" },
-                          soundEffects: { type: "array", items: { type: "string" } },
-                          dialogue: {
-                            type: "array",
-                            items: {
-                              type: "object",
-                              properties: {
-                                characterName: { type: "string" },
-                                text: { type: "string" },
-                                tone: { type: "string" },
-                                placement: { type: "string" }
-                              },
-                              required: ["characterName", "text", "tone", "placement"]
-                            }
-                          }
-                        },
-                        required: ["panelNumber", "visualDescription", "cameraAngle", "shotType", "mood"]
-                      }
-                    }
-                  },
-                  required: ["pageNumber", "title", "setting", "overallMood", "panels"]
-                }
-              }
-            },
-            required: ["pages"]
-          }
-        },
-        contents: scriptPrompt,
-      });
-
-      const chunkText = scriptResponse.text;
-      if (!chunkText) {
-        throw new Error(`Failed to generate script chunk ${startPage}-${endPage}`);
-      }
-
-      const chunkData = JSON.parse(chunkText);
-      chunks.push(...chunkData.pages);
-      
-      console.log(`✅ Generated pages ${startPage}-${endPage} (${chunkData.pages.length} pages)`);
-
-      // Small delay between chunks to be nice to the API
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Create promise for this chunk with retry logic
+      const chunkPromise = this.generateScriptChunkWithRetry(scriptPrompt, startPage, endPage);
+      chunkPromises.push(chunkPromise);
     }
+
+    console.log(`🚀 PARALLEL PROCESSING: Starting ${chunkPromises.length} chunks simultaneously...`);
+    const startTime = Date.now();
+    
+    // Execute all chunks in parallel with proper error handling
+    let chunkResults: Array<{startPage: number; endPage: number; pages: any[]}> = [];
+    try {
+      chunkResults = await Promise.all(chunkPromises);
+      const parallelTime = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`✅ PARALLEL SUCCESS: All ${chunkResults.length} chunks completed in ${parallelTime}s`);
+    } catch (error) {
+      console.error(`🔥 PARALLEL FAILURE: Error in chunk generation:`, error);
+      throw new Error(`Failed to generate story chunks: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+
+    // Sort chunks by page order and combine
+    chunkResults.sort((a, b) => a.startPage - b.startPage);
+    const chunks: any[] = [];
+    for (const result of chunkResults) {
+      chunks.push(...result.pages);
+      console.log(`📄 Merged pages ${result.startPage}-${result.endPage} (${result.pages.length} pages)`);
+    }
+
+    // This section is now replaced by parallel processing above
 
     // Combine all chunks into final structured script
     const structuredScript = {
@@ -1851,7 +1809,8 @@ Ensure story continuity and ${request.tones.join(" + ")} tones.`;
       pages: chunks
     };
 
-    console.log(`✅ Epic story complete: ${chunks.length} pages generated in chunks`);
+    const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`🎉 EPIC STORY COMPLETE: ${chunks.length} pages generated with parallel processing in ${totalTime}s`);
 
     return {
       title: storyConcept.title,
@@ -1860,6 +1819,115 @@ Ensure story continuity and ${request.tones.join(" + ")} tones.`;
       characters: storyConcept.characters,
       structuredScript
     };
+  }
+
+  /**
+   * Generate a single script chunk with retry logic and timeout handling
+   */
+  private async generateScriptChunkWithRetry(
+    scriptPrompt: string, 
+    startPage: number, 
+    endPage: number,
+    maxRetries: number = 2
+  ): Promise<{startPage: number; endPage: number; pages: any[]}> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+      try {
+        console.log(`🎯 Generating pages ${startPage}-${endPage} (attempt ${attempt}/${maxRetries + 1})`);
+        
+        const scriptResponse = await ai.models.generateContent({
+          model: "gemini-2.5-pro",
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "object",
+              properties: {
+                pages: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      pageNumber: { type: "number" },
+                      title: { type: "string" },
+                      setting: { type: "string" },
+                      overallMood: { type: "string" },
+                      characters: { type: "array", items: { type: "string" } },
+                      narrative: { type: "string" },
+                      panels: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            panelNumber: { type: "number" },
+                            visualDescription: { type: "string" },
+                            cameraAngle: { type: "string" },
+                            shotType: { type: "string" },
+                            mood: { type: "string" },
+                            visualNotes: { type: "string" },
+                            timing: { type: "string" },
+                            soundEffects: { type: "array", items: { type: "string" } },
+                            dialogue: {
+                              type: "array",
+                              items: {
+                                type: "object",
+                                properties: {
+                                  characterName: { type: "string" },
+                                  text: { type: "string" },
+                                  tone: { type: "string" },
+                                  placement: { type: "string" }
+                                },
+                                required: ["characterName", "text", "tone", "placement"]
+                              }
+                            }
+                          },
+                          required: ["panelNumber", "visualDescription", "cameraAngle", "shotType", "mood"]
+                        }
+                      }
+                    },
+                    required: ["pageNumber", "title", "setting", "overallMood", "panels"]
+                  }
+                }
+              },
+              required: ["pages"]
+            }
+          },
+          contents: scriptPrompt,
+        });
+
+        const chunkText = scriptResponse.text;
+        if (!chunkText) {
+          throw new Error(`Empty response for chunk ${startPage}-${endPage}`);
+        }
+
+        const chunkData = JSON.parse(chunkText);
+        if (!chunkData.pages || chunkData.pages.length === 0) {
+          throw new Error(`No pages generated for chunk ${startPage}-${endPage}`);
+        }
+
+        console.log(`✅ SUCCESS: Pages ${startPage}-${endPage} generated (${chunkData.pages.length} pages, attempt ${attempt})`);
+        
+        return {
+          startPage,
+          endPage,
+          pages: chunkData.pages
+        };
+        
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        console.error(`⚠️  RETRY: Pages ${startPage}-${endPage} failed on attempt ${attempt}:`, lastError.message);
+        
+        if (attempt <= maxRetries) {
+          // Exponential backoff: 1s, 2s, 4s...
+          const delay = Math.pow(2, attempt - 1) * 1000;
+          console.log(`⏳ Waiting ${delay}ms before retry ${attempt + 1}...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    // All retries failed
+    throw new Error(`Failed to generate pages ${startPage}-${endPage} after ${maxRetries + 1} attempts. Last error: ${lastError?.message}`);
   }
 }
 

@@ -61,8 +61,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      // Get user's current credit status
-      const creditStatus = await storage.checkUserCredits(userId);
+      // Get user's current credit status  
+      const creditStatus = await storage.getUserCredits(userId);
       const monthlyLimit = 200; // Updated from 250 to 200
       const remainingCredits = creditStatus.creditsRemaining;
       const creditsPercentage = Math.round((remainingCredits / monthlyLimit) * 100);
@@ -1124,6 +1124,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Generate complete AI story (title, description, characters, script)
   app.post("/api/generate-complete-story", 
+    (req, res, next) => {
+      // Set longer timeout for epic story generation (5 minutes)
+      req.setTimeout(300000); // 5 minutes
+      res.setTimeout(300000); // 5 minutes
+      next();
+    },
     requireCredits({
       operationType: "complete_story_generation",
       getMetadata: (req) => createOperationMetadata(req, { 
