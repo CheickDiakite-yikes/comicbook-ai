@@ -1433,6 +1433,12 @@ Create a script that tells a complete, satisfying story with strong visual story
       
       const pageCount = pageCounts[request.length as keyof typeof pageCounts] || 12;
       
+      // For epic stories, use chunked generation to avoid timeouts
+      if (request.length === 'epic' && pageCount > 15) {
+        console.log(`🎨 Epic story detected (${pageCount} pages) - using chunked generation...`);
+        return await this.generateEpicStoryInChunks(request, pageCount);
+      }
+      
       const prompt = `You are an expert storyteller and comic creator. Generate a complete, original comic story concept with all necessary details.
 
 REQUIREMENTS:
@@ -1566,6 +1572,211 @@ Generate a professional-quality story concept that comic creators would be excit
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       throw new Error("Failed to generate complete story: " + errorMessage);
     }
+  }
+
+  /**
+   * Generate epic stories in chunks to avoid API timeouts
+   */
+  private async generateEpicStoryInChunks(request: {
+    genres: string[];
+    length: string;
+    artStyle: string;
+    tones: string[];
+  }, totalPages: number): Promise<{
+    title: string;
+    genre: string;
+    description: string;
+    characters: Array<{
+      name: string;
+      role: string;
+      bio: string;
+      visualDescriptors: string;
+    }>;
+    structuredScript: any;
+  }> {
+    // First, generate the story concept and characters (lightweight)
+    const conceptPrompt = `You are an expert storyteller. Generate a complete comic story concept (NO SCRIPT YET):
+
+REQUIREMENTS:
+- Genres: ${request.genres.join(" + ")} (blend these thoughtfully)
+- Length: ${request.length} story (${totalPages} pages total)
+- Art Style: ${request.artStyle}
+- Tones: ${request.tones.join(" + ")} (blend these emotional elements)
+
+GENERATE ONLY:
+1. TITLE: Creative, memorable title that captures the genre blend
+2. BLENDED GENRE: How the ${request.genres.join(" and ")} elements work together
+3. STORY DESCRIPTION: 2-3 paragraph compelling synopsis that hooks readers
+4. MAIN CHARACTERS: 3-4 well-developed characters with:
+   - Name and role
+   - Personality and background
+   - Visual description (appearance, clothing, distinctive features)
+   - Character motivations and goals
+
+NO SCRIPT - Just the concept foundation for a ${totalPages}-page story.`;
+
+    console.log("🎨 Step 1: Generating story concept and characters...");
+
+    const conceptResponse = await ai.models.generateContent({
+      model: "gemini-2.5-pro",
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "object",
+          properties: {
+            title: { type: "string" },
+            genre: { type: "string" },
+            description: { type: "string" },
+            characters: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  role: { type: "string" },
+                  bio: { type: "string" },
+                  visualDescriptors: { type: "string" }
+                },
+                required: ["name", "role", "bio", "visualDescriptors"]
+              }
+            }
+          },
+          required: ["title", "genre", "description", "characters"]
+        }
+      },
+      contents: conceptPrompt,
+    });
+
+    const storyConceptText = conceptResponse.text;
+    if (!storyConceptText) {
+      throw new Error("Failed to generate story concept");
+    }
+
+    const storyConcept = JSON.parse(storyConceptText);
+    console.log(`✅ Story concept generated: "${storyConcept.title}"`);
+
+    // Now generate the script in chunks (6-8 pages per chunk to avoid timeouts)
+    const chunkSize = 6;
+    const chunks: any[] = [];
+    
+    for (let startPage = 1; startPage <= totalPages; startPage += chunkSize) {
+      const endPage = Math.min(startPage + chunkSize - 1, totalPages);
+      const isFirstChunk = startPage === 1;
+      const isLastChunk = endPage === totalPages;
+
+      console.log(`🎨 Step 2: Generating pages ${startPage}-${endPage} of ${totalPages}...`);
+
+      const scriptPrompt = `You are an expert comic script writer. Generate pages ${startPage}-${endPage} of a ${totalPages}-page comic script.
+
+STORY CONCEPT:
+- Title: ${storyConcept.title}
+- Genre: ${storyConcept.genre}
+- Description: ${storyConcept.description}
+- Characters: ${storyConcept.characters.map((c: any) => `${c.name} (${c.role}): ${c.bio}`).join(", ")}
+
+SCRIPT REQUIREMENTS for pages ${startPage}-${endPage}:
+${isFirstChunk ? "- OPENING: Strong hook and character introductions" : ""}
+${isLastChunk ? "- CLIMAX & RESOLUTION: Satisfying conclusion" : ""}
+${!isFirstChunk && !isLastChunk ? `- DEVELOPMENT: Continue story arc from page ${startPage}` : ""}
+
+Generate ONLY pages ${startPage}-${endPage} with:
+- Page-by-page breakdown
+- Panel descriptions (2-5 panels per page)
+- Character dialogue with emotion
+- Visual notes and camera angles
+- Sound effects where appropriate
+
+Ensure story continuity and ${request.tones.join(" + ")} tones.`;
+
+      const scriptResponse = await ai.models.generateContent({
+        model: "gemini-2.5-pro",
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "object",
+            properties: {
+              pages: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    pageNumber: { type: "number" },
+                    title: { type: "string" },
+                    setting: { type: "string" },
+                    overallMood: { type: "string" },
+                    characters: { type: "array", items: { type: "string" } },
+                    narrative: { type: "string" },
+                    panels: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          panelNumber: { type: "number" },
+                          visualDescription: { type: "string" },
+                          cameraAngle: { type: "string" },
+                          shotType: { type: "string" },
+                          mood: { type: "string" },
+                          visualNotes: { type: "string" },
+                          timing: { type: "string" },
+                          soundEffects: { type: "array", items: { type: "string" } },
+                          dialogue: {
+                            type: "array",
+                            items: {
+                              type: "object",
+                              properties: {
+                                characterName: { type: "string" },
+                                text: { type: "string" },
+                                tone: { type: "string" },
+                                placement: { type: "string" }
+                              },
+                              required: ["characterName", "text", "tone", "placement"]
+                            }
+                          }
+                        },
+                        required: ["panelNumber", "visualDescription", "cameraAngle", "shotType", "mood"]
+                      }
+                    }
+                  },
+                  required: ["pageNumber", "title", "setting", "overallMood", "panels"]
+                }
+              }
+            },
+            required: ["pages"]
+          }
+        },
+        contents: scriptPrompt,
+      });
+
+      const chunkText = scriptResponse.text;
+      if (!chunkText) {
+        throw new Error(`Failed to generate script chunk ${startPage}-${endPage}`);
+      }
+
+      const chunkData = JSON.parse(chunkText);
+      chunks.push(...chunkData.pages);
+      
+      console.log(`✅ Generated pages ${startPage}-${endPage} (${chunkData.pages.length} pages)`);
+
+      // Small delay between chunks to be nice to the API
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    // Combine all chunks into final structured script
+    const structuredScript = {
+      title: storyConcept.title,
+      logline: storyConcept.description,
+      pages: chunks
+    };
+
+    console.log(`✅ Epic story complete: ${chunks.length} pages generated in chunks`);
+
+    return {
+      title: storyConcept.title,
+      genre: storyConcept.genre,
+      description: storyConcept.description,
+      characters: storyConcept.characters,
+      structuredScript
+    };
   }
 }
 
