@@ -73,7 +73,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         currentCredits: remainingCredits,
         remainingCredits,
         creditsPercentage,
-        lastReset: creditStatus.lastReset
+        // lastReset field removed as it's not part of the schema
       });
     } catch (error) {
       console.error("Error fetching credits:", error);
@@ -1130,6 +1130,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setTimeout(300000); // 5 minutes
       next();
     },
+    isAuthenticated,
     requireCredits({
       operationType: "complete_story_generation",
       getMetadata: (req) => createOperationMetadata(req, { 
