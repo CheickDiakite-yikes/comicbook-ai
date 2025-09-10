@@ -524,11 +524,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const page = await storage.getPage(pageId);
           if (page) {
             // Get structured script for this project
-            const structuredScript = await storage.getStructuredScript(actualProjectId);
+            const structuredScript = await storage.getProjectStructuredScript(actualProjectId);
             if (structuredScript) {
-              // Find the script page data for this page number
-              const scriptPages = await storage.getScriptPages(structuredScript.id);
-              const matchingScriptPage = scriptPages.find(sp => sp.pageNumber === page.pageNumber);
+              // Script pages are already included in the FullStructuredScript
+              const matchingScriptPage = structuredScript.pages.find(sp => sp.pageNumber === page.pageNumber);
               
               if (matchingScriptPage) {
                 pageScriptData = {
