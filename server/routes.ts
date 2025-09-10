@@ -945,6 +945,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Save panels for this page
         console.log(`🐛 Processing ${pageData.panels?.length || 0} panels for page ${pageData.pageNumber}...`);
         for (const panelData of pageData.panels || []) {
+          console.log(`🔍 Panel ${panelData.panelNumber} (original) -> ${Math.floor(Number(panelData.panelNumber))} (converted)`);
           const savedPanel = await storage.createScriptPanel({
             scriptPageId: savedPage.id,
             panelNumber: Math.floor(Number(panelData.panelNumber)),
