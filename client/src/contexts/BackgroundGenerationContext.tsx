@@ -82,50 +82,112 @@ export function BackgroundGenerationProvider({ children }: { children: ReactNode
       steps,
       startedAt: new Date(),
       currentStep: steps[0].step,
-      progress: 0
+      progress: 10
     });
 
-    try {
-      // Simulate progressive steps for better UX
-      for (let i = 0; i < steps.length; i++) {
+    // Helper function for API call with retry logic
+    const makeApiCall = async (retryCount = 0): Promise<any> => {
+      const maxRetries = 2;
+      
+      try {
+        // Set current step and progress
         setState(prev => ({
           ...prev,
-          currentStep: steps[i].step,
-          progress: ((i + 1) / steps.length) * 90, // 90% for generation, 10% for finalization
+          currentStep: 'Generating AI Story...',
+          progress: 20
         }));
 
-        // Add realistic delays between steps
-        if (i < steps.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 1200));
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
+
+        const response = await fetch("/api/generate-complete-story", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          signal: controller.signal,
+          body: JSON.stringify({
+            genres: storyData.genres,
+            length: storyData.length,
+            artStyle: storyData.artStyle,
+            tones: storyData.tones
+          }),
+        });
+
+        clearTimeout(timeoutId);
+
+        // Handle 401 Unauthorized errors with retry
+        if (response.status === 401 && retryCount < maxRetries) {
+          console.log(`Authentication failed, retrying... (${retryCount + 1}/${maxRetries})`);
+          setState(prev => ({
+            ...prev,
+            currentStep: 'Retrying authentication...',
+            progress: 15
+          }));
+          
+          // Short delay before retry
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return makeApiCall(retryCount + 1);
         }
 
-        setState(prev => ({
-          ...prev,
-          steps: prev.steps.map((step, index) => 
-            index === i ? { ...step, completed: true } : step
-          )
-        }));
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to generate story: ${response.status} - ${errorText}`);
+        }
+
+        return await response.json();
+
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw new Error("Request timed out after 5 minutes");
+        }
+        
+        // Retry on network errors
+        if (retryCount < maxRetries && error instanceof Error && (error.message.includes('fetch') || error.message.includes('network'))) {
+          console.log(`Network error, retrying... (${retryCount + 1}/${maxRetries})`);
+          setState(prev => ({
+            ...prev,
+            currentStep: 'Retrying connection...',
+            progress: 15
+          }));
+          
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          return makeApiCall(retryCount + 1);
+        }
+        
+        throw error;
       }
+    };
 
-      // Actual API call
-      const response = await fetch("/api/generate-complete-story", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include", // ✅ Include cookies for authentication
-        body: JSON.stringify({
-          genres: storyData.genres,
-          length: storyData.length,
-          artStyle: storyData.artStyle,
-          tones: storyData.tones
-        }),
-      });
+    try {
+      // Progressive step simulation while API call is in progress
+      const progressInterval = setInterval(() => {
+        setState(prev => {
+          if (prev.status !== 'generating' || prev.progress >= 95) {
+            return prev;
+          }
+          
+          const nextProgress = Math.min(prev.progress + 5, 95);
+          const currentStepIndex = Math.floor((nextProgress / 95) * steps.length);
+          const currentStep = steps[currentStepIndex] || steps[steps.length - 1];
+          
+          return {
+            ...prev,
+            progress: nextProgress,
+            currentStep: currentStep.step,
+            steps: prev.steps.map((step, index) => 
+              index < currentStepIndex ? { ...step, completed: true } : step
+            )
+          };
+        });
+      }, 2000); // Update every 2 seconds for smooth progress
 
-      if (!response.ok) {
-        throw new Error("Failed to generate complete story");
-      }
+      // Make the actual API call immediately
+      const generatedResult = await makeApiCall();
 
-      const generatedResult = await response.json();
+      // Clear the progress interval
+      clearInterval(progressInterval);
 
+      // Complete all steps
       setState(prev => ({
         ...prev,
         status: 'completed',
@@ -133,6 +195,7 @@ export function BackgroundGenerationProvider({ children }: { children: ReactNode
         progress: 100,
         currentStep: 'Generation Complete!',
         completedAt: new Date(),
+        steps: prev.steps.map(step => ({ ...step, completed: true }))
       }));
 
     } catch (error) {
