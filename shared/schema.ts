@@ -203,6 +203,33 @@ export const userFollows = pgTable("user_follows", {
   index("unique_user_follow").on(table.followerId, table.followingId),
 ]);
 
+// AI Credits tracking table - Monthly credit usage
+export const userCredits = pgTable("user_credits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  year: integer("year").notNull(), // 2024, 2025, etc.
+  month: integer("month").notNull(), // 1-12
+  creditsUsed: integer("credits_used").notNull().default(0),
+  monthlyLimit: integer("monthly_limit").notNull().default(200),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  // Ensure only one record per user per month
+  index("unique_user_month").on(table.userId, table.year, table.month),
+]);
+
+// AI Credit transactions table - Log of every credit usage
+export const creditTransactions = pgTable("credit_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  operationType: varchar("operation_type").notNull(), // "panel_generation", "background_generation", etc.
+  creditsDeducted: integer("credits_deducted").notNull(),
+  remainingCredits: integer("remaining_credits").notNull(),
+  relatedResourceId: varchar("related_resource_id"), // panel ID, project ID, etc.
+  metadata: jsonb("metadata"), // Additional context like panel number, project title, etc.
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   id: true,
@@ -283,6 +310,18 @@ export const insertUserFollowSchema = createInsertSchema(userFollows).omit({
   createdAt: true,
 });
 
+// AI Credits insert schemas
+export const insertUserCreditsSchema = createInsertSchema(userCredits).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCreditTransactionSchema = createInsertSchema(creditTransactions).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -314,6 +353,12 @@ export type ProjectComment = typeof projectComments.$inferSelect;
 export type InsertProjectComment = z.infer<typeof insertProjectCommentSchema>;
 export type UserFollow = typeof userFollows.$inferSelect;
 export type InsertUserFollow = z.infer<typeof insertUserFollowSchema>;
+
+// AI Credits types
+export type UserCredits = typeof userCredits.$inferSelect;
+export type InsertUserCredits = z.infer<typeof insertUserCreditsSchema>;
+export type CreditTransaction = typeof creditTransactions.$inferSelect;
+export type InsertCreditTransaction = z.infer<typeof insertCreditTransactionSchema>;
 
 // Composite types for working with structured scripts
 export interface FullStructuredScript extends StructuredScript {
