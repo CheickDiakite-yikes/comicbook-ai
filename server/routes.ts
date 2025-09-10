@@ -41,6 +41,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Credits API endpoint
+  app.get('/api/credits', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const user = await storage.getUser(userId);
+      
+      // Check if user is admin (unlimited credits)
+      const isAdmin = user?.email === "zorovt18@gmail.com";
+      
+      if (isAdmin) {
+        res.json({
+          isAdmin: true,
+          monthlyLimit: null,
+          currentCredits: null,
+          remainingCredits: "Unlimited",
+          creditsPercentage: 100
+        });
+        return;
+      }
+
+      // Get user's current credit status
+      const creditStatus = await storage.checkUserCredits(userId);
+      const monthlyLimit = 200; // Updated from 250 to 200
+      const remainingCredits = creditStatus.creditsRemaining;
+      const creditsPercentage = Math.round((remainingCredits / monthlyLimit) * 100);
+
+      res.json({
+        isAdmin: false,
+        monthlyLimit,
+        currentCredits: remainingCredits,
+        remainingCredits,
+        creditsPercentage,
+        lastReset: creditStatus.lastReset
+      });
+    } catch (error) {
+      console.error("Error fetching credits:", error);
+      res.status(500).json({ message: "Failed to fetch credits" });
+    }
+  });
+
   app.put('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req.user);

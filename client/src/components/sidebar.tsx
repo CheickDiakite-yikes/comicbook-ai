@@ -24,12 +24,25 @@ export default function Sidebar({ isOpen = true, onClose, allPagesData = [], isC
 
   const recentProjects = projects.slice(0, 2);
   
-  // Credit system logic
-  const isAdmin = user?.email === "zorovt18@gmail.com";
-  const monthlyLimit = isAdmin ? Infinity : 250;
-  const currentCredits = isAdmin ? Infinity : 237; // Simulated current usage
-  const remainingCredits = isAdmin ? "Unlimited" : currentCredits;
-  const creditsPercentage = isAdmin ? 100 : (currentCredits / monthlyLimit) * 100;
+  // Fetch real credit data from API
+  const { data: creditData } = useQuery<{
+    isAdmin: boolean;
+    monthlyLimit: number | null;
+    currentCredits: number | null;
+    remainingCredits: string | number;
+    creditsPercentage: number;
+    lastReset?: string;
+  }>({ 
+    queryKey: ["/api/credits"],
+    enabled: !!user, // Only fetch when user is authenticated
+  });
+
+  // Credit system logic with real data
+  const isAdmin = creditData?.isAdmin || false;
+  const monthlyLimit = creditData?.monthlyLimit || 200;
+  const currentCredits = creditData?.currentCredits || 0;
+  const remainingCredits = creditData?.remainingCredits || 0;
+  const creditsPercentage = creditData?.creditsPercentage || 0;
 
   // Helper function to get page count for a project
   const getProjectPageCount = (projectId: string) => {
@@ -222,7 +235,7 @@ export default function Sidebar({ isOpen = true, onClose, allPagesData = [], isC
                         <span className="text-xs opacity-70">How Credits Work</span>
                       </div>
                       <p className="text-xs opacity-80 leading-relaxed">
-                        1 credit = 1 panel generation. {!isAdmin && "250 credits refresh monthly."}
+                        1 credit = 1 panel generation. {!isAdmin && "200 credits refresh monthly."}
                         <br />
                         <span className="opacity-60">More credit options coming soon!</span>
                       </p>
