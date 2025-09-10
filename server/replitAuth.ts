@@ -42,7 +42,7 @@ export function getSession() {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: sessionTtl,
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' // Fix cross-site POST in production
+      sameSite: 'lax' // Better compatibility
     },
   });
 }
