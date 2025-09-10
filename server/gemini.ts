@@ -1433,9 +1433,9 @@ Create a script that tells a complete, satisfying story with strong visual story
       
       const pageCount = pageCounts[request.length as keyof typeof pageCounts] || 12;
       
-      // For epic stories, use chunked generation to avoid timeouts
-      if (request.length === 'epic' && pageCount > 15) {
-        console.log(`🎨 Epic story detected (${pageCount} pages) - using chunked generation...`);
+      // For longer stories (15+ pages), use chunked generation to avoid timeouts
+      if (pageCount > 15) {
+        console.log(`🎨 Long story detected (${pageCount} pages, ${request.length}) - using chunked generation...`);
         return await this.generateEpicStoryInChunks(request, pageCount);
       }
       
