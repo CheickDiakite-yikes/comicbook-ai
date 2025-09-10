@@ -181,6 +181,7 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  console.log(`🔥 isAuthenticated: Called for ${req.method} ${req.url}`);
   const user = req.user as any;
 
   if (!req.isAuthenticated() || !user) {

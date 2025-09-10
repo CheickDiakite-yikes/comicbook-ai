@@ -1125,9 +1125,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Generate complete AI story (title, description, characters, script)
   app.post("/api/generate-complete-story", 
     (req, res, next) => {
+      console.log("🔥 GENERATE-COMPLETE-STORY: Request received in timeout middleware");
       // Set longer timeout for epic story generation (5 minutes)
       req.setTimeout(300000); // 5 minutes
       res.setTimeout(300000); // 5 minutes
+      next();
+    },
+    (req, res, next) => {
+      console.log("🔥 GENERATE-COMPLETE-STORY: About to check authentication");
       next();
     },
     isAuthenticated,
