@@ -467,7 +467,7 @@ export default function Landing() {
             >
               <div className="aspect-video rounded-lg overflow-hidden">
                 <iframe
-                  src="https://www.youtube.com/embed/4XulgZqOhEw"
+                  src="https://www.youtube.com/embed/KI4JJ4GJ9rA"
                   title="Kumayiri Demo - AI-Powered Comic Creation Platform"
                   className="w-full h-full"
                   frameBorder="0"
@@ -490,7 +490,7 @@ export default function Landing() {
               🎭 Experience the magic of storytelling
             </p>
             <a 
-              href="https://youtu.be/4XulgZqOhEw" 
+              href="https://youtu.be/KI4JJ4GJ9rA" 
               target="_blank" 
               rel="noopener noreferrer"
               className="inline-flex items-center text-primary hover:text-primary/80 text-sm underline font-medium"
