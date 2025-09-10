@@ -62,9 +62,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get user's current credit status  
-      const creditStatus = await storage.getUserCredits(userId);
-      const monthlyLimit = 200; // Updated from 250 to 200
-      const remainingCredits = creditStatus.creditsRemaining;
+      const creditStatus = await storage.getCurrentMonthCredits(userId);
+      const monthlyLimit = creditStatus.monthlyLimit;
+      const remainingCredits = monthlyLimit - creditStatus.creditsUsed;
       const creditsPercentage = Math.round((remainingCredits / monthlyLimit) * 100);
 
       res.json({
