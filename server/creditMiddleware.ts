@@ -35,9 +35,14 @@ interface CreditMiddlewareOptions {
 export function requireCredits(options: CreditMiddlewareOptions): RequestHandler {
   return async (req: any, res: any, next: any) => {
     try {
-      const userId = req.user?.claims?.sub;
+      // Handle both Google OAuth and Replit OAuth user structures
+      const userId = req.user?.id || req.user?.claims?.sub;
+      const userEmail = req.user?.profile?.emails?.[0]?.value || req.user?.claims?.email;
+      
+      console.log(`🔑 Credit middleware: userId=${userId}, userEmail=${userEmail}, provider=${req.user?.provider}`);
       
       if (!userId) {
+        console.log(`🔑 Credit middleware: No user ID found in req.user:`, req.user);
         return res.status(401).json({ 
           message: "Unauthorized - user not found",
           error: "authentication_required"
@@ -45,7 +50,7 @@ export function requireCredits(options: CreditMiddlewareOptions): RequestHandler
       }
 
       // Check if user is admin (unlimited credits)
-      const isAdmin = req.user?.claims?.email === "zorovt18@gmail.com";
+      const isAdmin = userEmail === "zorovt18@gmail.com";
       if (isAdmin) {
         console.log(`🔑 Admin user ${userId} bypassing credit check for ${options.operationType}`);
         return next();
