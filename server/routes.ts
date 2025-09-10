@@ -517,6 +517,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         artStyle: project.artStyle || undefined,
       };
 
+      // ENHANCED: Fetch script data for contextual backgrounds
+      let pageScriptData = undefined;
+      if (pageId) {
+        try {
+          const page = await storage.getPage(pageId);
+          if (page) {
+            // Get structured script for this project
+            const structuredScript = await storage.getStructuredScript(actualProjectId);
+            if (structuredScript) {
+              // Find the script page data for this page number
+              const scriptPages = await storage.getScriptPages(structuredScript.id);
+              const matchingScriptPage = scriptPages.find(sp => sp.pageNumber === page.pageNumber);
+              
+              if (matchingScriptPage) {
+                pageScriptData = {
+                  setting: matchingScriptPage.setting || undefined,
+                  mood: matchingScriptPage.mood || undefined,
+                  timeOfDay: matchingScriptPage.timeOfDay || undefined,
+                  location: matchingScriptPage.location || undefined,
+                  weatherConditions: matchingScriptPage.weatherConditions || undefined,
+                  title: matchingScriptPage.title || undefined,
+                };
+                console.log(`📍 Using script data for page ${page.pageNumber}:`, pageScriptData);
+              } else {
+                console.log(`⚠️ No script data found for page ${page.pageNumber}`);
+              }
+            }
+          }
+        } catch (scriptError) {
+          console.log("Could not fetch script data for background context:", scriptError);
+          // Continue without script data
+        }
+      }
+
       // For page-level generation, enhance context with layout info and proper structure
       const enhancedPanelContext = pageId && layoutTemplate ? {
         ...panelContext,
@@ -536,6 +570,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         panelId: actualPanelId,
         projectContext,
         panelContext: enhancedPanelContext,
+        pageScriptData,
       });
 
       // If this is page-level background generation and successful, save to database

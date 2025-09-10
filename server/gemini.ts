@@ -325,9 +325,17 @@ export class GeminiService {
     panelId: number;
     projectContext: GenerateImageRequest["projectContext"];
     panelContext?: GenerateImageRequest["panelContext"];
+    pageScriptData?: {
+      setting?: string;
+      mood?: string;
+      timeOfDay?: string;
+      location?: string;
+      weatherConditions?: string;
+      title?: string;
+    };
   }): Promise<GenerateImageResponse> {
     try {
-      // Build background-specific prompt
+      // Build enhanced background-specific prompt with script context
       const backgroundPrompt = this.buildBackgroundPrompt(request);
       
       console.log(`Generating background for panel ${request.panelId} with prompt: ${backgroundPrompt}`);
@@ -899,34 +907,105 @@ export class GeminiService {
     panelId: number;
     projectContext: GenerateImageRequest["projectContext"];
     panelContext?: GenerateImageRequest["panelContext"];
+    pageScriptData?: {
+      setting?: string;
+      mood?: string;
+      timeOfDay?: string;
+      location?: string;
+      weatherConditions?: string;
+      title?: string;
+    };
   }): string {
     let prompt = "Generate a FULL-BLEED background artwork with NO borders, NO padding, NO white space. The background must extend completely edge-to-edge. Create a subtle comic panel background that sets the scene without being distracting. ";
 
-    // Genre-based background suggestions
-    if (request.projectContext.genre) {
-      const genre = request.projectContext.genre.toLowerCase();
-      if (genre.includes("romance")) {
-        prompt += "Soft romantic setting with gentle flowers, gardens, or dreamy landscapes. ";
-      } else if (genre.includes("adventure")) {
-        prompt += "Epic landscape or terrain that suggests adventure and exploration. ";
-      } else if (genre.includes("mystery")) {
-        prompt += "Atmospheric background with shadows and intriguing environments. ";
-      } else if (genre.includes("fantasy")) {
-        prompt += "Magical or fantastical environment with ethereal elements. ";
-      } else {
-        prompt += "Appropriate environmental setting that matches the story mood. ";
+    // ENHANCED: Use page-specific script data for highly contextual backgrounds
+    if (request.pageScriptData) {
+      const scriptData = request.pageScriptData;
+      
+      // Primary setting description
+      if (scriptData.setting) {
+        prompt += `Setting: ${scriptData.setting}. `;
       }
-    }
+      
+      // Specific location details
+      if (scriptData.location) {
+        prompt += `Location: ${scriptData.location}. `;
+      }
+      
+      // Time of day lighting
+      if (scriptData.timeOfDay) {
+        const timeOfDay = scriptData.timeOfDay.toLowerCase();
+        if (timeOfDay.includes("night") || timeOfDay.includes("evening")) {
+          prompt += "Dark evening/night lighting, dramatic shadows, atmospheric night scene. ";
+        } else if (timeOfDay.includes("morning")) {
+          prompt += "Early morning lighting, soft dawn glow, fresh morning atmosphere. ";
+        } else if (timeOfDay.includes("noon") || timeOfDay.includes("day")) {
+          prompt += "Bright daylight, clear illumination, daytime atmosphere. ";
+        } else if (timeOfDay.includes("sunset") || timeOfDay.includes("dusk")) {
+          prompt += "Golden hour lighting, warm sunset glow, dramatic evening atmosphere. ";
+        }
+      }
+      
+      // Mood and atmosphere
+      if (scriptData.mood) {
+        const mood = scriptData.mood.toLowerCase();
+        if (mood.includes("tense") || mood.includes("suspenseful")) {
+          prompt += "Tense, suspenseful atmosphere with dramatic shadows and moody lighting. ";
+        } else if (mood.includes("romantic") || mood.includes("warm")) {
+          prompt += "Warm, romantic atmosphere with soft lighting and gentle ambiance. ";
+        } else if (mood.includes("mysterious") || mood.includes("eerie")) {
+          prompt += "Mysterious, eerie atmosphere with atmospheric shadows and intriguing elements. ";
+        } else if (mood.includes("action") || mood.includes("intense")) {
+          prompt += "Dynamic, intense atmosphere with bold lighting and energetic environment. ";
+        } else if (mood.includes("peaceful") || mood.includes("calm")) {
+          prompt += "Peaceful, calm atmosphere with gentle lighting and serene environment. ";
+        } else {
+          prompt += `${scriptData.mood} atmosphere. `;
+        }
+      }
+      
+      // Weather and environmental conditions
+      if (scriptData.weatherConditions) {
+        const weather = scriptData.weatherConditions.toLowerCase();
+        if (weather.includes("rain") || weather.includes("storm")) {
+          prompt += "Rainy, stormy weather effects with dramatic atmosphere. ";
+        } else if (weather.includes("sunny") || weather.includes("clear")) {
+          prompt += "Clear, sunny weather with bright natural lighting. ";
+        } else if (weather.includes("fog") || weather.includes("mist")) {
+          prompt += "Foggy, misty atmosphere with ethereal environmental effects. ";
+        } else if (weather.includes("snow") || weather.includes("winter")) {
+          prompt += "Snowy, winter atmosphere with cold environmental effects. ";
+        } else {
+          prompt += `${scriptData.weatherConditions} environmental conditions. `;
+        }
+      }
+    } else {
+      // FALLBACK: Use generic genre-based suggestions only if no script data
+      if (request.projectContext.genre) {
+        const genre = request.projectContext.genre.toLowerCase();
+        if (genre.includes("romance")) {
+          prompt += "Soft romantic setting with gentle flowers, gardens, or dreamy landscapes. ";
+        } else if (genre.includes("adventure")) {
+          prompt += "Epic landscape or terrain that suggests adventure and exploration. ";
+        } else if (genre.includes("mystery")) {
+          prompt += "Atmospheric background with shadows and intriguing environments. ";
+        } else if (genre.includes("fantasy")) {
+          prompt += "Magical or fantastical environment with ethereal elements. ";
+        } else {
+          prompt += "Appropriate environmental setting that matches the story mood. ";
+        }
+      }
 
-    // Story context-based backgrounds
-    if (request.projectContext.description) {
-      const description = request.projectContext.description.toLowerCase();
-      if (description.includes("bee")) {
-        prompt += "Flower fields, meadows, or garden settings with soft natural elements. ";
-      } else if (description.includes("city") || description.includes("urban")) {
-        prompt += "Urban environments, city streets, or architectural backgrounds. ";
-      } else if (description.includes("forest") || description.includes("nature")) {
-        prompt += "Natural forest or woodland settings. ";
+      // Basic story context (only as fallback)
+      if (request.projectContext.description) {
+        const description = request.projectContext.description.toLowerCase();
+        if (description.includes("bee")) {
+          prompt += "Flower fields, meadows, or garden settings with soft natural elements. ";
+        } else if (description.includes("city") || description.includes("urban")) {
+          prompt += "Urban environments, city streets, or architectural backgrounds. ";
+        } else if (description.includes("forest") || description.includes("nature")) {
+          prompt += "Natural forest or woodland settings. ";
+        }
       }
     }
 
