@@ -1436,7 +1436,7 @@ Create a script that tells a complete, satisfying story with strong visual story
       // For longer stories (15+ pages), use chunked generation to avoid timeouts
       if (pageCount > 15) {
         console.log(`🎨 Long story detected (${pageCount} pages, ${request.length}) - using chunked generation...`);
-        return await this.generateEpicStoryInChunks(request, pageCount);
+        return await this.generateLongStoryInChunks(request, pageCount);
       }
       
       const prompt = `You are an expert storyteller and comic creator. Generate a complete, original comic story concept with all necessary details.
@@ -1575,9 +1575,9 @@ Generate a professional-quality story concept that comic creators would be excit
   }
 
   /**
-   * Generate epic stories in chunks to avoid API timeouts
+   * Generate long stories (15+ pages) in chunks to avoid API timeouts
    */
-  private async generateEpicStoryInChunks(request: {
+  private async generateLongStoryInChunks(request: {
     genres: string[];
     length: string;
     artStyle: string;
