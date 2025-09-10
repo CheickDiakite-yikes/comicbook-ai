@@ -111,6 +111,7 @@ export function BackgroundGenerationProvider({ children }: { children: ReactNode
       const response = await fetch("/api/generate-complete-story", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // ✅ Include cookies for authentication
         body: JSON.stringify({
           genres: storyData.genres,
           length: storyData.length,
