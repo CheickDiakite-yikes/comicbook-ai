@@ -947,7 +947,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const panelData of pageData.panels || []) {
           const savedPanel = await storage.createScriptPanel({
             scriptPageId: savedPage.id,
-            panelNumber: panelData.panelNumber,
+            panelNumber: Math.floor(Number(panelData.panelNumber)),
             sceneDescription: panelData.visualDescription || panelData.sceneDescription || "",
             action: panelData.action || "",
             cameraAngle: panelData.cameraAngle,
