@@ -151,20 +151,40 @@ export class MemStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const existingUser = Array.from(this.users.values()).find(u => u.email === userData.email);
-    
-    if (existingUser) {
+    // First check if user exists by ID (for Google OAuth users with specific IDs)
+    if (userData.id) {
+      const existingUserById = this.users.get(userData.id);
+      if (existingUserById) {
+        const updatedUser: User = {
+          ...existingUserById,
+          ...userData,
+          updatedAt: new Date(),
+        };
+        this.users.set(existingUserById.id, updatedUser);
+        return updatedUser;
+      }
+    }
+
+    // Then check if user exists by email (for existing users)
+    const existingUserByEmail = Array.from(this.users.values()).find(u => u.email === userData.email);
+    if (existingUserByEmail) {
       const updatedUser: User = {
-        ...existingUser,
+        ...existingUserByEmail,
         ...userData,
+        id: userData.id || existingUserByEmail.id, // Preserve provided ID or keep existing ID
         updatedAt: new Date(),
       };
-      this.users.set(existingUser.id, updatedUser);
+      // If ID changed, remove old entry and add new one
+      if (userData.id && userData.id !== existingUserByEmail.id) {
+        this.users.delete(existingUserByEmail.id);
+      }
+      this.users.set(updatedUser.id, updatedUser);
       return updatedUser;
     }
 
+    // Create new user, using provided ID or generating one
     const user: User = {
-      id: randomUUID(),
+      id: userData.id || randomUUID(),
       email: userData.email || null,
       firstName: userData.firstName || null,
       lastName: userData.lastName || null,
@@ -539,27 +559,66 @@ export class DatabaseStorage implements IStorage {
     console.log(`🔥 DatabaseStorage: User data:`, userData);
     
     try {
-      const [user] = await db
-        .insert(users)
-        .values(userData)
-        .onConflictDoUpdate({
-          target: users.id,
-          set: {
+      // If userData has an explicit ID, try to insert/upsert with that ID
+      if (userData.id) {
+        const [user] = await db
+          .insert(users)
+          .values({
             ...userData,
-            updatedAt: new Date(),
-          },
-        })
-        .returning();
-      
-      console.log(`🔥 DatabaseStorage: Successfully upserted user:`, { 
-        id: user.id, 
-        email: user.email, 
-        firstName: user.firstName,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt
-      });
-      
-      return user;
+            id: userData.id, // Explicitly set the ID to override column default
+          })
+          .onConflictDoUpdate({
+            target: users.id,
+            set: {
+              email: userData.email,
+              firstName: userData.firstName,
+              lastName: userData.lastName,
+              profileImageUrl: userData.profileImageUrl,
+              updatedAt: new Date(),
+            },
+          })
+          .returning();
+        
+        console.log(`🔥 DatabaseStorage: Successfully upserted user with explicit ID:`, { 
+          id: user.id, 
+          email: user.email, 
+          firstName: user.firstName,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt
+        });
+        
+        return user;
+      } else {
+        // If no explicit ID, let database generate one
+        const [user] = await db
+          .insert(users)
+          .values({
+            email: userData.email,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            profileImageUrl: userData.profileImageUrl,
+          })
+          .onConflictDoUpdate({
+            target: users.email, // Use email as conflict target when no ID provided
+            set: {
+              firstName: userData.firstName,
+              lastName: userData.lastName,
+              profileImageUrl: userData.profileImageUrl,
+              updatedAt: new Date(),
+            },
+          })
+          .returning();
+        
+        console.log(`🔥 DatabaseStorage: Successfully upserted user with generated ID:`, { 
+          id: user.id, 
+          email: user.email, 
+          firstName: user.firstName,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt
+        });
+        
+        return user;
+      }
     } catch (error) {
       console.error(`🔥 DatabaseStorage: CRITICAL ERROR during upsertUser:`, error);
       console.error(`🔥 DatabaseStorage: Failed userData:`, userData);
