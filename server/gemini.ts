@@ -1682,9 +1682,13 @@ ${!isFirstChunk && !isLastChunk ? `- DEVELOPMENT: Continue story arc from page $
 Generate ONLY pages ${startPage}-${endPage} with:
 - Page-by-page breakdown
 - Panel descriptions (2-5 panels per page)
-- Character dialogue with emotion
+- Character dialogue with emotion  
 - Visual notes and camera angles
 - Sound effects where appropriate
+
+CRITICAL PANEL NUMBERING RULE:
+- Number panels sequentially within each page starting from 1 (Panel 1, Panel 2, Panel 3, etc.)
+- Each page should have panels numbered 1, 2, 3, 4... regardless of page number
 
 Ensure story continuity and ${request.tones.join(" + ")} tones.`;
 

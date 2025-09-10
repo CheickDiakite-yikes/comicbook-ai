@@ -789,8 +789,6 @@ export class DatabaseStorage implements IStorage {
       .from(scriptPanels)
       .where(eq(scriptPanels.scriptPageId, pageId))
       .orderBy(scriptPanels.panelNumber);
-    
-    console.log(`🔍 Retrieved ${panels.length} panels for page ${pageId}:`, panels.map(p => p.panelNumber));
 
     const panelsWithDialogue: ScriptPanelWithDialogue[] = [];
     
