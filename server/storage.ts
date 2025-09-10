@@ -519,23 +519,59 @@ export class MemStorage implements IStorage {
 export class DatabaseStorage implements IStorage {
   // User operations (mandatory for Replit Auth)
   async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
+    console.log(`🔥 DatabaseStorage: Getting user with ID: ${id}`);
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, id));
+      if (user) {
+        console.log(`🔥 DatabaseStorage: User found:`, { id: user.id, email: user.email, firstName: user.firstName });
+      } else {
+        console.log(`🔥 DatabaseStorage: User NOT found for ID: ${id}`);
+      }
+      return user || undefined;
+    } catch (error) {
+      console.error(`🔥 DatabaseStorage: ERROR getting user ${id}:`, error);
+      throw error;
+    }
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return user;
+    console.log(`🔥 DatabaseStorage: Starting upsertUser for ID: ${userData.id}`);
+    console.log(`🔥 DatabaseStorage: User data:`, userData);
+    
+    try {
+      const [user] = await db
+        .insert(users)
+        .values(userData)
+        .onConflictDoUpdate({
+          target: users.id,
+          set: {
+            ...userData,
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
+      
+      console.log(`🔥 DatabaseStorage: Successfully upserted user:`, { 
+        id: user.id, 
+        email: user.email, 
+        firstName: user.firstName,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+      });
+      
+      return user;
+    } catch (error) {
+      console.error(`🔥 DatabaseStorage: CRITICAL ERROR during upsertUser:`, error);
+      console.error(`🔥 DatabaseStorage: Failed userData:`, userData);
+      console.error(`🔥 DatabaseStorage: Error details:`, {
+        message: error instanceof Error ? error.message : String(error),
+        code: (error as any)?.code,
+        constraint: (error as any)?.constraint,
+        detail: (error as any)?.detail,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      throw error;
+    }
   }
 
   async updateUser(id: string, updates: Partial<UpsertUser>): Promise<User | undefined> {
