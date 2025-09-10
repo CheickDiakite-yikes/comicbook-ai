@@ -14,6 +14,7 @@ import {
 } from "@shared/schema";
 import { geminiService } from "./gemini";
 import { z } from "zod";
+import { requireCredits, getProjectIdFromParams, getPanelIdFromBody, getPageIdFromRequest, createOperationMetadata } from "./creditMiddleware";
 
 // Helper function to get user ID from different auth providers
 function getUserId(user: any): string {
@@ -470,7 +471,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI Generation endpoints
-  app.post("/api/generate-image", isAuthenticated, async (req: any, res) => {
+  app.post("/api/generate-image", 
+    isAuthenticated,
+    requireCredits({
+      operationType: "panel_generation",
+      getResourceId: getPanelIdFromBody,
+      getMetadata: (req) => createOperationMetadata(req, { 
+        prompt: req.body.prompt?.substring(0, 100) 
+      })
+    }),
+    async (req: any, res) => {
     try {
       const { prompt, panelId, projectContext, characterContext, styleOptions, panelContext } = req.body;
       
@@ -492,7 +502,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Background Generation route - enhanced for both panel and page-level generation
-  app.post("/api/generate-background", isAuthenticated, async (req: any, res) => {
+  app.post("/api/generate-background", 
+    isAuthenticated,
+    requireCredits({
+      operationType: "background_generation",
+      getResourceId: getPageIdFromRequest,
+      getMetadata: (req) => createOperationMetadata(req, { 
+        projectId: req.body.projectId,
+        pageId: req.body.pageId 
+      })
+    }),
+    async (req: any, res) => {
     try {
       const { panelId, projectId, pageId, layoutTemplate, panelContext } = req.body;
       
@@ -590,7 +610,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/generate-full-page", isAuthenticated, async (req: any, res) => {
+  app.post("/api/generate-full-page", 
+    isAuthenticated,
+    requireCredits({
+      operationType: "full_page_generation",
+      getResourceId: (req) => req.body.currentPageId,
+      getMetadata: (req) => createOperationMetadata(req, { 
+        layoutId: req.body.layoutId 
+      })
+    }),
+    async (req: any, res) => {
     try {
       const { projectContext, pageScript, panelLayout, currentPageId, layoutId } = req.body;
       
@@ -616,7 +645,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/generate-script", isAuthenticated, async (req: any, res) => {
+  app.post("/api/generate-script", 
+    isAuthenticated,
+    requireCredits({
+      operationType: "script_generation",
+      getResourceId: getProjectIdFromParams,
+      getMetadata: (req) => createOperationMetadata(req)
+    }),
+    async (req: any, res) => {
     try {
       const scriptRequest = req.body;
       
@@ -631,7 +667,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate text route for general AI text generation
-  app.post("/api/generate-text", isAuthenticated, async (req: any, res) => {
+  app.post("/api/generate-text", 
+    isAuthenticated,
+    requireCredits({
+      operationType: "text_generation",
+      getMetadata: (req) => createOperationMetadata(req, { 
+        prompt: req.body.prompt?.substring(0, 100) 
+      })
+    }),
+    async (req: any, res) => {
     try {
       const { prompt } = req.body;
       const { GoogleGenAI } = await import("@google/genai");
@@ -650,7 +694,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate complete character with AI
-  app.post("/api/projects/:projectId/generate-character", isAuthenticated, async (req: any, res) => {
+  app.post("/api/projects/:projectId/generate-character", 
+    isAuthenticated,
+    requireCredits({
+      operationType: "character_generation",
+      getResourceId: getProjectIdFromParams,
+      getMetadata: (req) => createOperationMetadata(req, { 
+        roleType: req.body.roleType 
+      })
+    }),
+    async (req: any, res) => {
     try {
       const project = await storage.getProject(req.params.projectId);
       const userId = getUserId(req.user);
@@ -818,7 +871,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate structured script with rich metadata
-  app.post("/api/projects/:projectId/generate-structured-script", isAuthenticated, async (req: any, res) => {
+  app.post("/api/projects/:projectId/generate-structured-script", 
+    isAuthenticated,
+    requireCredits({
+      operationType: "structured_script_generation",
+      getResourceId: getProjectIdFromParams,
+      getMetadata: (req) => createOperationMetadata(req, { 
+        pageCount: req.body.pageCount,
+        tone: req.body.tone 
+      })
+    }),
+    async (req: any, res) => {
     try {
       const { projectId } = req.params;
       const { title, description, genre, characters, settings, pageCount, tone, logline } = req.body;
@@ -1020,7 +1083,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate complete AI story (title, description, characters, script)
-  app.post("/api/generate-complete-story", async (req, res) => {
+  app.post("/api/generate-complete-story", 
+    requireCredits({
+      operationType: "complete_story_generation",
+      getMetadata: (req) => createOperationMetadata(req, { 
+        genres: req.body.genres,
+        length: req.body.length 
+      })
+    }),
+    async (req, res) => {
     try {
       const { genres, length, artStyle, tones } = req.body;
       
@@ -1055,7 +1126,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate cover art for project
-  app.post("/api/projects/:projectId/generate-cover-art", isAuthenticated, async (req: any, res) => {
+  app.post("/api/projects/:projectId/generate-cover-art", 
+    isAuthenticated,
+    requireCredits({
+      operationType: "cover_art_generation",
+      getResourceId: getProjectIdFromParams,
+      getMetadata: (req) => createOperationMetadata(req)
+    }),
+    async (req: any, res) => {
     try {
       const userId = getUserId(req.user);
       const projectId = req.params.projectId;
