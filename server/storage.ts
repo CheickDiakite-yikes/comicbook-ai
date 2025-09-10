@@ -11,6 +11,8 @@ import {
   userProfiles,
   projectLikes,
   projectComments,
+  userCredits,
+  creditTransactions,
   type User,
   type UpsertUser,
   type Project,
@@ -38,6 +40,10 @@ import {
   type InsertProjectLike,
   type ProjectComment,
   type InsertProjectComment,
+  type UserCredits,
+  type InsertUserCredits,
+  type CreditTransaction,
+  type InsertCreditTransaction,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -104,6 +110,13 @@ export interface IStorage {
   // User profiles
   getUserProfile(userId: string): Promise<UserProfile | undefined>;
   updateUserProfile(userId: string, profile: Partial<InsertUserProfile>): Promise<UserProfile>;
+
+  // AI Credits system
+  getCurrentMonthCredits(userId: string): Promise<UserCredits>;
+  hasEnoughCredits(userId: string, requiredCredits: number): Promise<boolean>;
+  deductCredits(userId: string, operationType: string, creditsToDeduct: number, relatedResourceId?: string, metadata?: any): Promise<{success: boolean, remainingCredits: number}>;
+  getCreditTransactions(userId: string, limit?: number): Promise<CreditTransaction[]>;
+  resetMonthlyCredits(userId: string, monthlyLimit?: number): Promise<UserCredits>;
   
   // Public projects
   getPublicProjects(genre?: string): Promise<any[]>;
@@ -410,6 +423,37 @@ export class MemStorage implements IStorage {
 
   async updateUserProfile(userId: string, profile: Partial<InsertUserProfile>): Promise<UserProfile> {
     throw new Error("Social features not implemented for in-memory storage");
+  }
+
+  // AI Credits placeholder methods for MemStorage
+  async getCurrentMonthCredits(userId: string): Promise<UserCredits> {
+    const now = new Date();
+    return {
+      id: "mem-credits",
+      userId: userId,
+      year: now.getFullYear(),
+      month: now.getMonth() + 1,
+      creditsUsed: 0,
+      monthlyLimit: 200,
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  async hasEnoughCredits(userId: string, requiredCredits: number): Promise<boolean> {
+    return true; // Allow all operations in MemStorage
+  }
+
+  async deductCredits(userId: string, operationType: string, creditsToDeduct: number, relatedResourceId?: string, metadata?: any): Promise<{success: boolean, remainingCredits: number}> {
+    return { success: true, remainingCredits: 200 }; // Simulate success in MemStorage
+  }
+
+  async getCreditTransactions(userId: string, limit?: number): Promise<CreditTransaction[]> {
+    return []; // No transaction history in MemStorage
+  }
+
+  async resetMonthlyCredits(userId: string, monthlyLimit: number = 200): Promise<UserCredits> {
+    return this.getCurrentMonthCredits(userId);
   }
 
   async getPublicProjects(genre?: string): Promise<any[]> {
@@ -970,6 +1014,137 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return profile;
+  }
+
+  // ========================================
+  // AI CREDITS SYSTEM IMPLEMENTATION
+  // ========================================
+
+  async getCurrentMonthCredits(userId: string): Promise<UserCredits> {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // JavaScript months are 0-indexed
+
+    // Try to get existing record for current month
+    const [existingRecord] = await db
+      .select()
+      .from(userCredits)
+      .where(
+        and(
+          eq(userCredits.userId, userId),
+          eq(userCredits.year, currentYear),
+          eq(userCredits.month, currentMonth)
+        )
+      );
+
+    if (existingRecord) {
+      return existingRecord;
+    }
+
+    // Create new record for current month
+    const [newRecord] = await db
+      .insert(userCredits)
+      .values({
+        userId,
+        year: currentYear,
+        month: currentMonth,
+        creditsUsed: 0,
+        monthlyLimit: 200,
+      })
+      .returning();
+
+    return newRecord;
+  }
+
+  async hasEnoughCredits(userId: string, requiredCredits: number): Promise<boolean> {
+    const monthlyRecord = await this.getCurrentMonthCredits(userId);
+    const remainingCredits = monthlyRecord.monthlyLimit - monthlyRecord.creditsUsed;
+    return remainingCredits >= requiredCredits;
+  }
+
+  async deductCredits(
+    userId: string, 
+    operationType: string, 
+    creditsToDeduct: number, 
+    relatedResourceId?: string, 
+    metadata?: any
+  ): Promise<{success: boolean, remainingCredits: number}> {
+    try {
+      // Get current month record
+      const monthlyRecord = await this.getCurrentMonthCredits(userId);
+      const remainingCredits = monthlyRecord.monthlyLimit - monthlyRecord.creditsUsed;
+
+      if (remainingCredits < creditsToDeduct) {
+        return { success: false, remainingCredits };
+      }
+
+      // Update credits used
+      const newCreditsUsed = monthlyRecord.creditsUsed + creditsToDeduct;
+      await db
+        .update(userCredits)
+        .set({ 
+          creditsUsed: newCreditsUsed,
+          updatedAt: new Date()
+        })
+        .where(eq(userCredits.id, monthlyRecord.id));
+
+      const finalRemainingCredits = monthlyRecord.monthlyLimit - newCreditsUsed;
+
+      // Log the transaction
+      await db
+        .insert(creditTransactions)
+        .values({
+          userId,
+          operationType,
+          creditsDeducted: creditsToDeduct,
+          remainingCredits: finalRemainingCredits,
+          relatedResourceId,
+          metadata,
+        });
+
+      return { success: true, remainingCredits: finalRemainingCredits };
+    } catch (error) {
+      console.error("Error deducting credits:", error);
+      return { success: false, remainingCredits: 0 };
+    }
+  }
+
+  async getCreditTransactions(userId: string, limit: number = 50): Promise<CreditTransaction[]> {
+    const transactions = await db
+      .select()
+      .from(creditTransactions)
+      .where(eq(creditTransactions.userId, userId))
+      .orderBy(desc(creditTransactions.createdAt))
+      .limit(limit);
+
+    return transactions;
+  }
+
+  async resetMonthlyCredits(userId: string, monthlyLimit: number = 200): Promise<UserCredits> {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+
+    const [updatedRecord] = await db
+      .insert(userCredits)
+      .values({
+        userId,
+        year: currentYear,
+        month: currentMonth,
+        creditsUsed: 0,
+        monthlyLimit,
+      })
+      .onConflictDoUpdate({
+        target: [userCredits.userId, userCredits.year, userCredits.month],
+        set: {
+          creditsUsed: 0,
+          monthlyLimit,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+
+    return updatedRecord;
   }
 
   // Public projects with like/comment counts
