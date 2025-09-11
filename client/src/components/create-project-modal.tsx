@@ -45,15 +45,30 @@ const artStyles = [
 ];
 
 const genres = [
-  "Superhero",
-  "Fantasy", 
-  "Sci-Fi",
-  "Horror",
-  "Romance",
+  "Action",
   "Adventure",
+  "Anime",
+  "Betrayal",
+  "Business",
+  "Child Learning",
   "Comedy",
+  "Coming to Life",
   "Drama",
-  "Mystery"
+  "Erotic",
+  "Fantasy",
+  "Horror",
+  "Mystery",
+  "Non-Fiction",
+  "Raunchy",
+  "Romance",
+  "Sci-Fi",
+  "Sexy",
+  "Shooter",
+  "Slice of Life",
+  "Spicy",
+  "Superhero",
+  "Thriller",
+  "Who Done It"
 ];
 
 export default function CreateProjectModal({ open, onClose }: CreateProjectModalProps) {

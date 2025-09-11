@@ -34,15 +34,29 @@ interface GeneratedStoryData {
 
 const genres = [
   { id: "action", name: "Action", icon: "⚡", color: "from-red-500 to-orange-500" },
-  { id: "romance", name: "Romance", icon: "💕", color: "from-pink-500 to-rose-500" },
-  { id: "sci-fi", name: "Sci-Fi", icon: "🚀", color: "from-blue-500 to-cyan-500" },
+  { id: "adventure", name: "Adventure", icon: "🗺️", color: "from-green-500 to-teal-500" },
+  { id: "anime", name: "Anime", icon: "🎌", color: "from-pink-400 to-purple-500" },
+  { id: "betrayal", name: "Betrayal", icon: "🗡️", color: "from-red-700 to-gray-800" },
+  { id: "business", name: "Business", icon: "💼", color: "from-gray-600 to-blue-600" },
+  { id: "child-learning", name: "Child Learning", icon: "📚", color: "from-green-400 to-yellow-400" },
+  { id: "comedy", name: "Comedy", icon: "😄", color: "from-yellow-500 to-orange-400" },
+  { id: "coming-to-life", name: "Coming to Life", icon: "✨", color: "from-purple-400 to-pink-500" },
+  { id: "drama", name: "Drama", icon: "🎭", color: "from-purple-600 to-red-600" },
+  { id: "erotic", name: "Erotic", icon: "🔥", color: "from-red-600 to-pink-600" },
   { id: "fantasy", name: "Fantasy", icon: "🧙", color: "from-purple-500 to-indigo-500" },
   { id: "horror", name: "Horror", icon: "👻", color: "from-gray-800 to-black" },
-  { id: "comedy", name: "Comedy", icon: "😄", color: "from-yellow-500 to-orange-400" },
   { id: "mystery", name: "Mystery", icon: "🔍", color: "from-indigo-600 to-purple-600" },
-  { id: "superhero", name: "Superhero", icon: "🦸", color: "from-blue-600 to-red-600" },
+  { id: "non-fiction", name: "Non-Fiction", icon: "📖", color: "from-blue-600 to-gray-600" },
+  { id: "raunchy", name: "Raunchy", icon: "😈", color: "from-red-500 to-purple-600" },
+  { id: "romance", name: "Romance", icon: "💕", color: "from-pink-500 to-rose-500" },
+  { id: "sci-fi", name: "Sci-Fi", icon: "🚀", color: "from-blue-500 to-cyan-500" },
+  { id: "sexy", name: "Sexy", icon: "💋", color: "from-pink-600 to-red-500" },
+  { id: "shooter", name: "Shooter", icon: "🎯", color: "from-orange-600 to-red-700" },
   { id: "slice-of-life", name: "Slice of Life", icon: "🌸", color: "from-green-400 to-blue-400" },
-  { id: "thriller", name: "Thriller", icon: "⚡", color: "from-red-600 to-black" }
+  { id: "spicy", name: "Spicy", icon: "🌶️", color: "from-red-500 to-orange-600" },
+  { id: "superhero", name: "Superhero", icon: "🦸", color: "from-blue-600 to-red-600" },
+  { id: "thriller", name: "Thriller", icon: "⚡", color: "from-red-600 to-black" },
+  { id: "who-done-it", name: "Who Done It", icon: "🕵️", color: "from-gray-700 to-indigo-700" }
 ];
 
 const storyLengths = [
