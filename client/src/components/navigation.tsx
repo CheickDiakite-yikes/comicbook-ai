@@ -1,9 +1,11 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Link, useLocation } from "wouter";
-import { Moon, Menu, X, Home, Compass, User as UserIcon, BookOpen, LogOut } from "lucide-react";
+import { Moon, Menu, X, Home, Compass, User as UserIcon, BookOpen, LogOut, Wand2, Info } from "lucide-react";
 import kumayiriLogo from "@assets/ChatGPT Image Sep 8, 2025, 08_35_18 PM_1757378183961.png";
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { User as UserType } from "@shared/schema";
 
 interface NavigationProps {
@@ -17,7 +19,28 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
   const { user } = useAuth() as { user: UserType | undefined };
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [creditModalOpen, setCreditModalOpen] = useState(false);
   const [location] = useLocation();
+
+  // Fetch credit data from API
+  const { data: creditData } = useQuery<{
+    isAdmin: boolean;
+    monthlyLimit: number | null;
+    currentCredits: number | null;
+    remainingCredits: string | number;
+    creditsPercentage: number;
+    lastReset?: string;
+  }>({ 
+    queryKey: ["/api/credits"],
+    enabled: !!user, // Only fetch when user is authenticated
+  });
+
+  // Credit system logic with real data
+  const isAdmin = creditData?.isAdmin || false;
+  const monthlyLimit = creditData?.monthlyLimit || 200;
+  const currentCredits = creditData?.currentCredits || 0;
+  const remainingCredits = creditData?.remainingCredits || 0;
+  const creditsPercentage = creditData?.creditsPercentage || 0;
 
   const toggleDarkMode = () => {
     const html = document.documentElement;
@@ -240,6 +263,92 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
               );
             })}
           </div>
+
+          {/* Credit Tracker Section - Only show for authenticated users */}
+          {user && (
+            <div className="px-4 pb-6" onClick={(e) => e.stopPropagation()}>
+              <Dialog open={creditModalOpen} onOpenChange={setCreditModalOpen}>
+                <DialogTrigger asChild>
+                  <button
+                    className="w-full flex items-center space-x-4 p-4 rounded-xl text-left transition-all duration-200 transform hover:scale-105 bg-gradient-to-r from-purple-500/20 to-blue-500/20 hover:from-purple-500/30 hover:to-blue-500/30 border border-white/20 shadow-lg"
+                    data-testid="button-mobile-credits"
+                  >
+                    <div className="p-3 rounded-lg bg-gradient-to-r from-purple-500 to-blue-500">
+                      <Wand2 className="h-6 w-6 text-white" />
+                      {isAdmin && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center">
+                          <span className="text-xs text-purple-600 font-bold">∞</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <span className="text-lg font-medium text-white">AI Credits</span>
+                      <div className="text-sm text-white/80">
+                        {isAdmin ? "Unlimited" : `${remainingCredits} / ${monthlyLimit} remaining`}
+                      </div>
+                      {!isAdmin && (
+                        <div className="w-full bg-white/20 rounded-full h-2 mt-2">
+                          <div 
+                            className="bg-gradient-to-r from-purple-400 to-blue-400 h-2 rounded-full transition-all duration-300" 
+                            style={{ width: `${creditsPercentage}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-white/60">
+                      <Info className="h-5 w-5" />
+                    </div>
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="bg-gradient-to-r from-chart-1 to-chart-2 text-white border-0 max-w-sm mx-auto">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center space-x-2">
+                      <Wand2 className="h-5 w-5" />
+                      <span>AI Credits</span>
+                      {isAdmin && (
+                        <span className="text-xs bg-white/20 px-2 py-1 rounded-full font-mono">Admin</span>
+                      )}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm opacity-90">
+                        {isAdmin ? "Unlimited credits" : `${remainingCredits} / ${monthlyLimit} remaining`}
+                      </p>
+                      {!isAdmin && (
+                        <div className="w-full bg-white/20 rounded-full h-3 mt-2">
+                          <div 
+                            className="bg-white h-3 rounded-full transition-all duration-300" 
+                            style={{ width: `${creditsPercentage}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="pt-3 border-t border-white/20">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Info className="h-4 w-4 opacity-70" />
+                        <span className="text-sm opacity-70 font-medium">How Credits Work</span>
+                      </div>
+                      <p className="text-sm opacity-80 leading-relaxed">
+                        1 credit = 1 panel generation. {!isAdmin && "200 credits refresh monthly."}
+                        <br />
+                        <span className="opacity-60">More credit options coming soon!</span>
+                      </p>
+                    </div>
+
+                    {!isAdmin && creditData?.lastReset && (
+                      <div className="pt-2 border-t border-white/20">
+                        <p className="text-xs opacity-60">
+                          Credits last reset: {new Date(creditData.lastReset).toLocaleDateString()}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
 
           {/* User Section */}
           {user && (
