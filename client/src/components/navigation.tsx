@@ -403,12 +403,12 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
                             <div className="text-xs text-white/80">2 credits</div>
                           </div>
                           
-                          <div className="bg-gradient-to-r from-yellow-400/20 to-orange-400/20 rounded-lg p-3 backdrop-blur-sm border border-yellow-400/30">
+                          <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm border border-white/10">
                             <div className="flex items-center space-x-2 mb-1">
-                              <Wand2 className="h-4 w-4 text-yellow-300" />
-                              <span className="text-sm font-medium">AI Story Generator</span>
+                              <FileText className="h-4 w-4 text-cyan-300" />
+                              <span className="text-sm font-medium">Script</span>
                             </div>
-                            <div className="text-xs text-yellow-200 font-medium">8 credits</div>
+                            <div className="text-xs text-white/80">3 credits</div>
                           </div>
                         </div>
 
@@ -423,16 +423,16 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
                             </div>
                             <div className="grid grid-cols-2 gap-2 text-xs">
                               <div className="flex justify-between">
-                                <span className="text-white/80">Script</span>
-                                <span className="font-medium text-yellow-300">3 credits</span>
-                              </div>
-                              <div className="flex justify-between">
                                 <span className="text-white/80">Full Page</span>
                                 <span className="font-medium text-yellow-300">4 credits</span>
                               </div>
+                              <div className="flex justify-between">
+                                <span className="text-white/80">Structured Script</span>
+                                <span className="font-medium text-yellow-300">5 credits</span>
+                              </div>
                               <div className="col-span-2 flex justify-between pt-1 border-t border-white/20">
-                                <span className="text-white/90 font-medium">Structured Script</span>
-                                <span className="font-bold text-yellow-300">5 credits</span>
+                                <span className="text-white/90 font-medium">Complete AI Story</span>
+                                <span className="font-bold text-yellow-300">8 credits</span>
                               </div>
                             </div>
                           </div>
