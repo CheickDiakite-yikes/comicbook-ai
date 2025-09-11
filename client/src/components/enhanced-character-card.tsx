@@ -5,15 +5,26 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp, Palette, User, Shirt, Eye } from "lucide-react";
+import { RedressModal } from "@/components/redress-modal";
 import type { Character } from "@shared/schema";
 
 interface EnhancedCharacterCardProps {
   character: Character;
   index: number;
+  panelId?: string;
+  allCharacters?: Character[];
+  onOutfitChange?: (characterId: string, newOutfit: string) => void;
 }
 
-export function EnhancedCharacterCard({ character, index }: EnhancedCharacterCardProps) {
+export function EnhancedCharacterCard({ 
+  character, 
+  index, 
+  panelId,
+  allCharacters = [],
+  onOutfitChange 
+}: EnhancedCharacterCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isRedressModalOpen, setIsRedressModalOpen] = useState(false);
 
   // Generate avatar background colors based on index
   const getAvatarColor = (idx: number) => {
@@ -166,19 +177,20 @@ export function EnhancedCharacterCard({ character, index }: EnhancedCharacterCar
 
           {/* Action Buttons */}
           <div className="flex items-center justify-between pt-1">
-            {/* Future Redress Button (hidden for now) */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="hidden opacity-50 cursor-not-allowed"
-              disabled
-              data-testid={`button-redress-${character.id}`}
-            >
-              <Shirt className="h-3 w-3 mr-1" />
-              Change Clothes
-            </Button>
+            {/* Redress Button - Only show if panelId is provided */}
+            {panelId && allCharacters.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsRedressModalOpen(true)}
+                data-testid={`button-redress-${character.id}`}
+              >
+                <Shirt className="h-3 w-3 mr-1" />
+                Change Clothes
+              </Button>
+            )}
             
-            {/* Spacer when redress button is hidden */}
+            {/* Spacer when redress button is not shown */}
             <div className="flex-1"></div>
 
             {/* Expand/Collapse Details */}
@@ -285,6 +297,22 @@ export function EnhancedCharacterCard({ character, index }: EnhancedCharacterCar
           </div>
         </div>
       </CardContent>
+      
+      {/* Redress Modal - Only render if panelId is provided */}
+      {panelId && (
+        <RedressModal
+          open={isRedressModalOpen}
+          onOpenChange={setIsRedressModalOpen}
+          panelId={panelId}
+          characters={allCharacters}
+          onSuccess={(newImageUrl) => {
+            if (onOutfitChange) {
+              onOutfitChange(character.id, newImageUrl);
+            }
+            setIsRedressModalOpen(false);
+          }}
+        />
+      )}
     </Card>
   );
 }

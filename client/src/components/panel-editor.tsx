@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Wand2, RotateCcw, MessageSquare, Cloud, Palette, BookOpen, X, Loader2, User } from "lucide-react";
+import { Wand2, RotateCcw, MessageSquare, Cloud, Palette, BookOpen, X, Loader2, User, Shirt } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { comicLayouts } from "@/lib/comic-layouts";
 import { generateEnhancedPanelContext, getPanelAspectRatioInfo, calculateOptimalDimensions } from "@/lib/aspect-ratio-utils";
 import { EnhancedCharacterCard } from "@/components/enhanced-character-card";
+import { RedressModal } from "@/components/redress-modal";
 import type { Project, Page, Panel, Character } from "@shared/schema";
 
 interface PanelEditorProps {
@@ -44,6 +45,7 @@ export default function PanelEditor({
   const [dialogueText, setDialogueText] = useState("");
   const [artStyle, setArtStyle] = useState("Comic Book (Classic)");
   const [isGeneratingBackground, setIsGeneratingBackground] = useState(false);
+  const [isRedressModalOpen, setIsRedressModalOpen] = useState(false);
 
   // Fetch existing panels for the current page
   const { data: existingPanels = [], isLoading: panelsLoading } = useQuery<Panel[]>({
@@ -488,6 +490,20 @@ export default function PanelEditor({
                 {isGeneratingBackground ? "🎨 Creating Background..." : generatedBackground ? "🌟 Background Ready!" : "🎨 Generate Background"}
               </Button>
               
+              {/* Character Redress Button */}
+              {projectCharacters.length > 0 && currentPanelData && (
+                <Button 
+                  variant="outline"
+                  onClick={() => setIsRedressModalOpen(true)}
+                  disabled={!selectedPanel}
+                  className="w-full bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-900/20 dark:to-indigo-900/20 border-violet-200 dark:border-violet-700 hover:from-violet-100 hover:to-indigo-100 dark:hover:from-violet-800/30 dark:hover:to-indigo-800/30 font-medium text-violet-700 dark:text-violet-300"
+                  data-testid="button-redress-panel"
+                >
+                  <Shirt className="mr-2 h-4 w-4" />
+                  👗 Change Character Outfits
+                </Button>
+              )}
+              
               {/* Helpful tip when no panel is selected */}
               {!selectedPanel && (
                 <p className="text-xs text-muted-foreground text-center p-2 bg-muted/50 rounded">
@@ -636,6 +652,19 @@ export default function PanelEditor({
                       key={character.id}
                       character={character}
                       index={index}
+                      panelId={currentPanelData?.id}
+                      allCharacters={projectCharacters}
+                      onOutfitChange={(characterId, newImageUrl) => {
+                        // Handle outfit change - refresh panel data
+                        queryClient.invalidateQueries({ queryKey: ["/api/pages", currentPage?.id, "panels"] });
+                        if (onImageGenerated && selectedPanel) {
+                          onImageGenerated(selectedPanel, newImageUrl);
+                        }
+                        toast({
+                          title: "Outfit Changed!",
+                          description: "Character's outfit has been successfully updated.",
+                        });
+                      }}
                     />
                   ))}
                   
@@ -665,6 +694,28 @@ export default function PanelEditor({
           </div>
         </div>
         </div>
+        
+        {/* Redress Modal Integration */}
+        {currentPanelData && (
+          <RedressModal
+            open={isRedressModalOpen}
+            onOpenChange={setIsRedressModalOpen}
+            panelId={currentPanelData.id}
+            characters={projectCharacters}
+            onSuccess={(newImageUrl) => {
+              // Handle successful outfit change
+              queryClient.invalidateQueries({ queryKey: ["/api/pages", currentPage?.id, "panels"] });
+              if (onImageGenerated && selectedPanel) {
+                onImageGenerated(selectedPanel, newImageUrl);
+              }
+              setIsRedressModalOpen(false);
+              toast({
+                title: "Outfits Changed Successfully!",
+                description: "Character outfits have been updated in the panel.",
+              });
+            }}
+          />
+        )}
       </aside>
     </>
   );
