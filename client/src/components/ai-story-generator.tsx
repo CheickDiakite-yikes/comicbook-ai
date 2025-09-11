@@ -97,7 +97,14 @@ const tones = [
   { id: "peaceful", name: "Peaceful", icon: "🕊️", color: "from-blue-400 to-green-400" },
   { id: "chaotic", name: "Chaotic", icon: "💥", color: "from-red-600 to-yellow-500" },
   { id: "inspiring", name: "Inspiring", icon: "✨", color: "from-cyan-400 to-blue-500" },
-  { id: "melancholy", name: "Melancholy", icon: "🍂", color: "from-gray-500 to-blue-700" }
+  { id: "melancholy", name: "Melancholy", icon: "🍂", color: "from-gray-500 to-blue-700" },
+  { id: "sexy", name: "Sexy", icon: "💋", color: "from-pink-600 to-red-500" },
+  { id: "raunchy", name: "Raunchy", icon: "😈", color: "from-red-500 to-purple-600" },
+  { id: "erotic", name: "Erotic", icon: "🔥", color: "from-red-600 to-pink-600" },
+  { id: "depressing", name: "Depressing", icon: "😞", color: "from-gray-700 to-slate-900" },
+  { id: "emotional", name: "Emotional", icon: "💗", color: "from-pink-500 to-purple-500" },
+  { id: "scary", name: "Scary", icon: "😱", color: "from-gray-800 to-black" },
+  { id: "happy", name: "Happy", icon: "😊", color: "from-yellow-400 to-orange-400" }
 ];
 
 export default function AIStoryGenerator({ isOpen, onClose }: AIStoryGeneratorProps) {
