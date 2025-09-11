@@ -97,7 +97,7 @@ const OUTFIT_PRESETS = [
   {
     id: "elegant-evening",
     name: "Elegant Evening",
-    type: "evening wear",
+    type: "evening_wear",
     style: "elegant formal",
     colors: ["#000000", "#ffd700", "#dc2626"],
     description: "Elegant evening attire for special occasions",
@@ -620,14 +620,18 @@ export function RedressModal({
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="casual wear">Casual Wear</SelectItem>
-                                <SelectItem value="business suit">Business Suit</SelectItem>
-                                <SelectItem value="evening wear">Evening Wear</SelectItem>
-                                <SelectItem value="fantasy clothing">Fantasy Clothing</SelectItem>
-                                <SelectItem value="futuristic clothing">Futuristic Clothing</SelectItem>
-                                <SelectItem value="vintage clothing">Vintage Clothing</SelectItem>
-                                <SelectItem value="athletic wear">Athletic Wear</SelectItem>
-                                <SelectItem value="traditional clothing">Traditional Clothing</SelectItem>
+                                <SelectItem value="casual_wear">Casual Wear</SelectItem>
+                                <SelectItem value="business_suit">Business Suit</SelectItem>
+                                <SelectItem value="evening_wear">Evening Wear</SelectItem>
+                                <SelectItem value="fantasy_clothing">Fantasy Clothing</SelectItem>
+                                <SelectItem value="futuristic_clothing">Futuristic Clothing</SelectItem>
+                                <SelectItem value="vintage_clothing">Vintage Clothing</SelectItem>
+                                <SelectItem value="athletic_wear">Athletic Wear</SelectItem>
+                                <SelectItem value="traditional_clothing">Traditional Clothing</SelectItem>
+                                <SelectItem value="uniform">Uniform</SelectItem>
+                                <SelectItem value="cosplay">Cosplay</SelectItem>
+                                <SelectItem value="party_outfit">Party Outfit</SelectItem>
+                                <SelectItem value="swimwear">Swimwear</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />

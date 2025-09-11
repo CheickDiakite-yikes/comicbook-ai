@@ -361,12 +361,24 @@ export const redressRequestSchema = z.object({
     targetRegion: z.enum(["upper_clothes", "lower_clothes", "dress", "shoes", "hat", "accessories"]).optional(),
   })).min(1),
   outfit: z.object({
-    type: z.enum(["shirt", "dress", "pants", "skirt", "jacket", "coat", "shoes", "hat", "accessories"]),
+    type: z.enum([
+      // Basic clothing types
+      "shirt", "dress", "pants", "skirt", "jacket", "coat", "shoes", "hat", "accessories",
+      // Outfit categories for better UX
+      "casual_wear", "business_suit", "evening_wear", "athletic_wear", "fantasy_clothing",
+      "vintage_clothing", "futuristic_clothing", "traditional_clothing", "uniform",
+      // Extended variety for comics
+      "swimwear", "sleepwear", "cosplay", "seasonal_wear", "party_outfit",
+      // Mature content (properly gated)
+      "lingerie", "fetish_wear", "revealing_outfit"
+    ]),
     style: z.string(), // e.g. "casual", "formal", "vintage", etc.
     colors: z.array(z.string()).optional(), // Array of color names or hex codes
     description: z.string().optional(), // Additional description of the outfit
-    pattern: z.enum(["solid", "stripes", "polka_dots", "plaid", "floral", "geometric"]).optional(),
-    fabric: z.enum(["cotton", "denim", "silk", "leather", "wool", "synthetic"]).optional(),
+    pattern: z.enum(["solid", "stripes", "polka_dots", "plaid", "floral", "geometric", "abstract", "character_themed"]).optional(),
+    fabric: z.enum(["cotton", "denim", "silk", "leather", "wool", "synthetic", "latex", "lace", "metallic"]).optional(),
+    formality: z.number().min(0).max(100).optional(), // 0=very casual, 100=very formal
+    modesty: z.number().min(0).max(100).optional(), // 0=revealing, 100=conservative
   }),
   preview: z.boolean().default(false), // Preview mode: fast, lower quality
   strength: z.number().min(0).max(100).default(75), // Inpainting strength
