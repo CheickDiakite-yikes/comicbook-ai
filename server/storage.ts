@@ -13,6 +13,7 @@ import {
   projectComments,
   userCredits,
   creditTransactions,
+  redressJobs,
   type User,
   type UpsertUser,
   type Project,
@@ -44,6 +45,8 @@ import {
   type InsertUserCredits,
   type CreditTransaction,
   type InsertCreditTransaction,
+  type RedressJob,
+  type InsertRedressJob,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -136,6 +139,13 @@ export interface IStorage {
   updateLibraryCharacter(id: string, userId: string, updates: Partial<InsertCharacter>): Promise<Character | undefined>;
   deleteLibraryCharacter(id: string, userId: string): Promise<boolean>;
   copyCharacterToProject(characterId: string, projectId: string, userId: string): Promise<Character>;
+
+  // Redress job operations
+  createRedressJob(job: InsertRedressJob): Promise<RedressJob>;
+  getRedressJob(id: string): Promise<RedressJob | undefined>;
+  updateRedressJob(id: string, updates: Partial<InsertRedressJob>): Promise<RedressJob | undefined>;
+  getUserRedressJobs(userId: string, limit?: number): Promise<RedressJob[]>;
+  deleteRedressJob(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -144,6 +154,7 @@ export class MemStorage implements IStorage {
   private characters: Map<string, Character> = new Map();
   private pages: Map<string, Page> = new Map();
   private panels: Map<string, Panel> = new Map();
+  private redressJobs: Map<string, RedressJob> = new Map();
 
   // User operations
   async getUser(id: string): Promise<User | undefined> {
@@ -535,6 +546,60 @@ export class MemStorage implements IStorage {
 
   async copyCharacterToProject(characterId: string, projectId: string, userId: string): Promise<Character> {
     throw new Error("Character library not implemented for in-memory storage");
+  }
+
+  // Redress job operations
+  async createRedressJob(jobData: InsertRedressJob): Promise<RedressJob> {
+    const job: RedressJob = {
+      id: randomUUID(),
+      userId: jobData.userId,
+      panelId: jobData.panelId,
+      status: jobData.status || "queued",
+      originalImageUrl: jobData.originalImageUrl,
+      previewImageUrl: jobData.previewImageUrl || null,
+      finalImageUrl: jobData.finalImageUrl || null,
+      characterIds: jobData.characterIds,
+      outfitSpecs: jobData.outfitSpecs,
+      isPreview: jobData.isPreview || false,
+      strength: jobData.strength || 75,
+      progress: jobData.progress || 0,
+      errorMessage: jobData.errorMessage || null,
+      processingSteps: jobData.processingSteps || null,
+      metadata: jobData.metadata || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.redressJobs.set(job.id, job);
+    return job;
+  }
+
+  async getRedressJob(id: string): Promise<RedressJob | undefined> {
+    return this.redressJobs.get(id);
+  }
+
+  async updateRedressJob(id: string, updates: Partial<InsertRedressJob>): Promise<RedressJob | undefined> {
+    const existing = this.redressJobs.get(id);
+    if (!existing) return undefined;
+
+    const updated: RedressJob = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    this.redressJobs.set(id, updated);
+    return updated;
+  }
+
+  async getUserRedressJobs(userId: string, limit: number = 50): Promise<RedressJob[]> {
+    const userJobs = Array.from(this.redressJobs.values())
+      .filter(job => job.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit);
+    return userJobs;
+  }
+
+  async deleteRedressJob(id: string): Promise<boolean> {
+    return this.redressJobs.delete(id);
   }
 }
 
@@ -1447,6 +1512,55 @@ export class DatabaseStorage implements IStorage {
       .values(commentData)
       .returning();
     return comment;
+  }
+
+  // ========================================
+  // Redress Job Operations
+  // ========================================
+
+  async createRedressJob(jobData: InsertRedressJob): Promise<RedressJob> {
+    const [job] = await db
+      .insert(redressJobs)
+      .values(jobData)
+      .returning();
+    return job;
+  }
+
+  async getRedressJob(id: string): Promise<RedressJob | undefined> {
+    const [job] = await db
+      .select()
+      .from(redressJobs)
+      .where(eq(redressJobs.id, id));
+    return job || undefined;
+  }
+
+  async updateRedressJob(id: string, updates: Partial<InsertRedressJob>): Promise<RedressJob | undefined> {
+    const [job] = await db
+      .update(redressJobs)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(redressJobs.id, id))
+      .returning();
+    return job || undefined;
+  }
+
+  async getUserRedressJobs(userId: string, limit: number = 50): Promise<RedressJob[]> {
+    const jobs = await db
+      .select()
+      .from(redressJobs)
+      .where(eq(redressJobs.userId, userId))
+      .orderBy(desc(redressJobs.createdAt))
+      .limit(limit);
+    return jobs;
+  }
+
+  async deleteRedressJob(id: string): Promise<boolean> {
+    const result = await db
+      .delete(redressJobs)
+      .where(eq(redressJobs.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
   }
 }
 

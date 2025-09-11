@@ -15,6 +15,8 @@ import {
 import { geminiService } from "./gemini";
 import { z } from "zod";
 import { requireCredits, getProjectIdFromParams, getPanelIdFromBody, getPageIdFromRequest, createOperationMetadata } from "./creditMiddleware";
+import { redressService } from "./services/RedressService";
+import { redressRequestSchema, redressResponseSchema } from "@shared/schema";
 
 // Helper function to get user ID from different auth providers
 function getUserId(user: any): string {
@@ -1597,6 +1599,156 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching public project panels:", error);
       res.status(500).json({ message: "Failed to fetch public project panels" });
+    }
+  });
+
+  // ========================================
+  // AI Redress API Routes (Authentication Required)
+  // ========================================
+
+  // Create redress job for panel
+  app.post("/api/panels/:panelId/redress", 
+    isAuthenticated,
+    requireCredits({
+      operationType: (req) => req.body.preview ? "redress_preview" : "redress_apply",
+      getResourceId: (req) => req.params.panelId,
+      getMetadata: (req) => createOperationMetadata(req, {
+        characters: req.body.characters?.length,
+        outfit: req.body.outfit?.type,
+        isPreview: req.body.preview
+      })
+    }),
+    async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const panelId = req.params.panelId;
+      
+      // Validate request body
+      const requestData = redressRequestSchema.parse(req.body);
+      
+      // Verify panel exists and user owns it
+      const panel = await storage.getPanel(panelId);
+      if (!panel) {
+        return res.status(404).json({ message: "Panel not found" });
+      }
+
+      // Get the page to verify project ownership
+      const page = await storage.getPage(panel.pageId);
+      if (!page) {
+        return res.status(404).json({ message: "Page not found" });
+      }
+
+      const project = await storage.getProject(page.projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found or not owned by user" });
+      }
+
+      // Verify characters exist and belong to the project or user's library
+      for (const charRequest of requestData.characters) {
+        const character = await storage.getCharacter(charRequest.characterId);
+        if (!character) {
+          return res.status(404).json({ 
+            message: `Character ${charRequest.characterId} not found` 
+          });
+        }
+        
+        // Check if character belongs to this project or is user's library character
+        const hasAccess = character.projectId === project.id || 
+                         (character.isLibraryCharacter && character.userId === userId);
+        
+        if (!hasAccess) {
+          return res.status(403).json({ 
+            message: `Access denied to character ${character.name}` 
+          });
+        }
+      }
+
+      console.log(`🎭 Creating redress job for panel ${panelId} by user ${userId}`);
+      console.log(`🎭 Request: ${requestData.characters.length} characters, ${requestData.outfit.type}, preview=${requestData.preview}`);
+
+      // Create the redress job
+      const jobResponse = await redressService.createRedressJob(
+        userId,
+        panelId,
+        requestData
+      );
+
+      console.log(`🎭 Redress job created: ${jobResponse.jobId} with status ${jobResponse.status}`);
+
+      res.json(jobResponse);
+    } catch (error) {
+      console.error("🎭 Error creating redress job:", error);
+      
+      // Handle validation errors specifically
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Invalid request data",
+          errors: error.errors
+        });
+      }
+      
+      const errorMessage = error instanceof Error ? error.message : "Failed to create redress job";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  // Get redress job status
+  app.get("/api/redress/:jobId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const jobId = req.params.jobId;
+
+      console.log(`🎭 Getting status for redress job ${jobId} by user ${userId}`);
+
+      // Get job status from redress service
+      const jobStatus = await redressService.getJobStatus(jobId);
+      
+      if (!jobStatus) {
+        return res.status(404).json({ 
+          message: "Redress job not found",
+          jobId 
+        });
+      }
+
+      // Verify user ownership of the job
+      const dbJob = await storage.getRedressJob(jobId);
+      if (!dbJob || dbJob.userId !== userId) {
+        return res.status(403).json({ 
+          message: "Access denied - job not owned by user",
+          jobId 
+        });
+      }
+
+      res.json(jobStatus);
+    } catch (error) {
+      console.error(`🎭 Error getting redress job status:`, error);
+      
+      const errorMessage = error instanceof Error ? error.message : "Failed to get job status";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  // Cancel redress job (optional future enhancement)
+  app.delete("/api/redress/:jobId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const jobId = req.params.jobId;
+
+      console.log(`🎭 Cancelling redress job ${jobId} by user ${userId}`);
+
+      // TODO: Implement job cancellation in RedressService
+      // const cancelled = await redressService.cancelJob(jobId, userId);
+      
+      res.json({ 
+        success: true, 
+        message: "Job cancellation requested",
+        jobId 
+      });
+    } catch (error) {
+      console.error(`🎭 Error cancelling redress job:`, error);
+      
+      const errorMessage = error instanceof Error ? error.message : "Failed to cancel job";
+      res.status(500).json({ message: errorMessage });
     }
   });
 

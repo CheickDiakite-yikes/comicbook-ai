@@ -313,6 +313,27 @@ export const insertUserFollowSchema = createInsertSchema(userFollows).omit({
   createdAt: true,
 });
 
+// Redress job tables for AI-powered clothing changes
+export const redressJobs = pgTable("redress_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  panelId: varchar("panel_id").notNull().references(() => panels.id),
+  status: varchar("status").notNull().default("queued"), // queued, processing, completed, failed
+  originalImageUrl: varchar("original_image_url").notNull(),
+  previewImageUrl: varchar("preview_image_url"),
+  finalImageUrl: varchar("final_image_url"),
+  characterIds: jsonb("character_ids").notNull(), // Array of character IDs being edited
+  outfitSpecs: jsonb("outfit_specs").notNull(), // Outfit specification object
+  isPreview: boolean("is_preview").default(false), // Whether this is a preview mode job
+  strength: integer("strength").default(75), // Inpainting strength 0-100
+  progress: integer("progress").default(0), // Progress percentage 0-100
+  errorMessage: text("error_message"),
+  processingSteps: jsonb("processing_steps"), // Array of processing step statuses
+  metadata: jsonb("metadata"), // Additional job metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // AI Credits insert schemas
 export const insertUserCreditsSchema = createInsertSchema(userCredits).omit({
   id: true,
@@ -323,6 +344,69 @@ export const insertUserCreditsSchema = createInsertSchema(userCredits).omit({
 export const insertCreditTransactionSchema = createInsertSchema(creditTransactions).omit({
   id: true,
   createdAt: true,
+});
+
+// Redress job schemas
+export const insertRedressJobSchema = createInsertSchema(redressJobs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Redress request/response schemas
+export const redressRequestSchema = z.object({
+  characters: z.array(z.object({
+    characterId: z.string(),
+    referenceImageUrl: z.string().optional(),
+    targetRegion: z.enum(["upper_clothes", "lower_clothes", "dress", "shoes", "hat", "accessories"]).optional(),
+  })).min(1),
+  outfit: z.object({
+    type: z.enum(["shirt", "dress", "pants", "skirt", "jacket", "coat", "shoes", "hat", "accessories"]),
+    style: z.string(), // e.g. "casual", "formal", "vintage", etc.
+    colors: z.array(z.string()).optional(), // Array of color names or hex codes
+    description: z.string().optional(), // Additional description of the outfit
+    pattern: z.enum(["solid", "stripes", "polka_dots", "plaid", "floral", "geometric"]).optional(),
+    fabric: z.enum(["cotton", "denim", "silk", "leather", "wool", "synthetic"]).optional(),
+  }),
+  preview: z.boolean().default(false), // Preview mode: fast, lower quality
+  strength: z.number().min(0).max(100).default(75), // Inpainting strength
+});
+
+export const redressResponseSchema = z.object({
+  jobId: z.string(),
+  status: z.enum(["queued", "processing", "completed", "failed"]),
+  progress: z.number().min(0).max(100).optional(),
+  previewUrl: z.string().optional(),
+  finalUrl: z.string().optional(),
+  errorMessage: z.string().optional(),
+  processingSteps: z.array(z.object({
+    step: z.string(),
+    status: z.enum(["pending", "processing", "completed", "failed"]),
+    message: z.string().optional(),
+  })).optional(),
+  estimatedTimeRemaining: z.number().optional(), // seconds
+  metadata: z.record(z.any()).optional(),
+});
+
+export const redressJobStatusSchema = z.object({
+  jobId: z.string(),
+  status: z.enum(["queued", "processing", "completed", "failed"]),
+  progress: z.number().min(0).max(100),
+  originalImageUrl: z.string(),
+  previewImageUrl: z.string().optional(),
+  finalImageUrl: z.string().optional(),
+  characterIds: z.array(z.string()),
+  outfitSpecs: z.record(z.any()),
+  isPreview: z.boolean(),
+  strength: z.number().min(0).max(100),
+  errorMessage: z.string().optional(),
+  processingSteps: z.array(z.object({
+    step: z.string(),
+    status: z.enum(["pending", "processing", "completed", "failed"]),
+    message: z.string().optional(),
+  })).optional(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
 });
 
 // Types
@@ -363,6 +447,8 @@ export type InsertUserCredits = z.infer<typeof insertUserCreditsSchema>;
 export type CreditTransaction = typeof creditTransactions.$inferSelect;
 export type InsertCreditTransaction = z.infer<typeof insertCreditTransactionSchema>;
 
+
+
 // Composite types for working with structured scripts
 export interface FullStructuredScript extends StructuredScript {
   pages: Array<ScriptPageWithPanels>;
@@ -375,3 +461,10 @@ export interface ScriptPageWithPanels extends ScriptPage {
 export interface ScriptPanelWithDialogue extends ScriptPanel {
   dialogue: Array<ScriptDialogue>;
 }
+
+// Redress job types
+export type RedressJob = typeof redressJobs.$inferSelect;
+export type InsertRedressJob = z.infer<typeof insertRedressJobSchema>;
+export type RedressRequest = z.infer<typeof redressRequestSchema>;
+export type RedressResponse = z.infer<typeof redressResponseSchema>;
+export type RedressJobStatus = z.infer<typeof redressJobStatusSchema>;
