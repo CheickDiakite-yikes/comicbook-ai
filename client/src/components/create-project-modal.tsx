@@ -42,6 +42,11 @@ const artStyles = [
   { id: "manga", name: "Manga", icon: "🏯" },
   { id: "watercolor", name: "Watercolor", icon: "🎨" },
   { id: "sketch", name: "Sketch", icon: "✏️" },
+  { id: "realistic", name: "Realistic", icon: "📸" },
+  { id: "cartoon", name: "Cartoon", icon: "🎪" },
+  { id: "pixar-like", name: "Pixar Like", icon: "🎬" },
+  { id: "ghibli-like", name: "Ghibli Like", icon: "🌸" },
+  { id: "erotica", name: "Erotica", icon: "🔞" },
 ];
 
 const genres = [

@@ -69,7 +69,12 @@ const artStyles = [
   { id: "comic-book", name: "Comic Book", icon: "🦸", description: "Classic superhero style" },
   { id: "manga", name: "Manga", icon: "🏯", description: "Japanese comic style" },
   { id: "watercolor", name: "Watercolor", icon: "🎨", description: "Soft, artistic look" },
-  { id: "sketch", name: "Sketch", icon: "✏️", description: "Hand-drawn aesthetic" }
+  { id: "sketch", name: "Sketch", icon: "✏️", description: "Hand-drawn aesthetic" },
+  { id: "realistic", name: "Realistic", icon: "📸", description: "Photorealistic imagery" },
+  { id: "cartoon", name: "Cartoon", icon: "🎪", description: "Animated cartoon style" },
+  { id: "pixar-like", name: "Pixar Like", icon: "🎬", description: "3D animated movie style" },
+  { id: "ghibli-like", name: "Ghibli Like", icon: "🌸", description: "Studio Ghibli animation style" },
+  { id: "erotica", name: "Erotica", icon: "🔞", description: "Mature artistic style" }
 ];
 
 const tones = [
