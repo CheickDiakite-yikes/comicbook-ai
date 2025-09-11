@@ -177,8 +177,8 @@ export function EnhancedCharacterCard({
 
           {/* Action Buttons - Mobile Optimized */}
           <div className="flex items-center justify-between pt-2 gap-2">
-            {/* Redress Button - Only show if panelId is provided */}
-            {panelId && allCharacters.length > 0 && (
+            {/* Redress Button - Show if panelId provided, or show hint if not */}
+            {panelId && allCharacters.length > 0 ? (
               <Button
                 variant="outline"
                 size="sm"
@@ -189,6 +189,11 @@ export function EnhancedCharacterCard({
                 <Shirt className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-1.5" />
                 <span className="hidden xs:inline">Change </span>Clothes
               </Button>
+            ) : (
+              <div className="text-xs text-muted-foreground bg-muted/20 rounded px-2 py-1 border border-dashed border-muted-foreground/30">
+                <Shirt className="h-3 w-3 inline mr-1" />
+                Edit in panel
+              </div>
             )}
             
             {/* Spacer when redress button is not shown */}
