@@ -126,7 +126,7 @@ export default function AIStoryGenerator({ isOpen, onClose }: AIStoryGeneratorPr
   const toggleGenre = (genreId: string) => {
     if (selectedGenres.includes(genreId)) {
       setSelectedGenres(selectedGenres.filter(g => g !== genreId));
-    } else if (selectedGenres.length < 2) {
+    } else if (selectedGenres.length < 4) {
       setSelectedGenres([...selectedGenres, genreId]);
     }
   };
@@ -178,7 +178,7 @@ export default function AIStoryGenerator({ isOpen, onClose }: AIStoryGeneratorPr
           <div className="space-y-6">
             <div className="text-center">
               <h3 className="text-lg sm:text-xl lg:text-2xl font-bold mb-2">Choose Your Genres</h3>
-              <p className="text-sm sm:text-base text-muted-foreground">Select up to 2 genres to blend unique story elements</p>
+              <p className="text-sm sm:text-base text-muted-foreground">Select up to 4 genres to blend unique story elements</p>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-2 sm:gap-3">
               {genres.map((genre) => (
