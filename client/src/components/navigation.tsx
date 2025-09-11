@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Link, useLocation } from "wouter";
-import { Moon, Menu, X, Home, Compass, User as UserIcon, BookOpen, LogOut, Wand2, Info } from "lucide-react";
+import { Moon, Menu, X, Home, Compass, User as UserIcon, BookOpen, LogOut, Wand2, Info, Sparkles, Image, FileText, Zap } from "lucide-react";
 import kumayiriLogo from "@assets/ChatGPT Image Sep 8, 2025, 08_35_18 PM_1757378183961.png";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -300,50 +300,153 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
                     </div>
                   </button>
                 </DialogTrigger>
-                <DialogContent className="bg-gradient-to-r from-chart-1 to-chart-2 text-white border-0 max-w-sm mx-auto">
-                  <DialogHeader>
-                    <DialogTitle className="flex items-center space-x-2">
-                      <Wand2 className="h-5 w-5" />
+                <DialogContent className="bg-gradient-to-br from-purple-600 via-blue-600 to-indigo-700 text-white border-0 max-w-md mx-auto relative overflow-hidden">
+                  {/* Enhanced Close Button */}
+                  <button
+                    onClick={() => setCreditModalOpen(false)}
+                    className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 transition-all duration-200 flex items-center justify-center group backdrop-blur-sm border border-white/20 hover:scale-110"
+                    aria-label="Close modal"
+                    data-testid="button-close-credit-modal"
+                  >
+                    <X className="h-5 w-5 text-white group-hover:text-white/90" />
+                  </button>
+
+                  {/* Decorative Background Elements */}
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-white/10 to-transparent rounded-full -translate-y-16 translate-x-16" />
+                  <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-white/5 to-transparent rounded-full translate-y-12 -translate-x-12" />
+
+                  <DialogHeader className="relative">
+                    <DialogTitle className="flex items-center space-x-2 text-xl font-bold">
+                      <div className="p-2 bg-white/20 rounded-lg">
+                        <Wand2 className="h-6 w-6" />
+                      </div>
                       <span>AI Credits</span>
                       {isAdmin && (
-                        <span className="text-xs bg-white/20 px-2 py-1 rounded-full font-mono">Admin</span>
+                        <span className="text-xs bg-white/30 px-2 py-1 rounded-full font-mono font-bold">Admin</span>
                       )}
                     </DialogTitle>
                   </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm opacity-90">
-                        {isAdmin ? "Unlimited credits" : `${remainingCredits} / ${monthlyLimit} remaining`}
+                  
+                  <div className="space-y-6 relative">
+                    {/* Current Credits Status */}
+                    <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm border border-white/20">
+                      <p className="text-lg font-semibold mb-2">
+                        {isAdmin ? "Unlimited Credits" : `${remainingCredits} / ${monthlyLimit} remaining`}
                       </p>
                       {!isAdmin && (
-                        <div className="w-full bg-white/20 rounded-full h-3 mt-2">
+                        <div className="w-full bg-white/20 rounded-full h-3">
                           <div 
-                            className="bg-white h-3 rounded-full transition-all duration-300" 
+                            className="bg-gradient-to-r from-yellow-400 to-orange-400 h-3 rounded-full transition-all duration-500 shadow-sm" 
                             style={{ width: `${creditsPercentage}%` }}
                           />
                         </div>
                       )}
+                      {!isAdmin && creditData?.lastReset && (
+                        <p className="text-xs text-white/70 mt-2">
+                          Resets monthly • Last reset: {new Date(creditData.lastReset).toLocaleDateString()}
+                        </p>
+                      )}
                     </div>
                     
-                    <div className="pt-3 border-t border-white/20">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Info className="h-4 w-4 opacity-70" />
-                        <span className="text-sm opacity-70 font-medium">How Credits Work</span>
+                    {/* Credit Cost Breakdown */}
+                    <div>
+                      <div className="flex items-center space-x-2 mb-4">
+                        <div className="p-1.5 bg-white/20 rounded-lg">
+                          <Zap className="h-4 w-4" />
+                        </div>
+                        <span className="text-sm font-semibold uppercase tracking-wide">Credit Costs</span>
                       </div>
-                      <p className="text-sm opacity-80 leading-relaxed">
-                        1 credit = 1 panel generation. {!isAdmin && "200 credits refresh monthly."}
-                        <br />
-                        <span className="opacity-60">More credit options coming soon!</span>
-                      </p>
+                      
+                      <div className="grid gap-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm border border-white/10">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <Image className="h-4 w-4 text-blue-300" />
+                              <span className="text-sm font-medium">Panel</span>
+                            </div>
+                            <div className="text-xs text-white/80">1 credit</div>
+                          </div>
+                          
+                          <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm border border-white/10">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <Sparkles className="h-4 w-4 text-purple-300" />
+                              <span className="text-sm font-medium">Background</span>
+                            </div>
+                            <div className="text-xs text-white/80">1 credit</div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm border border-white/10">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <FileText className="h-4 w-4 text-green-300" />
+                              <span className="text-sm font-medium">Text Gen</span>
+                            </div>
+                            <div className="text-xs text-white/80">1 credit</div>
+                          </div>
+                          
+                          <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm border border-white/10">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <Image className="h-4 w-4 text-orange-300" />
+                              <span className="text-sm font-medium">Cover Art</span>
+                            </div>
+                            <div className="text-xs text-white/80">2 credits</div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm border border-white/10">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <UserIcon className="h-4 w-4 text-pink-300" />
+                              <span className="text-sm font-medium">Character</span>
+                            </div>
+                            <div className="text-xs text-white/80">2 credits</div>
+                          </div>
+                          
+                          <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm border border-white/10">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <FileText className="h-4 w-4 text-cyan-300" />
+                              <span className="text-sm font-medium">Script</span>
+                            </div>
+                            <div className="text-xs text-white/80">3 credits</div>
+                          </div>
+                        </div>
+
+                        {/* Premium Features */}
+                        <div className="border-t border-white/20 pt-3">
+                          <div className="bg-gradient-to-r from-white/15 to-white/10 rounded-lg p-3 backdrop-blur-sm border border-white/20">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <div className="p-1 bg-yellow-400/20 rounded">
+                                <Sparkles className="h-4 w-4 text-yellow-300" />
+                              </div>
+                              <span className="text-sm font-semibold">Premium Features</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div className="flex justify-between">
+                                <span className="text-white/80">Full Page</span>
+                                <span className="font-medium text-yellow-300">4 credits</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-white/80">Structured Script</span>
+                                <span className="font-medium text-yellow-300">5 credits</span>
+                              </div>
+                              <div className="col-span-2 flex justify-between pt-1 border-t border-white/20">
+                                <span className="text-white/90 font-medium">Complete AI Story</span>
+                                <span className="font-bold text-yellow-300">8 credits</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
-                    {!isAdmin && creditData?.lastReset && (
-                      <div className="pt-2 border-t border-white/20">
-                        <p className="text-xs opacity-60">
-                          Credits last reset: {new Date(creditData.lastReset).toLocaleDateString()}
-                        </p>
-                      </div>
-                    )}
+                    {/* Footer Info */}
+                    <div className="text-center bg-white/5 rounded-lg p-3 backdrop-blur-sm border border-white/10">
+                      <p className="text-xs text-white/70 leading-relaxed">
+                        {!isAdmin && "200 credits refresh monthly. "}
+                        <span className="text-white/80 font-medium">More credit options coming soon!</span>
+                      </p>
+                    </div>
                   </div>
                 </DialogContent>
               </Dialog>
