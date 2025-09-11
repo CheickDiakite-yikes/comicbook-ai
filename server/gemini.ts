@@ -4,6 +4,8 @@ import * as path from "path";
 import { imageProcessor } from "./image-processor";
 import { imageEnhancer } from "./image-enhancer";
 import { ObjectStorageService } from "./objectStorage";
+import { characterNameService } from "./services/CharacterNameService";
+import { characterDescriptorService } from "./services/CharacterDescriptorService";
 
 // Initialize Gemini AI client
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
@@ -24,6 +26,7 @@ export interface GenerateImageRequest {
       alwaysTraits?: string;
       neverTraits?: string;
       colorScheme?: string;
+      referenceImageUrl?: string;
     }>;
     settings?: Array<{
       name: string;
@@ -1114,7 +1117,7 @@ export class GeminiService {
       prompt += `. STYLE CONSISTENCY: Use the EXACT same art style, line weight, shading technique, and color palette across ALL panels. Maintain consistent artistic rendering throughout.`;
     }
 
-    // Add detailed character context for consistency - ENHANCED VERSION
+    // Add detailed character context for consistency - ENHANCED VERSION WITH REFERENCE PORTRAITS
     if (request.projectContext.characters && request.projectContext.characters.length > 0) {
       const characterProfiles = request.projectContext.characters
         .map(char => {
@@ -1131,12 +1134,22 @@ export class GeminiService {
           if (char.colorScheme) {
             profile += `. COLOR SCHEME: ${char.colorScheme}`;
           }
+          // 🖼️ CRITICAL: Add reference portrait URL for visual consistency
+          if (char.referenceImageUrl) {
+            profile += `. REFERENCE PORTRAIT: Use the exact character appearance from reference image - ${char.referenceImageUrl}`;
+          }
           return profile;
         })
         .join(" | ");
       
       prompt += `. CHARACTER CONSISTENCY RULES - ${characterProfiles}`;
       prompt += `. CRITICAL: These characters MUST maintain EXACT same appearance in every panel - same face, hair color, hair style, body type, and clothing style.`;
+      
+      // Add reference portrait emphasis if any characters have reference images
+      const charactersWithRefs = request.projectContext.characters.filter(char => char.referenceImageUrl);
+      if (charactersWithRefs.length > 0) {
+        prompt += ` 🎯 REFERENCE PORTRAIT MATCHING: ${charactersWithRefs.length} character(s) have reference portraits that show their exact canonical appearance. Match the reference images precisely for visual consistency.`;
+      }
     }
     
     // Fallback to old character context if new one isn't available
@@ -1645,7 +1658,12 @@ Generate a professional-quality story concept that comic creators would be excit
       }
 
       console.log("✅ Complete story generated successfully");
-      return JSON.parse(completeStory);
+      const parsedStory = JSON.parse(completeStory);
+      
+      // 🎨 CHARACTER CANON PASS: Enhance characters with diverse names and detailed descriptions
+      const enhancedStory = await this.applyCharacterCanonPass(parsedStory);
+      
+      return enhancedStory;
     } catch (error) {
       console.error("🔥 Error generating complete story:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -1662,6 +1680,7 @@ Generate a professional-quality story concept that comic creators would be excit
     length: string;
     artStyle: string;
     tones: string[];
+    projectId?: string;
   }, totalPages: number): Promise<{
     title: string;
     genre: string;
@@ -1671,6 +1690,10 @@ Generate a professional-quality story concept that comic creators would be excit
       role: string;
       bio: string;
       visualDescriptors: string;
+      alwaysTraits: string;
+      neverTraits: string;
+      colorScheme: string;
+      referenceImageUrl?: string;
     }>;
     structuredScript: any;
   }> {
@@ -1812,13 +1835,18 @@ Ensure story continuity and ${request.tones.join(" + ")} tones.`;
     const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`🎉 EPIC STORY COMPLETE: ${chunks.length} pages generated with parallel processing in ${totalTime}s`);
 
-    return {
+    const longStory = {
       title: storyConcept.title,
       genre: storyConcept.genre,
       description: storyConcept.description,
       characters: storyConcept.characters,
       structuredScript
     };
+    
+    // 🎨 CHARACTER CANON PASS: Enhance characters with diverse names, detailed descriptions, and reference portraits
+    const enhancedLongStory = await this.applyCharacterCanonPass(longStory, request.projectId);
+    
+    return enhancedLongStory;
   }
 
   /**
@@ -1928,6 +1956,321 @@ Ensure story continuity and ${request.tones.join(" + ")} tones.`;
 
     // All retries failed
     throw new Error(`Failed to generate pages ${startPage}-${endPage} after ${maxRetries + 1} attempts. Last error: ${lastError?.message}`);
+  }
+
+  /**
+   * 🎨 CHARACTER CANON PASS: Enhance generated characters with diverse names and detailed descriptions
+   * ENHANCED: Now includes reference portrait generation and database persistence
+   * This method runs after basic character generation to solve repetition and consistency issues
+   */
+  private async applyCharacterCanonPass(storyData: {
+    title: string;
+    genre: string;
+    description: string;
+    characters: Array<{
+      name: string;
+      role: string;
+      bio: string;
+      visualDescriptors: string;
+    }>;
+    structuredScript: any;
+  }, projectId?: string): Promise<{
+    title: string;
+    genre: string;
+    description: string;
+    characters: Array<{
+      name: string;
+      role: string;
+      bio: string;
+      visualDescriptors: string;
+      alwaysTraits: string;
+      neverTraits: string;
+      colorScheme: string;
+      referenceImageUrl?: string;
+    }>;
+    structuredScript: any;
+  }> {
+    console.log(`🎨 Starting Character Canon Pass for ${storyData.characters.length} characters...`);
+
+    // Track diversity for balanced character generation
+    const existingCharacters: Array<{ ethnicity?: string; role?: string; }> = [];
+
+    // Enhance each character with unique names, canonical descriptions, and reference portraits
+    const enhancedCharacters = await Promise.all(storyData.characters.map(async (character, index) => {
+      try {
+        // Generate unique, diverse name
+        const uniqueName = characterNameService.generateUniqueName();
+        
+        // Map ethnicity from name service to descriptor service
+        let preferredEthnicity = uniqueName.ethnicity;
+        
+        // Map name service ethnicities to descriptor service ethnicities
+        const ethnicityMapping: { [key: string]: string } = {
+          'western': 'European',
+          'eastAsian': 'East Asian',
+          'southAsian': 'South Asian',
+          'middleEastern': 'Middle Eastern',
+          'african': 'African',
+          'nordic': 'Nordic',
+          'latino': 'Latino',
+          'slavic': 'Slavic'
+        };
+        
+        preferredEthnicity = ethnicityMapping[uniqueName.ethnicity] || 'European';
+        
+        // Generate canonical visual description
+        const canonicalDescription = characterDescriptorService.generateCanonicalDescription(
+          character.bio,
+          preferredEthnicity,
+          character.role
+        );
+        
+        // Track for diversity
+        existingCharacters.push({ 
+          ethnicity: preferredEthnicity, 
+          role: character.role 
+        });
+
+        // 🎨 GENERATE REFERENCE PORTRAIT for visual consistency
+        let referenceImageUrl: string | undefined;
+        try {
+          console.log(`🖼️ Generating reference portrait for ${uniqueName.fullName}...`);
+          
+          const portraitPrompt = `Create a character reference portrait: ${canonicalDescription.visualDescriptors}. REFERENCE STYLE: Simple, clean front-facing portrait with neutral expression against white background. Focus on key identifying features: ${canonicalDescription.alwaysTraits}. Professional character design sheet style.`;
+          
+          const portraitResult = await this.generatePanelImage({
+            prompt: portraitPrompt,
+            panelId: `char_ref_${index}`,
+            projectContext: {
+              title: storyData.title,
+              genre: storyData.genre,
+              description: storyData.description,
+              artStyle: "character reference sheet",
+              characters: [], // Don't include other characters in reference generation
+            },
+            panelContext: {
+              layoutTemplate: "single",
+              panelNumber: 1,
+              aspectRatio: 1.0, // Square for portraits
+              dimensions: { width: 512, height: 512 },
+              panelType: "character_reference"
+            }
+          });
+          
+          if (portraitResult.status === "completed" && portraitResult.imageUrl) {
+            referenceImageUrl = portraitResult.imageUrl;
+            console.log(`✅ Reference portrait generated for ${uniqueName.fullName}: ${referenceImageUrl}`);
+          } else {
+            console.warn(`⚠️ Failed to generate reference portrait for ${uniqueName.fullName}: ${portraitResult.error || 'Unknown error'}`);
+          }
+        } catch (portraitError) {
+          console.error(`❌ Error generating reference portrait for ${uniqueName.fullName}:`, portraitError);
+        }
+
+        console.log(`✨ Enhanced character ${index + 1}: ${uniqueName.fullName} (${preferredEthnicity}) ${referenceImageUrl ? 'with reference portrait' : 'without reference portrait'}`);
+
+        return {
+          name: uniqueName.fullName,
+          role: character.role,
+          bio: character.bio,
+          visualDescriptors: canonicalDescription.visualDescriptors,
+          alwaysTraits: canonicalDescription.alwaysTraits,
+          neverTraits: canonicalDescription.neverTraits,
+          colorScheme: canonicalDescription.colorScheme,
+          referenceImageUrl,
+        };
+      } catch (error) {
+        console.error(`⚠️ Failed to enhance character ${index + 1}, using fallback:`, error);
+        
+        // Fallback: keep original character with empty enhanced fields
+        return {
+          name: character.name,
+          role: character.role,
+          bio: character.bio,
+          visualDescriptors: character.visualDescriptors,
+          alwaysTraits: "",
+          neverTraits: "",
+          colorScheme: "",
+          referenceImageUrl: undefined,
+        };
+      }
+    }));
+
+    // 🏗️ SAVE ENHANCED CHARACTERS TO DATABASE for panel generation consistency
+    if (projectId) {
+      try {
+        console.log(`💾 Saving ${enhancedCharacters.length} enhanced characters to database for project ${projectId}...`);
+        
+        const { storage } = await import("./storage");
+        
+        // Create enhanced characters in database (replaces old ones)
+        for (const enhancedChar of enhancedCharacters) {
+          try {
+            await storage.createCharacter({
+              projectId,
+              name: enhancedChar.name,
+              role: enhancedChar.role || null,
+              bio: enhancedChar.bio || null,
+              visualDescriptors: enhancedChar.visualDescriptors || null,
+              alwaysTraits: enhancedChar.alwaysTraits || null,
+              neverTraits: enhancedChar.neverTraits || null,
+              colorScheme: enhancedChar.colorScheme || null,
+              referenceImageUrl: enhancedChar.referenceImageUrl || null,
+              isLibraryCharacter: false,
+            });
+            console.log(`✅ Saved enhanced character: ${enhancedChar.name}`);
+          } catch (charError) {
+            console.error(`⚠️ Failed to save character ${enhancedChar.name}:`, charError);
+          }
+        }
+        
+        console.log(`🎉 Enhanced character data saved to database - panel generation will now have access to canonical descriptions and reference portraits!`);
+      } catch (dbError) {
+        console.error(`⚠️ Failed to save enhanced characters to database:`, dbError);
+        console.log(`📝 Enhanced characters exist in memory but panel generation may not have access to canonical descriptions`);
+      }
+    } else {
+      console.log(`📝 No projectId provided - enhanced characters will exist only in memory for this generation`);
+    }
+
+    // Update character references in structured script
+    const updatedStructuredScript = this.updateCharacterNamesInScript(
+      storyData.structuredScript, 
+      storyData.characters, 
+      enhancedCharacters
+    );
+
+    console.log(`🎉 Character Canon Pass completed: ${enhancedCharacters.length} characters enhanced with unique names and canonical descriptions`);
+
+    return {
+      title: storyData.title,
+      genre: storyData.genre,
+      description: storyData.description,
+      characters: enhancedCharacters,
+      structuredScript: updatedStructuredScript,
+    };
+  }
+
+  /**
+   * Update character name references in structured script after Canon Pass
+   * ENHANCED: Now updates ALL character references including panel arrays, scene descriptions, and text mentions
+   */
+  private updateCharacterNamesInScript(
+    structuredScript: any,
+    originalCharacters: Array<{ name: string; role: string; bio: string; visualDescriptors: string; }>,
+    enhancedCharacters: Array<{ name: string; role: string; bio: string; visualDescriptors: string; alwaysTraits: string; neverTraits: string; colorScheme: string; }>
+  ): any {
+    if (!structuredScript?.pages) {
+      return structuredScript;
+    }
+
+    // Create mapping from old names to new names
+    const nameMapping: { [oldName: string]: string } = {};
+    for (let i = 0; i < originalCharacters.length && i < enhancedCharacters.length; i++) {
+      nameMapping[originalCharacters[i].name] = enhancedCharacters[i].name;
+    }
+
+    console.log(`🔄 Updating character name references in script:`, Object.keys(nameMapping).length, "mappings");
+
+    // Helper function to replace character names in text
+    const replaceNamesInText = (text: string): string => {
+      if (!text) return text;
+      let updatedText = text;
+      
+      // Replace each character name (case-insensitive, word boundaries)
+      Object.entries(nameMapping).forEach(([oldName, newName]) => {
+        const regex = new RegExp(`\\b${oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+        updatedText = updatedText.replace(regex, newName);
+      });
+      
+      return updatedText;
+    };
+
+    // Deep clone and update script
+    const updatedScript = JSON.parse(JSON.stringify(structuredScript));
+    
+    try {
+      // Update character names in pages
+      if (updatedScript.pages) {
+        updatedScript.pages.forEach((page: any) => {
+          // Update character arrays in pages
+          if (page.characters && Array.isArray(page.characters)) {
+            page.characters = page.characters.map((characterName: string) => 
+              nameMapping[characterName] || characterName
+            );
+          }
+
+          // Update page-level narrative text
+          if (page.narrative) {
+            page.narrative = replaceNamesInText(page.narrative);
+          }
+
+          // Update character names in panels
+          if (page.panels && Array.isArray(page.panels)) {
+            page.panels.forEach((panel: any) => {
+              // 🔥 CRITICAL FIX: Update panel.characters arrays (was missing!)
+              if (panel.characters && Array.isArray(panel.characters)) {
+                panel.characters = panel.characters.map((characterName: string) => 
+                  nameMapping[characterName] || characterName
+                );
+              }
+
+              // 🔥 CRITICAL FIX: Update character names in all panel text fields
+              if (panel.action) {
+                panel.action = replaceNamesInText(panel.action);
+              }
+              if (panel.sceneDescription) {
+                panel.sceneDescription = replaceNamesInText(panel.sceneDescription);
+              }
+              if (panel.visualNotes) {
+                panel.visualNotes = replaceNamesInText(panel.visualNotes);
+              }
+              if (panel.visualDescription) {
+                panel.visualDescription = replaceNamesInText(panel.visualDescription);
+              }
+
+              // Update character emotions object keys
+              if (panel.characterEmotions && typeof panel.characterEmotions === 'object') {
+                const updatedEmotions: any = {};
+                Object.entries(panel.characterEmotions).forEach(([charName, emotion]: [string, any]) => {
+                  const newCharName = nameMapping[charName] || charName;
+                  updatedEmotions[newCharName] = emotion;
+                });
+                panel.characterEmotions = updatedEmotions;
+              }
+
+              // Update character names in dialogue
+              if (panel.dialogue && Array.isArray(panel.dialogue)) {
+                panel.dialogue.forEach((dialogueItem: any) => {
+                  // Update characterName field
+                  if (dialogueItem.characterName && nameMapping[dialogueItem.characterName]) {
+                    dialogueItem.characterName = nameMapping[dialogueItem.characterName];
+                  }
+                  
+                  // Also check for 'character' field (alternative format)
+                  if (dialogueItem.character && nameMapping[dialogueItem.character]) {
+                    dialogueItem.character = nameMapping[dialogueItem.character];
+                  }
+
+                  // Update character mentions in dialogue text
+                  if (dialogueItem.text) {
+                    dialogueItem.text = replaceNamesInText(dialogueItem.text);
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
+
+      console.log(`✅ Character name references updated successfully in structured script - enhanced version covering all text fields`);
+    } catch (error) {
+      console.error(`⚠️ Error updating character names in script:`, error);
+      // Return original script if update fails
+      return structuredScript;
+    }
+
+    return updatedScript;
   }
 }
 
