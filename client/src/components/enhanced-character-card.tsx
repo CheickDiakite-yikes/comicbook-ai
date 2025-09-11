@@ -85,72 +85,72 @@ export function EnhancedCharacterCard({
     >
       <CardContent className="p-3 sm:p-4">
         <div className="space-y-3 sm:space-y-4">
-          {/* Character Header - Mobile Optimized */}
-          <div className="flex items-start space-x-3 sm:space-x-4">
-            <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-muted flex-shrink-0">
-              <AvatarImage 
-                src={character.referenceImageUrl || undefined} 
-                alt={character.name}
-                className="object-cover"
-              />
-              <AvatarFallback className={getAvatarColor(index)}>
-                <User className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-              </AvatarFallback>
-            </Avatar>
-            
-            <div className="flex-1 min-w-0 space-y-1">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-semibold text-sm sm:text-base truncate" data-testid={`text-character-name-${character.id}`}>
-                    {safeRenderText(character.name)}
-                  </h4>
-                  {character.role && (
-                    <p className="text-xs sm:text-sm text-muted-foreground capitalize truncate" data-testid={`text-character-role-${character.id}`}>
-                      {safeRenderText(character.role)}
-                    </p>
-                  )}
-                </div>
-                
-                {/* Color Scheme Display - Mobile Optimized */}
-                {colors.length > 0 && (
-                  <div className="flex items-center space-x-1 flex-shrink-0" data-testid={`color-scheme-${character.id}`}>
-                    <Palette className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
-                    <div className="flex space-x-0.5 sm:space-x-1">
-                      {colors.map((color, idx) => (
-                        <div
-                          key={idx}
-                          className="w-3 h-3 sm:w-4 sm:h-4 rounded-full border border-border"
-                          style={{ 
-                            backgroundColor: color.startsWith('#') ? color : 
-                                           color.toLowerCase().replace(' ', '') 
-                          }}
-                          title={color}
-                        />
-                      ))}
-                    </div>
-                  </div>
+          {/* Character Header - Mobile First Design */}
+          <div className="space-y-3">
+            {/* Avatar and Name Row */}
+            <div className="flex items-center space-x-3">
+              <Avatar className="h-12 w-12 sm:h-14 sm:w-14 border-2 border-muted flex-shrink-0">
+                <AvatarImage 
+                  src={character.referenceImageUrl || undefined} 
+                  alt={character.name}
+                  className="object-cover"
+                />
+                <AvatarFallback className={getAvatarColor(index)}>
+                  <User className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
+                </AvatarFallback>
+              </Avatar>
+              
+              <div className="flex-1 min-w-0">
+                <h4 className="font-semibold text-base sm:text-lg leading-tight" data-testid={`text-character-name-${character.id}`}>
+                  {safeRenderText(character.name)}
+                </h4>
+                {character.role && (
+                  <p className="text-sm sm:text-base text-muted-foreground capitalize mt-0.5" data-testid={`text-character-role-${character.id}`}>
+                    {safeRenderText(character.role)}
+                  </p>
                 )}
               </div>
               
-              {/* Bio Preview - Mobile Optimized */}
-              {bioPreview.text && (
-                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed line-clamp-2" data-testid={`text-character-bio-${character.id}`}>
-                  {bioPreview.text}
-                </p>
+              {/* Color Scheme Display - Compact */}
+              {colors.length > 0 && (
+                <div className="flex items-center space-x-1 flex-shrink-0" data-testid={`color-scheme-${character.id}`}>
+                  <div className="flex space-x-0.5">
+                    {colors.map((color, idx) => (
+                      <div
+                        key={idx}
+                        className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-border"
+                        style={{ 
+                          backgroundColor: color.startsWith('#') ? color : 
+                                         color.toLowerCase().replace(' ', '') 
+                        }}
+                        title={color}
+                      />
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
+            
+            {/* Bio Preview - Full Width */}
+            {bioPreview.text && (
+              <div className="px-1">
+                <p className="text-sm sm:text-base text-muted-foreground leading-relaxed" data-testid={`text-character-bio-${character.id}`}>
+                  {bioPreview.text}
+                </p>
+              </div>
+            )}
           </div>
 
-          {/* Visual Traits - Mobile Optimized */}
+          {/* Visual Traits - Mobile Friendly */}
           {(alwaysTraits.length > 0 || visualDescriptors.length > 0) && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {alwaysTraits.length > 0 && (
-                <div className="flex flex-wrap gap-1 sm:gap-1.5" data-testid={`traits-always-${character.id}`}>
+                <div className="flex flex-wrap gap-2" data-testid={`traits-always-${character.id}`}>
                   {alwaysTraits.map((trait, idx) => (
                     <Badge 
                       key={idx} 
                       variant="secondary" 
-                      className="text-xs sm:text-sm px-2 py-0.5 sm:px-2.5 sm:py-1 bg-chart-1/20 text-chart-1 border-chart-1/30 leading-tight"
+                      className="text-sm px-3 py-1 bg-chart-1/20 text-chart-1 border-chart-1/30 font-medium"
                     >
                       {trait}
                     </Badge>
@@ -159,14 +159,14 @@ export function EnhancedCharacterCard({
               )}
               
               {visualDescriptors.length > 0 && (
-                <div className="flex flex-wrap gap-1 sm:gap-1.5" data-testid={`traits-visual-${character.id}`}>
+                <div className="flex flex-wrap gap-2" data-testid={`traits-visual-${character.id}`}>
                   {visualDescriptors.map((descriptor, idx) => (
                     <Badge 
                       key={idx} 
                       variant="outline" 
-                      className="text-xs sm:text-sm px-2 py-0.5 sm:px-2.5 sm:py-1 bg-chart-2/10 text-chart-2 border-chart-2/30 leading-tight"
+                      className="text-sm px-3 py-1 bg-chart-2/10 text-chart-2 border-chart-2/30 font-medium"
                     >
-                      <Eye className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1" />
+                      <Eye className="h-3.5 w-3.5 mr-1.5" />
                       {descriptor}
                     </Badge>
                   ))}
@@ -175,131 +175,131 @@ export function EnhancedCharacterCard({
             </div>
           )}
 
-          {/* Action Buttons - Mobile Optimized */}
-          <div className="flex items-center justify-between pt-2 gap-2">
-            {/* Redress Button - Show if panelId provided, or show hint if not */}
-            {panelId && allCharacters.length > 0 ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsRedressModalOpen(true)}
-                data-testid={`button-redress-${character.id}`}
-                className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3 touch-manipulation"
-              >
-                <Shirt className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-1.5" />
-                <span className="hidden xs:inline">Change </span>Clothes
-              </Button>
-            ) : (
-              <div className="text-xs text-muted-foreground bg-muted/20 rounded px-2 py-1 border border-dashed border-muted-foreground/30">
-                <Shirt className="h-3 w-3 inline mr-1" />
-                Edit in panel
-              </div>
-            )}
-            
-            {/* Spacer when redress button is not shown */}
-            <div className="flex-1"></div>
-
-            {/* Expand/Collapse Details */}
-            {(Boolean(character.bio) || Boolean(character.neverTraits) || Boolean(character.wardrobePresets)) && (
-              <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-                <CollapsibleTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 sm:h-9 text-xs sm:text-sm text-muted-foreground hover:text-foreground px-2 sm:px-3 touch-manipulation"
-                    data-testid={`button-expand-${character.id}`}
-                  >
-                    {isExpanded ? (
-                      <>
-                        <ChevronUp className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                        Less
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                        More
-                      </>
+          {/* Action Buttons - Mobile First Design */}
+          <div className="space-y-3 pt-4 border-t border-border/30">
+            {/* Primary Action Row */}
+            <div className="flex items-center justify-between gap-3">
+              {/* Redress Button - Show if panelId provided, or show hint if not */}
+              {panelId && allCharacters.length > 0 ? (
+                <Button
+                  variant="outline"
+                  size="default"
+                  onClick={() => setIsRedressModalOpen(true)}
+                  data-testid={`button-redress-${character.id}`}
+                  className="flex-1 h-10 text-sm font-medium touch-manipulation hover:bg-accent"
+                >
+                  <Shirt className="h-4 w-4 mr-2" />
+                  Change Clothes
+                </Button>
+              ) : (
+                <div className="flex-1 text-center text-sm text-muted-foreground bg-muted/20 rounded-lg px-4 py-2.5 border border-dashed border-muted-foreground/30">
+                  <Shirt className="h-4 w-4 inline mr-2" />
+                  Edit in panel
+                </div>
+              )}
+              
+              {/* Expand/Collapse Details */}
+              {(Boolean(character.bio) || Boolean(character.neverTraits) || Boolean(character.wardrobePresets)) && (
+                <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="default"
+                      className="h-10 px-4 text-sm text-muted-foreground hover:text-foreground touch-manipulation"
+                      data-testid={`button-expand-${character.id}`}
+                    >
+                      {isExpanded ? (
+                        <>
+                          <ChevronUp className="h-4 w-4 mr-2" />
+                          Show Less
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="h-4 w-4 mr-2" />
+                          Show More
+                        </>
+                      )}
+                    </Button>
+                  </CollapsibleTrigger>
+                  
+                  <CollapsibleContent className="mt-4 space-y-4 animate-in slide-in-from-top-2">
+                    {/* Full Bio */}
+                    {Boolean(character.bio) && typeof character.bio === 'string' && bioPreview.isTruncated && (
+                      <div className="bg-muted/20 rounded-lg p-4">
+                        <h5 className="text-sm font-semibold text-foreground mb-3 flex items-center">
+                          <User className="h-4 w-4 mr-2" />
+                          Full Character Bio
+                        </h5>
+                        <p className="text-sm text-muted-foreground leading-relaxed" data-testid={`text-full-bio-${character.id}`}>
+                          {safeRenderText(character.bio)}
+                        </p>
+                      </div>
                     )}
-                  </Button>
-                </CollapsibleTrigger>
-                
-                <CollapsibleContent className="space-y-3 pt-3 border-t border-border/50 animate-in slide-in-from-top-1">
-                  {/* Full Bio */}
-                  {Boolean(character.bio) && typeof character.bio === 'string' && bioPreview.isTruncated && (
-                    <div>
-                      <h5 className="text-xs sm:text-sm font-medium text-muted-foreground mb-2 flex items-center">
-                        <User className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                        Character Bio
-                      </h5>
-                      <p className="text-xs sm:text-sm text-foreground leading-relaxed" data-testid={`text-full-bio-${character.id}`}>
-                        {safeRenderText(character.bio)}
-                      </p>
-                    </div>
-                  )}
 
-                  {/* Never Traits */}
-                  {Boolean(character.neverTraits) && (
-                    <div>
-                      <h5 className="text-xs sm:text-sm font-medium text-muted-foreground mb-2">Never Traits</h5>
-                      <div className="flex flex-wrap gap-1 sm:gap-1.5" data-testid={`traits-never-${character.id}`}>
-                        {parseTraits(character.neverTraits).map((trait, idx) => (
-                          <Badge 
-                            key={idx} 
-                            variant="outline" 
-                            className="text-xs sm:text-sm px-2 py-0.5 sm:px-2.5 sm:py-1 bg-destructive/10 text-destructive border-destructive/30"
-                          >
-                            {trait}
-                          </Badge>
-                        ))}
+                    {/* Never Traits */}
+                    {Boolean(character.neverTraits) && (
+                      <div className="bg-muted/20 rounded-lg p-4">
+                        <h5 className="text-sm font-semibold text-foreground mb-3">Never Traits</h5>
+                        <div className="flex flex-wrap gap-2" data-testid={`traits-never-${character.id}`}>
+                          {parseTraits(character.neverTraits).map((trait, idx) => (
+                            <Badge 
+                              key={idx} 
+                              variant="outline" 
+                              className="text-sm px-3 py-1 bg-destructive/10 text-destructive border-destructive/30"
+                            >
+                              {trait}
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Wardrobe Info */}
-                  {Boolean(character.wardrobePresets) && (
-                    <div>
-                      <h5 className="text-xs sm:text-sm font-medium text-muted-foreground mb-2 flex items-center">
-                        <Shirt className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                        Wardrobe Presets
-                      </h5>
-                      <div className="text-xs sm:text-sm text-muted-foreground bg-muted/30 rounded p-2 sm:p-3">
-                        {(() => {
-                          if (Array.isArray(character.wardrobePresets)) {
-                            return `${character.wardrobePresets.length} outfit${character.wardrobePresets.length !== 1 ? 's' : ''} available`;
-                          } else if (character.wardrobePresets && typeof character.wardrobePresets === 'object') {
-                            return "Custom wardrobe configured";
-                          } else {
-                            return "No wardrobe data";
-                          }
-                        })()}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Current Outfit */}
-                  {Boolean(character.currentOutfit) && (
-                    <div>
-                      <h5 className="text-xs sm:text-sm font-medium text-muted-foreground mb-2">Current Outfit</h5>
-                      <div className="text-xs sm:text-sm text-foreground bg-muted/30 rounded p-2 sm:p-3">
-                        {(() => {
-                          if (typeof character.currentOutfit === 'string') {
-                            return character.currentOutfit;
-                          } else if (character.currentOutfit && typeof character.currentOutfit === 'object') {
-                            try {
-                              return JSON.stringify(character.currentOutfit, null, 2);
-                            } catch {
-                              return "Invalid outfit data";
+                    {/* Wardrobe Info */}
+                    {Boolean(character.wardrobePresets) && (
+                      <div className="bg-muted/20 rounded-lg p-4">
+                        <h5 className="text-sm font-semibold text-foreground mb-3 flex items-center">
+                          <Shirt className="h-4 w-4 mr-2" />
+                          Wardrobe Presets
+                        </h5>
+                        <div className="text-sm text-muted-foreground">
+                          {(() => {
+                            if (Array.isArray(character.wardrobePresets)) {
+                              return `${character.wardrobePresets.length} outfit${character.wardrobePresets.length !== 1 ? 's' : ''} available`;
+                            } else if (character.wardrobePresets && typeof character.wardrobePresets === 'object') {
+                              return "Custom wardrobe configured";
+                            } else {
+                              return "No wardrobe data";
                             }
-                          } else {
-                            return "No current outfit set";
-                          }
-                        })()}
+                          })()}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </CollapsibleContent>
-              </Collapsible>
-            )}
+                    )}
+
+                    {/* Current Outfit */}
+                    {Boolean(character.currentOutfit) && (
+                      <div className="bg-muted/20 rounded-lg p-4">
+                        <h5 className="text-sm font-semibold text-foreground mb-3">Current Outfit</h5>
+                        <div className="text-sm text-muted-foreground">
+                          {(() => {
+                            if (typeof character.currentOutfit === 'string') {
+                              return character.currentOutfit;
+                            } else if (character.currentOutfit && typeof character.currentOutfit === 'object') {
+                              try {
+                                return JSON.stringify(character.currentOutfit, null, 2);
+                              } catch {
+                                return "Invalid outfit data";
+                              }
+                            } else {
+                              return "No current outfit set";
+                            }
+                          })()}
+                        </div>
+                      </div>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>
