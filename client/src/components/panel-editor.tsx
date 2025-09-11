@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Wand2, RotateCcw, MessageSquare, Cloud, Palette, BookOpen, X, Loader2 } from "lucide-react";
+import { Wand2, RotateCcw, MessageSquare, Cloud, Palette, BookOpen, X, Loader2, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { comicLayouts } from "@/lib/comic-layouts";
 import { generateEnhancedPanelContext, getPanelAspectRatioInfo, calculateOptimalDimensions } from "@/lib/aspect-ratio-utils";
+import { EnhancedCharacterCard } from "@/components/enhanced-character-card";
 import type { Project, Page, Panel, Character } from "@shared/schema";
 
 interface PanelEditorProps {
@@ -543,15 +544,21 @@ export default function PanelEditor({
             </div>
             
             {/* Show existing speech bubbles */}
-            {currentPanelData?.speechBubbles && Array.isArray(currentPanelData.speechBubbles) && currentPanelData.speechBubbles.length > 0 && (
+            {Boolean(currentPanelData?.speechBubbles) && Array.isArray(currentPanelData?.speechBubbles) && currentPanelData.speechBubbles.length > 0 && (
               <div className="mt-2 space-y-1">
                 <p className="text-xs font-medium text-muted-foreground">Current Bubbles:</p>
-                {(currentPanelData.speechBubbles as Array<{text: string, type: string}>).map((bubble, index) => (
-                  <div key={index} className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1">
-                    <span>{bubble.text}</span>
-                    <span className="text-muted-foreground capitalize">{bubble.type || 'speech'}</span>
-                  </div>
-                ))}
+                {(currentPanelData?.speechBubbles as Array<{text: string, type: string}>).map((bubble, index) => {
+                  // Safely extract text and type with fallbacks
+                  const bubbleText = typeof bubble?.text === 'string' ? bubble.text : 'Unknown text';
+                  const bubbleType = typeof bubble?.type === 'string' ? bubble.type : 'speech';
+                  
+                  return (
+                    <div key={index} className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1">
+                      <span>{bubbleText}</span>
+                      <span className="text-muted-foreground capitalize">{bubbleType}</span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -605,42 +612,56 @@ export default function PanelEditor({
                 </p>
               </CardContent>
             </Card>
-            <Card className="border-border">
-              <CardContent className="p-3">
-                <p className="font-medium mb-1">Active Characters</p>
-                {charactersLoading ? (
-                  <div className="flex items-center space-x-2 text-muted-foreground">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span className="text-xs">Loading characters...</span>
-                  </div>
-                ) : projectCharacters.length > 0 ? (
-                  <div className="space-y-1">
-                    {projectCharacters.slice(0, 3).map((character, index) => (
-                      <div key={character.id} className="flex items-center space-x-2">
-                        <span 
-                          className={`inline-block w-3 h-3 rounded-full ${
-                            index === 0 ? 'bg-chart-1' : index === 1 ? 'bg-chart-2' : 'bg-chart-3'
-                          }`}
-                        />
-                        <span className="text-sm">{character.name}</span>
-                        {character.role && (
-                          <span className="text-xs text-muted-foreground">({character.role})</span>
-                        )}
-                      </div>
-                    ))}
-                    {projectCharacters.length > 3 && (
-                      <div className="text-xs text-muted-foreground">
-                        +{projectCharacters.length - 3} more characters
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    No characters defined yet. Add characters to your project for better context.
-                  </p>
+            {/* Enhanced Character Display */}
+            <div>
+              <h4 className="font-medium mb-2 text-sm flex items-center">
+                <User className="mr-2 h-4 w-4 text-chart-4" />
+                Active Characters
+                {projectCharacters.length > 0 && (
+                  <span className="ml-2 text-xs text-muted-foreground bg-muted/50 rounded-full px-2 py-0.5">
+                    {projectCharacters.length}
+                  </span>
                 )}
-              </CardContent>
-            </Card>
+              </h4>
+              
+              {charactersLoading ? (
+                <div className="flex items-center justify-center space-x-2 text-muted-foreground p-4">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">Loading characters...</span>
+                </div>
+              ) : projectCharacters.length > 0 ? (
+                <div className="space-y-3 max-h-96 overflow-y-auto" data-testid="character-list">
+                  {projectCharacters.map((character, index) => (
+                    <EnhancedCharacterCard
+                      key={character.id}
+                      character={character}
+                      index={index}
+                    />
+                  ))}
+                  
+                  {/* Show count summary if many characters */}
+                  {projectCharacters.length > 5 && (
+                    <div className="text-center py-2">
+                      <p className="text-xs text-muted-foreground">
+                        Showing all {projectCharacters.length} project characters
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Card className="border-dashed border-muted-foreground/30 bg-muted/20">
+                  <CardContent className="p-4 text-center">
+                    <User className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-muted-foreground mb-1">
+                      No Characters Yet
+                    </p>
+                    <p className="text-xs text-muted-foreground/70">
+                      Add characters to your project for better AI context and generation results.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </div>
         </div>
         </div>
