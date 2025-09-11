@@ -304,11 +304,11 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
                   {/* Enhanced Close Button */}
                   <button
                     onClick={() => setCreditModalOpen(false)}
-                    className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 transition-all duration-200 flex items-center justify-center group backdrop-blur-sm border border-white/20 hover:scale-110"
+                    className="absolute top-4 right-4 z-10 w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 transition-all duration-200 flex items-center justify-center group backdrop-blur-sm border border-white/20 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-white/50"
                     aria-label="Close modal"
                     data-testid="button-close-credit-modal"
                   >
-                    <X className="h-5 w-5 text-white group-hover:text-white/90" />
+                    <X className="h-6 w-6 text-white group-hover:text-white/90" />
                   </button>
 
                   {/* Decorative Background Elements */}
@@ -440,10 +440,26 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
                       </div>
                     </div>
 
+                    {/* How Credits Work */}
+                    <div className="bg-white/5 rounded-lg p-4 backdrop-blur-sm border border-white/10">
+                      <div className="flex items-center space-x-2 mb-3">
+                        <div className="p-1.5 bg-white/20 rounded-lg">
+                          <Info className="h-4 w-4" />
+                        </div>
+                        <span className="text-sm font-semibold">How Credits Work</span>
+                      </div>
+                      <div className="space-y-2 text-xs text-white/80 leading-relaxed">
+                        <p>• <span className="text-white/90 font-medium">Credits are deducted when generation starts</span> - before your content is created</p>
+                        <p>• <span className="text-white/90 font-medium">Each generation attempt</span> uses the full credit amount, regardless of result</p>
+                        <p>• <span className="text-white/90 font-medium">Panel generation</span> = 1 credit per panel created</p>
+                        <p>• <span className="text-white/90 font-medium">Page generation</span> = credits × number of panels on the page</p>
+                        {!isAdmin && <p>• <span className="text-white/90 font-medium">Monthly reset</span> - your 200 credits refresh every month</p>}
+                      </div>
+                    </div>
+
                     {/* Footer Info */}
                     <div className="text-center bg-white/5 rounded-lg p-3 backdrop-blur-sm border border-white/10">
                       <p className="text-xs text-white/70 leading-relaxed">
-                        {!isAdmin && "200 credits refresh monthly. "}
                         <span className="text-white/80 font-medium">More credit options coming soon!</span>
                       </p>
                     </div>
