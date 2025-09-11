@@ -628,25 +628,25 @@ export default function PanelEditor({
                 </p>
               </CardContent>
             </Card>
-            {/* Enhanced Character Display */}
-            <div>
-              <h4 className="font-medium mb-2 text-sm flex items-center">
-                <User className="mr-2 h-4 w-4 text-chart-4" />
-                Active Characters
+            {/* Enhanced Character Display - Mobile Optimized */}
+            <div className="w-full">
+              <h4 className="font-medium mb-3 text-sm sm:text-base flex items-center flex-wrap gap-2">
+                <User className="h-4 w-4 sm:h-5 sm:w-5 text-chart-4 flex-shrink-0" />
+                <span className="flex-shrink-0">Active Characters</span>
                 {projectCharacters.length > 0 && (
-                  <span className="ml-2 text-xs text-muted-foreground bg-muted/50 rounded-full px-2 py-0.5">
+                  <span className="text-xs sm:text-sm text-muted-foreground bg-muted/50 rounded-full px-2 py-0.5 flex-shrink-0">
                     {projectCharacters.length}
                   </span>
                 )}
               </h4>
               
               {charactersLoading ? (
-                <div className="flex items-center justify-center space-x-2 text-muted-foreground p-4">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">Loading characters...</span>
+                <div className="flex items-center justify-center space-x-2 text-muted-foreground p-4 sm:p-6">
+                  <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                  <span className="text-sm sm:text-base">Loading characters...</span>
                 </div>
               ) : projectCharacters.length > 0 ? (
-                <div className="space-y-3 max-h-96 overflow-y-auto" data-testid="character-list">
+                <div className="space-y-2 sm:space-y-3 max-h-80 sm:max-h-96 overflow-y-auto overscroll-contain" data-testid="character-list">
                   {projectCharacters.map((character, index) => (
                     <EnhancedCharacterCard
                       key={character.id}
@@ -668,10 +668,10 @@ export default function PanelEditor({
                     />
                   ))}
                   
-                  {/* Show count summary if many characters */}
+                  {/* Show count summary if many characters - Mobile optimized */}
                   {projectCharacters.length > 5 && (
-                    <div className="text-center py-2">
-                      <p className="text-xs text-muted-foreground">
+                    <div className="text-center py-2 sm:py-3 border-t border-border/30">
+                      <p className="text-xs sm:text-sm text-muted-foreground">
                         Showing all {projectCharacters.length} project characters
                       </p>
                     </div>
@@ -679,12 +679,12 @@ export default function PanelEditor({
                 </div>
               ) : (
                 <Card className="border-dashed border-muted-foreground/30 bg-muted/20">
-                  <CardContent className="p-4 text-center">
-                    <User className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
-                    <p className="text-sm font-medium text-muted-foreground mb-1">
+                  <CardContent className="p-3 sm:p-4 text-center">
+                    <User className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground/50 mx-auto mb-2" />
+                    <p className="text-sm sm:text-base font-medium text-muted-foreground mb-1">
                       No Characters Yet
                     </p>
-                    <p className="text-xs text-muted-foreground/70">
+                    <p className="text-xs sm:text-sm text-muted-foreground/70 leading-relaxed">
                       Add characters to your project for better AI context and generation results.
                     </p>
                   </CardContent>

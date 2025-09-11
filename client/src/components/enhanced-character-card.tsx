@@ -80,46 +80,46 @@ export function EnhancedCharacterCard({
 
   return (
     <Card 
-      className="border-border bg-card/50 hover:bg-card/80 transition-colors duration-200"
+      className="border-border bg-card/50 hover:bg-card/80 transition-colors duration-200 w-full"
       data-testid={`character-card-${character.id}`}
     >
-      <CardContent className="p-3">
-        <div className="space-y-3">
-          {/* Character Header */}
-          <div className="flex items-start space-x-3">
-            <Avatar className="h-12 w-12 border-2 border-muted">
+      <CardContent className="p-3 sm:p-4">
+        <div className="space-y-3 sm:space-y-4">
+          {/* Character Header - Mobile Optimized */}
+          <div className="flex items-start space-x-3 sm:space-x-4">
+            <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-muted flex-shrink-0">
               <AvatarImage 
                 src={character.referenceImageUrl || undefined} 
                 alt={character.name}
                 className="object-cover"
               />
               <AvatarFallback className={getAvatarColor(index)}>
-                <User className="h-6 w-6 text-white" />
+                <User className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </AvatarFallback>
             </Avatar>
             
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-semibold text-sm truncate" data-testid={`text-character-name-${character.id}`}>
+            <div className="flex-1 min-w-0 space-y-1">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-semibold text-sm sm:text-base truncate" data-testid={`text-character-name-${character.id}`}>
                     {safeRenderText(character.name)}
                   </h4>
                   {character.role && (
-                    <p className="text-xs text-muted-foreground capitalize" data-testid={`text-character-role-${character.id}`}>
+                    <p className="text-xs sm:text-sm text-muted-foreground capitalize truncate" data-testid={`text-character-role-${character.id}`}>
                       {safeRenderText(character.role)}
                     </p>
                   )}
                 </div>
                 
-                {/* Color Scheme Display */}
+                {/* Color Scheme Display - Mobile Optimized */}
                 {colors.length > 0 && (
-                  <div className="flex items-center space-x-1" data-testid={`color-scheme-${character.id}`}>
-                    <Palette className="h-3 w-3 text-muted-foreground" />
-                    <div className="flex space-x-1">
+                  <div className="flex items-center space-x-1 flex-shrink-0" data-testid={`color-scheme-${character.id}`}>
+                    <Palette className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+                    <div className="flex space-x-0.5 sm:space-x-1">
                       {colors.map((color, idx) => (
                         <div
                           key={idx}
-                          className="w-3 h-3 rounded-full border border-border"
+                          className="w-3 h-3 sm:w-4 sm:h-4 rounded-full border border-border"
                           style={{ 
                             backgroundColor: color.startsWith('#') ? color : 
                                            color.toLowerCase().replace(' ', '') 
@@ -132,25 +132,25 @@ export function EnhancedCharacterCard({
                 )}
               </div>
               
-              {/* Bio Preview */}
+              {/* Bio Preview - Mobile Optimized */}
               {bioPreview.text && (
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed" data-testid={`text-character-bio-${character.id}`}>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed line-clamp-2" data-testid={`text-character-bio-${character.id}`}>
                   {bioPreview.text}
                 </p>
               )}
             </div>
           </div>
 
-          {/* Visual Traits */}
+          {/* Visual Traits - Mobile Optimized */}
           {(alwaysTraits.length > 0 || visualDescriptors.length > 0) && (
             <div className="space-y-2">
               {alwaysTraits.length > 0 && (
-                <div className="flex flex-wrap gap-1" data-testid={`traits-always-${character.id}`}>
+                <div className="flex flex-wrap gap-1 sm:gap-1.5" data-testid={`traits-always-${character.id}`}>
                   {alwaysTraits.map((trait, idx) => (
                     <Badge 
                       key={idx} 
                       variant="secondary" 
-                      className="text-xs px-2 py-0.5 bg-chart-1/20 text-chart-1 border-chart-1/30"
+                      className="text-xs sm:text-sm px-2 py-0.5 sm:px-2.5 sm:py-1 bg-chart-1/20 text-chart-1 border-chart-1/30 leading-tight"
                     >
                       {trait}
                     </Badge>
@@ -159,14 +159,14 @@ export function EnhancedCharacterCard({
               )}
               
               {visualDescriptors.length > 0 && (
-                <div className="flex flex-wrap gap-1" data-testid={`traits-visual-${character.id}`}>
+                <div className="flex flex-wrap gap-1 sm:gap-1.5" data-testid={`traits-visual-${character.id}`}>
                   {visualDescriptors.map((descriptor, idx) => (
                     <Badge 
                       key={idx} 
                       variant="outline" 
-                      className="text-xs px-2 py-0.5 bg-chart-2/10 text-chart-2 border-chart-2/30"
+                      className="text-xs sm:text-sm px-2 py-0.5 sm:px-2.5 sm:py-1 bg-chart-2/10 text-chart-2 border-chart-2/30 leading-tight"
                     >
-                      <Eye className="h-2.5 w-2.5 mr-1" />
+                      <Eye className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1" />
                       {descriptor}
                     </Badge>
                   ))}
@@ -175,8 +175,8 @@ export function EnhancedCharacterCard({
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex items-center justify-between pt-1">
+          {/* Action Buttons - Mobile Optimized */}
+          <div className="flex items-center justify-between pt-2 gap-2">
             {/* Redress Button - Only show if panelId is provided */}
             {panelId && allCharacters.length > 0 && (
               <Button
@@ -184,9 +184,10 @@ export function EnhancedCharacterCard({
                 size="sm"
                 onClick={() => setIsRedressModalOpen(true)}
                 data-testid={`button-redress-${character.id}`}
+                className="h-8 sm:h-9 text-xs sm:text-sm px-2 sm:px-3 touch-manipulation"
               >
-                <Shirt className="h-3 w-3 mr-1" />
-                Change Clothes
+                <Shirt className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-1.5" />
+                <span className="hidden xs:inline">Change </span>Clothes
               </Button>
             )}
             
@@ -200,32 +201,32 @@ export function EnhancedCharacterCard({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-xs text-muted-foreground hover:text-foreground"
+                    className="h-8 sm:h-9 text-xs sm:text-sm text-muted-foreground hover:text-foreground px-2 sm:px-3 touch-manipulation"
                     data-testid={`button-expand-${character.id}`}
                   >
                     {isExpanded ? (
                       <>
-                        <ChevronUp className="h-3 w-3 mr-1" />
-                        Show Less
+                        <ChevronUp className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                        Less
                       </>
                     ) : (
                       <>
-                        <ChevronDown className="h-3 w-3 mr-1" />
-                        Show More
+                        <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                        More
                       </>
                     )}
                   </Button>
                 </CollapsibleTrigger>
                 
-                <CollapsibleContent className="space-y-3 pt-3 border-t border-border/50">
+                <CollapsibleContent className="space-y-3 pt-3 border-t border-border/50 animate-in slide-in-from-top-1">
                   {/* Full Bio */}
                   {Boolean(character.bio) && typeof character.bio === 'string' && bioPreview.isTruncated && (
                     <div>
-                      <h5 className="text-xs font-medium text-muted-foreground mb-1 flex items-center">
-                        <User className="h-3 w-3 mr-1" />
+                      <h5 className="text-xs sm:text-sm font-medium text-muted-foreground mb-2 flex items-center">
+                        <User className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                         Character Bio
                       </h5>
-                      <p className="text-xs text-foreground leading-relaxed" data-testid={`text-full-bio-${character.id}`}>
+                      <p className="text-xs sm:text-sm text-foreground leading-relaxed" data-testid={`text-full-bio-${character.id}`}>
                         {safeRenderText(character.bio)}
                       </p>
                     </div>
@@ -234,13 +235,13 @@ export function EnhancedCharacterCard({
                   {/* Never Traits */}
                   {Boolean(character.neverTraits) && (
                     <div>
-                      <h5 className="text-xs font-medium text-muted-foreground mb-1">Never Traits</h5>
-                      <div className="flex flex-wrap gap-1" data-testid={`traits-never-${character.id}`}>
+                      <h5 className="text-xs sm:text-sm font-medium text-muted-foreground mb-2">Never Traits</h5>
+                      <div className="flex flex-wrap gap-1 sm:gap-1.5" data-testid={`traits-never-${character.id}`}>
                         {parseTraits(character.neverTraits).map((trait, idx) => (
                           <Badge 
                             key={idx} 
                             variant="outline" 
-                            className="text-xs px-2 py-0.5 bg-destructive/10 text-destructive border-destructive/30"
+                            className="text-xs sm:text-sm px-2 py-0.5 sm:px-2.5 sm:py-1 bg-destructive/10 text-destructive border-destructive/30"
                           >
                             {trait}
                           </Badge>
@@ -252,11 +253,11 @@ export function EnhancedCharacterCard({
                   {/* Wardrobe Info */}
                   {Boolean(character.wardrobePresets) && (
                     <div>
-                      <h5 className="text-xs font-medium text-muted-foreground mb-1 flex items-center">
-                        <Shirt className="h-3 w-3 mr-1" />
+                      <h5 className="text-xs sm:text-sm font-medium text-muted-foreground mb-2 flex items-center">
+                        <Shirt className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                         Wardrobe Presets
                       </h5>
-                      <div className="text-xs text-muted-foreground bg-muted/30 rounded p-2">
+                      <div className="text-xs sm:text-sm text-muted-foreground bg-muted/30 rounded p-2 sm:p-3">
                         {(() => {
                           if (Array.isArray(character.wardrobePresets)) {
                             return `${character.wardrobePresets.length} outfit${character.wardrobePresets.length !== 1 ? 's' : ''} available`;
@@ -273,8 +274,8 @@ export function EnhancedCharacterCard({
                   {/* Current Outfit */}
                   {Boolean(character.currentOutfit) && (
                     <div>
-                      <h5 className="text-xs font-medium text-muted-foreground mb-1">Current Outfit</h5>
-                      <div className="text-xs text-foreground bg-muted/30 rounded p-2">
+                      <h5 className="text-xs sm:text-sm font-medium text-muted-foreground mb-2">Current Outfit</h5>
+                      <div className="text-xs sm:text-sm text-foreground bg-muted/30 rounded p-2 sm:p-3">
                         {(() => {
                           if (typeof character.currentOutfit === 'string') {
                             return character.currentOutfit;
