@@ -271,6 +271,8 @@ export class MemStorage implements IStorage {
       neverTraits: characterData.neverTraits || null,
       referenceImageUrl: characterData.referenceImageUrl || null,
       colorScheme: characterData.colorScheme || null,
+      wardrobePresets: characterData.wardrobePresets || null,
+      currentOutfit: characterData.currentOutfit || null,
       isLibraryCharacter: characterData.isLibraryCharacter || false,
       createdAt: new Date(),
     };
@@ -352,6 +354,7 @@ export class MemStorage implements IStorage {
       prompt: panelData.prompt || null,
       imageUrl: panelData.imageUrl || null,
       speechBubbles: panelData.speechBubbles || null,
+      revisions: panelData.revisions || null,
       isGenerated: panelData.isGenerated || false,
       generationStatus: panelData.generationStatus || "pending",
       createdAt: new Date(),

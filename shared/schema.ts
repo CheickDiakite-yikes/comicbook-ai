@@ -82,6 +82,8 @@ export const characters = pgTable("characters", {
   neverTraits: text("never_traits"),
   referenceImageUrl: varchar("reference_image_url"),
   colorScheme: varchar("color_scheme"),
+  wardrobePresets: jsonb("wardrobe_presets"), // JSON array of outfit presets for AI generation
+  currentOutfit: jsonb("current_outfit"), // JSON object describing current clothing for consistency
   isLibraryCharacter: boolean("is_library_character").default(false), // true for library characters
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -107,6 +109,7 @@ export const panels = pgTable("panels", {
   prompt: text("prompt"),
   imageUrl: varchar("image_url"),
   speechBubbles: jsonb("speech_bubbles"), // JSON array of speech bubble objects
+  revisions: jsonb("revisions"), // JSON array of previous image versions for undo functionality
   isGenerated: boolean("is_generated").default(false),
   generationStatus: varchar("generation_status").default("pending"), // pending, generating, completed, failed
   createdAt: timestamp("created_at").defaultNow(),
