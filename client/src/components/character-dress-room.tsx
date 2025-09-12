@@ -137,8 +137,12 @@ export default function CharacterDressRoom({
       return response;
     },
     onSuccess: (data) => {
+      console.log("Character redressing response:", data);
+      
       // Check if the operation actually succeeded
-      if (data && typeof data === 'object' && 'status' in data && (data as any).status === 'completed' && 'imageUrl' in data && (data as any).imageUrl) {
+      if (data && typeof data === 'object' && 'status' in data && (data as any).status === 'completed') {
+        const imageUrl = (data as any).imageUrl;
+        
         toast({
           title: "Character redressed successfully!",
           description: `${character.name} has been given a new outfit in the panel.`,
@@ -150,8 +154,8 @@ export default function CharacterDressRoom({
         });
 
         // Call the callback if provided
-        if (onCharacterRedressed && selectedPanelNumber && typeof selectedPanelNumber === 'number') {
-          onCharacterRedressed(selectedPanelNumber, (data as any).imageUrl);
+        if (onCharacterRedressed && selectedPanelNumber && typeof selectedPanelNumber === 'number' && imageUrl) {
+          onCharacterRedressed(selectedPanelNumber, imageUrl);
         }
 
         onClose();
@@ -160,6 +164,8 @@ export default function CharacterDressRoom({
         const errorMessage = data && typeof data === 'object' && 'message' in data 
           ? (data as any).message 
           : 'The character redressing operation failed. Please try again.';
+        
+        console.error("Character redressing failed with response:", data);
         
         toast({
           title: "Redressing failed",
