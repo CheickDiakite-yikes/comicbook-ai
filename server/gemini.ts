@@ -1180,10 +1180,21 @@ export class GeminiService {
 
   /**
    * Build a context-preserving prompt specifically for image editing
-   * Based on Gemini's best practices for image editing
+   * Based on Gemini's best practices for image editing with enhanced framing preservation
    */
   private buildEditingPrompt(request: GenerateImageRequest): string {
     let prompt = `EDIT ONLY THE CHARACTER'S OUTFIT in this image while preserving EVERYTHING ELSE: `;
+    
+    // 🎯 CRITICAL FRAMING AND COMPOSITION PRESERVATION
+    prompt += `🔒 EXACT FRAMING: Maintain the EXACT same image framing, crop, zoom level, and composition as the original. `;
+    prompt += `🔒 NO RECOMPOSITION: Do NOT change the camera distance, angle, or reframe the scene in any way. `;
+    prompt += `🔒 PRESERVE ASPECT RATIO: Keep the exact same image dimensions and aspect ratio. `;
+    prompt += `🔒 NO CROPPING: Do NOT crop, zoom in, or zoom out from the original framing. `;
+    
+    // 🗨️ SPEECH BUBBLE AND TEXT PRESERVATION
+    prompt += `💬 PRESERVE ALL TEXT: Keep ALL speech bubbles, dialogue text, thought bubbles, sound effects, and any text overlays in their EXACT original positions and sizes. `;
+    prompt += `💬 TEXT POSITIONING: Do NOT move, resize, or alter any text elements - they must remain precisely where they are. `;
+    prompt += `💬 BUBBLE SHAPES: Preserve the exact shape, size, and position of all speech bubble outlines and text containers. `;
     
     // Add scene preservation instructions
     prompt += `Keep the exact same scene, setting, lighting, mood, camera angle, composition, and background. `;
@@ -1211,7 +1222,8 @@ export class GeminiService {
     
     // Add critical preservation instructions
     prompt += `CRITICAL: This is an image edit, not a new image generation. `;
-    prompt += `Only change the character's outfit while keeping everything else identical to the original image.`;
+    prompt += `Only change the character's outfit while keeping everything else identical to the original image. `;
+    prompt += `⚠️ FINAL RULE: The output image must be visually identical to the input image except for the character's outfit change - same framing, same speech bubbles, same text positions, same everything.`;
     
     return prompt;
   }
