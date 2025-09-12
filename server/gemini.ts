@@ -1179,24 +1179,39 @@ export class GeminiService {
   }
 
   /**
-   * Build a shorter, focused prompt specifically for image editing
+   * Build a context-preserving prompt specifically for image editing
+   * Based on Gemini's best practices for image editing
    */
   private buildEditingPrompt(request: GenerateImageRequest): string {
-    let prompt = `Edit this image: ${request.prompt}`;
+    let prompt = `EDIT ONLY THE CHARACTER'S OUTFIT in this image while preserving EVERYTHING ELSE: `;
     
-    // Add essential art style
-    if (request.projectContext?.artStyle) {
-      prompt += ` in ${request.projectContext.artStyle} style`;
-    }
+    // Add scene preservation instructions
+    prompt += `Keep the exact same scene, setting, lighting, mood, camera angle, composition, and background. `;
+    prompt += `Maintain the same character position and pose. `;
+    prompt += `Preserve all other characters, objects, and environmental details exactly as they are. `;
     
-    // Add key character details if present
+    // Add specific outfit change request
+    prompt += `Change ONLY the main character's clothing to: ${request.prompt}. `;
+    
+    // Add character context for consistency
     if (request.characterContext && request.characterContext.length > 0) {
       const mainCharacter = request.characterContext[0];
-      prompt += `. Character: ${mainCharacter.name} - ${mainCharacter.visualDescriptors}`;
+      prompt += `Character details - ${mainCharacter.name}: ${mainCharacter.visualDescriptors}. `;
     }
     
-    // Add simple quality instruction
-    prompt += `. Maintain artistic consistency.`;
+    // Add art style preservation
+    if (request.projectContext?.artStyle) {
+      prompt += `Art style: EXACTLY preserve the ${request.projectContext.artStyle} comic book art style and visual quality. `;
+    }
+    
+    // Add panel context if available
+    if (request.panelContext?.panelType) {
+      prompt += `Panel type: ${request.panelContext.panelType}. `;
+    }
+    
+    // Add critical preservation instructions
+    prompt += `CRITICAL: This is an image edit, not a new image generation. `;
+    prompt += `Only change the character's outfit while keeping everything else identical to the original image.`;
     
     return prompt;
   }
