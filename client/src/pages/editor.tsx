@@ -232,7 +232,8 @@ export default function Editor() {
       const pageAspectRatio = getPageAspectRatio(isMobile);
       const optimalDimensions = calculateOptimalDimensions(pageAspectRatio, 1200000); // Higher resolution for page backgrounds
       
-      const response = await apiRequest("POST", "/api/generate-background", {
+      // CRITICAL FIX: apiRequest already returns parsed JSON, don't parse again
+      const result = await apiRequest("POST", "/api/generate-background", {
         projectId: project.id,
         pageId: currentPage.id,
         layoutTemplate: currentLayout,
@@ -245,7 +246,6 @@ export default function Editor() {
         }
       });
       
-      const result = await response.json();
       return result;
     },
     onSuccess: (result: any) => {
