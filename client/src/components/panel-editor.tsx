@@ -5,13 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Wand2, RotateCcw, MessageSquare, Cloud, Palette, BookOpen, X, Loader2, User, Shirt } from "lucide-react";
+import { Wand2, RotateCcw, MessageSquare, Cloud, Palette, BookOpen, X, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { comicLayouts } from "@/lib/comic-layouts";
 import { generateEnhancedPanelContext, getPanelAspectRatioInfo, calculateOptimalDimensions } from "@/lib/aspect-ratio-utils";
-import { EnhancedCharacterCard } from "@/components/enhanced-character-card";
-import { RedressModal } from "@/components/redress-modal";
 import type { Project, Page, Panel, Character } from "@shared/schema";
 
 interface PanelEditorProps {
@@ -45,7 +43,6 @@ export default function PanelEditor({
   const [dialogueText, setDialogueText] = useState("");
   const [artStyle, setArtStyle] = useState("Comic Book (Classic)");
   const [isGeneratingBackground, setIsGeneratingBackground] = useState(false);
-  const [isRedressModalOpen, setIsRedressModalOpen] = useState(false);
 
   // Fetch existing panels for the current page
   const { data: existingPanels = [], isLoading: panelsLoading } = useQuery<Panel[]>({
@@ -490,20 +487,6 @@ export default function PanelEditor({
                 {isGeneratingBackground ? "🎨 Creating Background..." : generatedBackground ? "🌟 Background Ready!" : "🎨 Generate Background"}
               </Button>
               
-              {/* Character Redress Button */}
-              {projectCharacters.length > 0 && currentPanelData && (
-                <Button 
-                  variant="outline"
-                  onClick={() => setIsRedressModalOpen(true)}
-                  disabled={!selectedPanel}
-                  className="w-full bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-900/20 dark:to-indigo-900/20 border-violet-200 dark:border-violet-700 hover:from-violet-100 hover:to-indigo-100 dark:hover:from-violet-800/30 dark:hover:to-indigo-800/30 font-medium text-violet-700 dark:text-violet-300"
-                  data-testid="button-redress-panel"
-                >
-                  <Shirt className="mr-2 h-4 w-4" />
-                  👗 Change Character Outfits
-                </Button>
-              )}
-              
               {/* Helpful tip when no panel is selected */}
               {!selectedPanel && (
                 <p className="text-xs text-muted-foreground text-center p-2 bg-muted/50 rounded">
@@ -560,21 +543,15 @@ export default function PanelEditor({
             </div>
             
             {/* Show existing speech bubbles */}
-            {Boolean(currentPanelData?.speechBubbles) && Array.isArray(currentPanelData?.speechBubbles) && currentPanelData.speechBubbles.length > 0 && (
+            {currentPanelData?.speechBubbles && Array.isArray(currentPanelData.speechBubbles) && currentPanelData.speechBubbles.length > 0 && (
               <div className="mt-2 space-y-1">
                 <p className="text-xs font-medium text-muted-foreground">Current Bubbles:</p>
-                {(currentPanelData?.speechBubbles as Array<{text: string, type: string}>).map((bubble, index) => {
-                  // Safely extract text and type with fallbacks
-                  const bubbleText = typeof bubble?.text === 'string' ? bubble.text : 'Unknown text';
-                  const bubbleType = typeof bubble?.type === 'string' ? bubble.type : 'speech';
-                  
-                  return (
-                    <div key={index} className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1">
-                      <span>{bubbleText}</span>
-                      <span className="text-muted-foreground capitalize">{bubbleType}</span>
-                    </div>
-                  );
-                })}
+                {(currentPanelData.speechBubbles as Array<{text: string, type: string}>).map((bubble, index) => (
+                  <div key={index} className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1">
+                    <span>{bubble.text}</span>
+                    <span className="text-muted-foreground capitalize">{bubble.type || 'speech'}</span>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -628,94 +605,45 @@ export default function PanelEditor({
                 </p>
               </CardContent>
             </Card>
-            {/* Enhanced Character Display - Mobile Optimized */}
-            <div className="w-full">
-              <h4 className="font-medium mb-3 text-sm sm:text-base flex items-center flex-wrap gap-2">
-                <User className="h-4 w-4 sm:h-5 sm:w-5 text-chart-4 flex-shrink-0" />
-                <span className="flex-shrink-0">Active Characters</span>
-                {projectCharacters.length > 0 && (
-                  <span className="text-xs sm:text-sm text-muted-foreground bg-muted/50 rounded-full px-2 py-0.5 flex-shrink-0">
-                    {projectCharacters.length}
-                  </span>
+            <Card className="border-border">
+              <CardContent className="p-3">
+                <p className="font-medium mb-1">Active Characters</p>
+                {charactersLoading ? (
+                  <div className="flex items-center space-x-2 text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span className="text-xs">Loading characters...</span>
+                  </div>
+                ) : projectCharacters.length > 0 ? (
+                  <div className="space-y-1">
+                    {projectCharacters.slice(0, 3).map((character, index) => (
+                      <div key={character.id} className="flex items-center space-x-2">
+                        <span 
+                          className={`inline-block w-3 h-3 rounded-full ${
+                            index === 0 ? 'bg-chart-1' : index === 1 ? 'bg-chart-2' : 'bg-chart-3'
+                          }`}
+                        />
+                        <span className="text-sm">{character.name}</span>
+                        {character.role && (
+                          <span className="text-xs text-muted-foreground">({character.role})</span>
+                        )}
+                      </div>
+                    ))}
+                    {projectCharacters.length > 3 && (
+                      <div className="text-xs text-muted-foreground">
+                        +{projectCharacters.length - 3} more characters
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    No characters defined yet. Add characters to your project for better context.
+                  </p>
                 )}
-              </h4>
-              
-              {charactersLoading ? (
-                <div className="flex items-center justify-center space-x-2 text-muted-foreground p-4 sm:p-6">
-                  <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
-                  <span className="text-sm sm:text-base">Loading characters...</span>
-                </div>
-              ) : projectCharacters.length > 0 ? (
-                <div className="space-y-2 sm:space-y-3 max-h-80 sm:max-h-96 overflow-y-auto overscroll-contain" data-testid="character-list">
-                  {projectCharacters.map((character, index) => (
-                    <EnhancedCharacterCard
-                      key={character.id}
-                      character={character}
-                      index={index}
-                      panelId={currentPanelData?.id}
-                      allCharacters={projectCharacters}
-                      onOutfitChange={(characterId, newImageUrl) => {
-                        // Handle outfit change - refresh panel data
-                        queryClient.invalidateQueries({ queryKey: ["/api/pages", currentPage?.id, "panels"] });
-                        if (onImageGenerated && selectedPanel) {
-                          onImageGenerated(selectedPanel, newImageUrl);
-                        }
-                        toast({
-                          title: "Outfit Changed!",
-                          description: "Character's outfit has been successfully updated.",
-                        });
-                      }}
-                    />
-                  ))}
-                  
-                  {/* Show count summary if many characters - Mobile optimized */}
-                  {projectCharacters.length > 5 && (
-                    <div className="text-center py-2 sm:py-3 border-t border-border/30">
-                      <p className="text-xs sm:text-sm text-muted-foreground">
-                        Showing all {projectCharacters.length} project characters
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <Card className="border-dashed border-muted-foreground/30 bg-muted/20">
-                  <CardContent className="p-3 sm:p-4 text-center">
-                    <User className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground/50 mx-auto mb-2" />
-                    <p className="text-sm sm:text-base font-medium text-muted-foreground mb-1">
-                      No Characters Yet
-                    </p>
-                    <p className="text-xs sm:text-sm text-muted-foreground/70 leading-relaxed">
-                      Add characters to your project for better AI context and generation results.
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
         </div>
-        
-        {/* Redress Modal Integration */}
-        {currentPanelData && (
-          <RedressModal
-            open={isRedressModalOpen}
-            onOpenChange={setIsRedressModalOpen}
-            panelId={currentPanelData.id}
-            characters={projectCharacters}
-            onSuccess={(newImageUrl) => {
-              // Handle successful outfit change
-              queryClient.invalidateQueries({ queryKey: ["/api/pages", currentPage?.id, "panels"] });
-              if (onImageGenerated && selectedPanel) {
-                onImageGenerated(selectedPanel, newImageUrl);
-              }
-              setIsRedressModalOpen(false);
-              toast({
-                title: "Outfits Changed Successfully!",
-                description: "Character outfits have been updated in the panel.",
-              });
-            }}
-          />
-        )}
       </aside>
     </>
   );

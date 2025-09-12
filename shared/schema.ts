@@ -32,10 +32,6 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  isAgeVerified: boolean("is_age_verified").default(false),
-  ageVerifiedAt: timestamp("age_verified_at"),
-  birthMonth: integer("birth_month"), // 1-12
-  birthYear: integer("birth_year"), // YYYY
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -86,8 +82,6 @@ export const characters = pgTable("characters", {
   neverTraits: text("never_traits"),
   referenceImageUrl: varchar("reference_image_url"),
   colorScheme: varchar("color_scheme"),
-  wardrobePresets: jsonb("wardrobe_presets"), // JSON array of outfit presets for AI generation
-  currentOutfit: jsonb("current_outfit"), // JSON object describing current clothing for consistency
   isLibraryCharacter: boolean("is_library_character").default(false), // true for library characters
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -113,7 +107,6 @@ export const panels = pgTable("panels", {
   prompt: text("prompt"),
   imageUrl: varchar("image_url"),
   speechBubbles: jsonb("speech_bubbles"), // JSON array of speech bubble objects
-  revisions: jsonb("revisions"), // JSON array of previous image versions for undo functionality
   isGenerated: boolean("is_generated").default(false),
   generationStatus: varchar("generation_status").default("pending"), // pending, generating, completed, failed
   createdAt: timestamp("created_at").defaultNow(),
@@ -238,24 +231,12 @@ export const creditTransactions = pgTable("credit_transactions", {
 });
 
 // Insert schemas
-// Enhanced user schema with strict age verification validation
-export const insertUserSchema = createInsertSchema(users).omit({ 
-  id: true, 
-  createdAt: true, 
-  updatedAt: true 
-}).extend({
-  birthMonth: z.number().int().min(1).max(12).optional(), // strict validation 1-12
-  birthYear: z.number().int().min(1900).max(new Date().getFullYear()).optional(), // reasonable range
-  isAgeVerified: z.literal(false).optional(), // prevent client-side setting to true
-  ageVerifiedAt: z.never().optional(), // prevent client-side setting
-});
-
-// Server-only schema for internal age verification updates
-export const serverOnlyUserUpdateSchema = z.object({
-  isAgeVerified: z.boolean(),
-  ageVerifiedAt: z.date(),
-  birthMonth: z.number().int().min(1).max(12).optional(),
-  birthYear: z.number().int().min(1900).max(new Date().getFullYear()).optional(),
+export const insertUserSchema = createInsertSchema(users).pick({
+  id: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  profileImageUrl: true,
 });
 
 export const insertProjectSchema = createInsertSchema(projects).omit({
@@ -329,94 +310,6 @@ export const insertUserFollowSchema = createInsertSchema(userFollows).omit({
   createdAt: true,
 });
 
-// Security audit logs table - Enterprise-grade tamper-evident logging
-export const securityAuditLogs = pgTable("security_audit_logs", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id), // nullable for unauthenticated attempts
-  sessionId: varchar("session_id"),
-  ipAddress: varchar("ip_address").notNull(),
-  userAgent: text("user_agent"),
-  endpoint: varchar("endpoint").notNull(),
-  httpMethod: varchar("http_method").notNull(),
-  requestId: varchar("request_id"), // for tracing
-  
-  // Content classification results
-  contentRating: varchar("content_rating"), // General, Mature, Adult
-  contentCategories: text("content_categories").array(), // detected content categories
-  contentSafetyScore: integer("content_safety_score"), // 0-100 safety score
-  contentFlags: jsonb("content_flags"), // detailed flagging results
-  
-  // Age verification status
-  userAge: integer("user_age"),
-  isAgeVerified: boolean("is_age_verified"),
-  ageVerificationDate: timestamp("age_verification_date"),
-  verificationMethod: varchar("verification_method"),
-  
-  // Access decision
-  accessDecision: varchar("access_decision").notNull(), // GRANTED, DENIED, BLOCKED
-  denialReason: varchar("denial_reason"), // age_restriction, content_violation, rate_limit, etc.
-  
-  // Request context
-  resourceId: varchar("resource_id"), // project/panel/character ID being accessed
-  operationType: varchar("operation_type"), // panel_generation, character_creation, etc.
-  inputContent: jsonb("input_content"), // sanitized version of user input for analysis
-  
-  // Rate limiting data
-  requestCount: integer("request_count").default(1),
-  timeWindow: varchar("time_window"), // hour, day, month
-  
-  // Security flags
-  isSuspiciousActivity: boolean("is_suspicious_activity").default(false),
-  alertLevel: varchar("alert_level"), // low, medium, high, critical
-  
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => [
-  index("audit_user_idx").on(table.userId),
-  index("audit_ip_idx").on(table.ipAddress),
-  index("audit_endpoint_idx").on(table.endpoint),
-  index("audit_timestamp_idx").on(table.createdAt),
-  index("audit_decision_idx").on(table.accessDecision),
-  index("audit_suspicious_idx").on(table.isSuspiciousActivity),
-]);
-
-// Rate limiting table for enterprise-grade throttling
-export const rateLimitingLog = pgTable("rate_limiting_log", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id),
-  ipAddress: varchar("ip_address").notNull(),
-  endpoint: varchar("endpoint").notNull(),
-  requestCount: integer("request_count").default(1),
-  windowStart: timestamp("window_start").notNull(),
-  windowEnd: timestamp("window_end").notNull(),
-  limitExceeded: boolean("limit_exceeded").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
-}, (table) => [
-  index("rate_limit_user_endpoint_idx").on(table.userId, table.endpoint),
-  index("rate_limit_ip_endpoint_idx").on(table.ipAddress, table.endpoint),
-  index("rate_limit_window_idx").on(table.windowStart, table.windowEnd),
-]);
-
-// Redress job tables for AI-powered clothing changes
-export const redressJobs = pgTable("redress_jobs", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  panelId: varchar("panel_id").notNull().references(() => panels.id),
-  status: varchar("status").notNull().default("queued"), // queued, processing, completed, failed
-  originalImageUrl: varchar("original_image_url").notNull(),
-  previewImageUrl: varchar("preview_image_url"),
-  finalImageUrl: varchar("final_image_url"),
-  characterIds: jsonb("character_ids").notNull(), // Array of character IDs being edited
-  outfitSpecs: jsonb("outfit_specs").notNull(), // Outfit specification object
-  isPreview: boolean("is_preview").default(false), // Whether this is a preview mode job
-  strength: integer("strength").default(75), // Inpainting strength 0-100
-  progress: integer("progress").default(0), // Progress percentage 0-100
-  errorMessage: text("error_message"),
-  processingSteps: jsonb("processing_steps"), // Array of processing step statuses
-  metadata: jsonb("metadata"), // Additional job metadata
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
 // AI Credits insert schemas
 export const insertUserCreditsSchema = createInsertSchema(userCredits).omit({
   id: true,
@@ -427,129 +320,6 @@ export const insertUserCreditsSchema = createInsertSchema(userCredits).omit({
 export const insertCreditTransactionSchema = createInsertSchema(creditTransactions).omit({
   id: true,
   createdAt: true,
-});
-
-// Redress job schemas
-export const insertRedressJobSchema = createInsertSchema(redressJobs).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-// Security audit insert schemas
-export const insertSecurityAuditLogSchema = createInsertSchema(securityAuditLogs).omit({ id: true, createdAt: true });
-export const insertRateLimitingLogSchema = createInsertSchema(rateLimitingLog).omit({ id: true, createdAt: true });
-
-// Content rating definitions
-export const contentRatingSchema = z.enum(["General", "Mature", "Adult"]);
-export type ContentRating = z.infer<typeof contentRatingSchema>;
-
-// Outfit preset categories
-export const presetCategorySchema = z.enum(["Basic", "Comedy", "Cosplay", "Professional", "Seasonal", "Adult"]);
-export type PresetCategory = z.infer<typeof presetCategorySchema>;
-
-// Story context schemas for intelligent outfit generation
-export const storyContextSchema = z.object({
-  // Project context for style consistency
-  projectGenre: z.string().max(500).optional(), // AI-enhanced detailed genre
-  projectCanonRules: z.string().max(2000).optional(), // Project canon rules
-  projectArtStyle: z.string().max(200).optional(), // Project art style
-  
-  // Page context for scene understanding
-  pageScriptSnippet: z.string().max(1000).optional(), // Scene script snippet
-  pageMood: z.string().max(100).optional(), // Page mood (tense, lighthearted, etc.)
-  pageTimeOfDay: z.string().max(100).optional(), // Time setting
-  pageLocation: z.string().max(200).optional(), // Scene location
-  pageWeatherConditions: z.string().max(100).optional(), // Weather conditions
-  
-  // Panel context for specific scene requirements
-  panelPrompt: z.string().max(1000).optional(), // Current panel prompt
-  panelLayout: z.string().max(100).optional(), // Panel layout type
-  panelAction: z.string().max(500).optional(), // What happens in this panel
-  panelMood: z.string().max(100).optional(), // Panel-specific mood
-  panelCameraAngle: z.string().max(100).optional(), // Camera angle (close-up, wide-shot, etc.)
-  panelShotType: z.string().max(100).optional(), // Shot type (establishing, reaction, etc.)
-  
-  // Character context for consistency
-  characterCurrentOutfits: z.record(z.string(), z.any()).optional(), // Map of characterId -> current outfit
-  characterAlwaysTraits: z.record(z.string(), z.string().max(500)).optional(), // Map of characterId -> always traits
-  characterNeverTraits: z.record(z.string(), z.string().max(500)).optional(), // Map of characterId -> never traits
-  characterWardrobePresets: z.record(z.string(), z.any()).optional(), // Map of characterId -> wardrobe presets
-}).optional();
-
-// Redress request/response schemas
-export const redressRequestSchema = z.object({
-  characters: z.array(z.object({
-    characterId: z.string().max(100),
-    referenceImageUrl: z.string().max(500).optional(),
-    targetRegion: z.enum(["upper_clothes", "lower_clothes", "dress", "shoes", "hat", "accessories"]).optional(),
-  })).min(1).max(5), // reasonable limit on characters
-  outfit: z.object({
-    type: z.enum([
-      // Basic clothing types
-      "shirt", "dress", "pants", "skirt", "jacket", "coat", "shoes", "hat", "accessories",
-      // Outfit categories for better UX
-      "casual_wear", "business_suit", "evening_wear", "athletic_wear", "fantasy_clothing",
-      "vintage_clothing", "futuristic_clothing", "traditional_clothing", "uniform",
-      // Extended variety for comics
-      "swimwear", "sleepwear", "cosplay", "seasonal_wear", "party_outfit",
-      // Mature content (properly gated)
-      "lingerie", "fetish_wear", "revealing_outfit"
-    ]),
-    style: z.string().max(200), // limit style description length
-    colors: z.array(z.string().max(50)).max(10).optional(), // Array of color names or hex codes
-    description: z.string().max(2000).optional(), // Additional description with length limit
-    pattern: z.enum(["solid", "stripes", "polka_dots", "plaid", "floral", "geometric", "abstract", "character_themed"]).optional(),
-    fabric: z.enum(["cotton", "denim", "silk", "leather", "wool", "synthetic", "latex", "lace", "metallic"]).optional(),
-    formality: z.number().min(0).max(100).optional(), // 0=very casual, 100=very formal
-    modesty: z.number().min(0).max(100).optional(), // 0=revealing, 100=conservative
-  }),
-  // Story context for intelligent outfit generation
-  context: storyContextSchema,
-  // SECURITY: Server validates these fields to enforce content restrictions
-  presetId: z.string().max(100).optional(), // ID of selected preset (if using preset)
-  presetRating: contentRatingSchema.optional(), // Content rating of the preset
-  presetCategory: presetCategorySchema.optional(), // Category of the preset
-  preview: z.boolean().default(false), // Preview mode: fast, lower quality
-  strength: z.number().min(0).max(100).default(75), // Inpainting strength
-  customPrompt: z.string().max(2000).optional(), // Custom prompt with length limit
-}).strict(); // reject additional properties
-
-export const redressResponseSchema = z.object({
-  jobId: z.string(),
-  status: z.enum(["queued", "processing", "completed", "failed"]),
-  progress: z.number().min(0).max(100).optional(),
-  previewUrl: z.string().optional(),
-  finalUrl: z.string().optional(),
-  errorMessage: z.string().optional(),
-  processingSteps: z.array(z.object({
-    step: z.string(),
-    status: z.enum(["pending", "processing", "completed", "failed"]),
-    message: z.string().optional(),
-  })).optional(),
-  estimatedTimeRemaining: z.number().optional(), // seconds
-  metadata: z.record(z.any()).optional(),
-});
-
-export const redressJobStatusSchema = z.object({
-  jobId: z.string(),
-  status: z.enum(["queued", "processing", "completed", "failed"]),
-  progress: z.number().min(0).max(100),
-  originalImageUrl: z.string(),
-  previewImageUrl: z.string().optional(),
-  finalImageUrl: z.string().optional(),
-  characterIds: z.array(z.string()),
-  outfitSpecs: z.record(z.any()),
-  isPreview: z.boolean(),
-  strength: z.number().min(0).max(100),
-  errorMessage: z.string().optional(),
-  processingSteps: z.array(z.object({
-    step: z.string(),
-    status: z.enum(["pending", "processing", "completed", "failed"]),
-    message: z.string().optional(),
-  })).optional(),
-  createdAt: z.date(),
-  updatedAt: z.date(),
 });
 
 // Types
@@ -563,9 +333,6 @@ export type InsertPage = z.infer<typeof insertPageSchema>;
 export type Page = typeof pages.$inferSelect;
 export type InsertPanel = z.infer<typeof insertPanelSchema>;
 export type Panel = typeof panels.$inferSelect;
-
-// Story context types
-export type StoryContext = z.infer<typeof storyContextSchema>;
 
 // Structured Script types
 export type StructuredScript = typeof structuredScripts.$inferSelect;
@@ -593,8 +360,6 @@ export type InsertUserCredits = z.infer<typeof insertUserCreditsSchema>;
 export type CreditTransaction = typeof creditTransactions.$inferSelect;
 export type InsertCreditTransaction = z.infer<typeof insertCreditTransactionSchema>;
 
-
-
 // Composite types for working with structured scripts
 export interface FullStructuredScript extends StructuredScript {
   pages: Array<ScriptPageWithPanels>;
@@ -607,35 +372,3 @@ export interface ScriptPageWithPanels extends ScriptPage {
 export interface ScriptPanelWithDialogue extends ScriptPanel {
   dialogue: Array<ScriptDialogue>;
 }
-
-// Redress job types
-export type RedressJob = typeof redressJobs.$inferSelect;
-export type InsertRedressJob = z.infer<typeof insertRedressJobSchema>;
-export type RedressRequest = z.infer<typeof redressRequestSchema>;
-export type RedressResponse = z.infer<typeof redressResponseSchema>;
-export type RedressJobStatus = z.infer<typeof redressJobStatusSchema>;
-
-// Security audit types
-export type SecurityAuditLog = typeof securityAuditLogs.$inferSelect;
-export type InsertSecurityAuditLog = z.infer<typeof insertSecurityAuditLogSchema>;
-export type RateLimitingLog = typeof rateLimitingLog.$inferSelect;
-export type InsertRateLimitingLog = z.infer<typeof insertRateLimitingLogSchema>;
-
-// Content generation request schemas with security validation
-export const contentGenerationRequestSchema = z.object({
-  prompt: z.string().min(1).max(2000),
-  projectId: z.string().uuid().optional(),
-  characterId: z.string().uuid().optional(),
-  panelId: z.string().uuid().optional(),
-  description: z.string().max(2000).optional(),
-  genre: z.string().max(200).optional(),
-  artStyle: z.string().max(200).optional(),
-  customInstructions: z.string().max(1000).optional(),
-}).strict(); // reject additional properties
-
-// Enhanced validation for all text inputs that go through AI generation
-export const textInputValidationSchema = z.object({
-  content: z.string().min(1).max(5000), // comprehensive limit
-  context: z.string().max(1000).optional(),
-  restrictions: z.array(z.string()).optional(),
-}).strict();

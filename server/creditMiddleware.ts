@@ -19,10 +19,6 @@ export const CREDIT_COSTS = {
   
   // Full page generation (generates multiple panels)
   full_page_generation: 4,
-  
-  // AI-powered clothing redress operations
-  redress_preview: 1, // Quick preview mode
-  redress_apply: 3,   // Full quality redress per character
 } as const;
 
 export type CreditOperationType = keyof typeof CREDIT_COSTS;
