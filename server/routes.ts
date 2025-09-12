@@ -1815,6 +1815,92 @@ Redress this character in the specified outfit while maintaining their core visu
     }
   });
 
+  // Admin token middleware for secure one-time operations
+  const adminTokenAuth = (req: any, res: any, next: any) => {
+    const token = req.headers['x-admin-token'];
+    const adminToken = process.env.ADMIN_TOKEN;
+    
+    if (!adminToken) {
+      return res.status(503).json({ success: false, message: "Admin operations disabled" });
+    }
+    
+    if (!token || token !== adminToken) {
+      return res.status(401).json({ success: false, message: "Unauthorized admin operation" });
+    }
+    
+    next();
+  };
+
+  // Admin route to grant bonus credits to multiple users
+  app.post('/admin/credits/grant-bonus', adminTokenAuth, async (req: any, res) => {
+    try {
+      const { emails, amount } = req.body;
+      
+      if (!emails || !Array.isArray(emails) || !amount || amount <= 0) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid emails array or amount" 
+        });
+      }
+
+      const results = [];
+      for (const email of emails) {
+        const result = await storage.grantBonusCredits(email, amount);
+        results.push({ email, ...result });
+        
+        // Server-side audit log
+        console.log(`🔥 ADMIN AUDIT: Credit grant - Email: ${email}, Amount: ${amount}, Success: ${result.success}, Message: ${result.message}`);
+      }
+      
+      res.json({ success: true, results });
+    } catch (error) {
+      console.error("Error in admin credit grant:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to grant bonus credits" 
+      });
+    }
+  });
+
+  // Admin route to verify user credits 
+  app.get('/admin/credits/verify', adminTokenAuth, async (req: any, res) => {
+    try {
+      const { email } = req.query;
+      
+      if (!email) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Email parameter required" 
+        });
+      }
+
+      // Use grantBonusCredits with 0 amount to check if user exists and get current state
+      const result = await storage.grantBonusCredits(email as string, 0);
+      
+      if (!result.success) {
+        return res.status(404).json({ 
+          success: false, 
+          message: result.message 
+        });
+      }
+
+      // Parse the message to extract credit info or return basic info
+      res.json({
+        success: true,
+        email: email as string,
+        monthlyLimit: result.newLimit,
+        message: result.message,
+        verified: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error verifying user credits:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to verify credits" 
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

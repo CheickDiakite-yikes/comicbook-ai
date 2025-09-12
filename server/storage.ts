@@ -117,6 +117,7 @@ export interface IStorage {
   deductCredits(userId: string, operationType: string, creditsToDeduct: number, relatedResourceId?: string, metadata?: any): Promise<{success: boolean, remainingCredits: number}>;
   getCreditTransactions(userId: string, limit?: number): Promise<CreditTransaction[]>;
   resetMonthlyCredits(userId: string, monthlyLimit?: number): Promise<UserCredits>;
+  grantBonusCredits(userEmail: string, bonusCredits: number): Promise<{success: boolean, newLimit: number, message: string}>;
   
   // Public projects
   getPublicProjects(genre?: string): Promise<any[]>;
@@ -487,6 +488,15 @@ export class MemStorage implements IStorage {
 
   async resetMonthlyCredits(userId: string, monthlyLimit: number = 200): Promise<UserCredits> {
     return this.getCurrentMonthCredits(userId);
+  }
+
+  async grantBonusCredits(userEmail: string, bonusCredits: number): Promise<{success: boolean, newLimit: number, message: string}> {
+    // MemStorage implementation (for testing only)
+    return {
+      success: true,
+      newLimit: 200 + bonusCredits,
+      message: `MemStorage: Would grant ${bonusCredits} credits to ${userEmail}`
+    };
   }
 
   async getPublicProjects(genre?: string): Promise<any[]> {
@@ -1253,6 +1263,97 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return updatedRecord;
+  }
+
+  async grantBonusCredits(userEmail: string, bonusCredits: number): Promise<{success: boolean, newLimit: number, message: string}> {
+    try {
+      // Find user by email
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, userEmail));
+
+      if (!user) {
+        return {
+          success: false,
+          newLimit: 0,
+          message: `User with email ${userEmail} not found`
+        };
+      }
+
+      // IDEMPOTENCY CHECK: Look for existing admin bonus transaction
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
+      const idempotencyKey = `admin_bonus_${userEmail}_${currentYear}_${currentMonth}_${bonusCredits}`;
+      
+      const [existingTransaction] = await db
+        .select()
+        .from(creditTransactions)
+        .where(
+          and(
+            eq(creditTransactions.userId, user.id),
+            eq(creditTransactions.operationType, "admin_bonus"),
+            eq(creditTransactions.relatedResourceId, idempotencyKey)
+          )
+        )
+        .limit(1);
+
+      if (existingTransaction) {
+        const monthlyRecord = await this.getCurrentMonthCredits(user.id);
+        return {
+          success: true,
+          newLimit: monthlyRecord.monthlyLimit,
+          message: `Bonus credits already granted to ${userEmail}. Current monthly limit: ${monthlyRecord.monthlyLimit}`
+        };
+      }
+
+      // Get current month credits record
+      const monthlyRecord = await this.getCurrentMonthCredits(user.id);
+      const newLimit = monthlyRecord.monthlyLimit + bonusCredits;
+
+      // Update the monthly limit
+      await db
+        .update(userCredits)
+        .set({ 
+          monthlyLimit: newLimit,
+          updatedAt: new Date()
+        })
+        .where(eq(userCredits.id, monthlyRecord.id));
+
+      // Log the admin bonus transaction for idempotency
+      await db
+        .insert(creditTransactions)
+        .values({
+          userId: user.id,
+          operationType: "admin_bonus",
+          creditsDeducted: -bonusCredits, // Negative to indicate credit addition
+          remainingCredits: newLimit - monthlyRecord.creditsUsed,
+          relatedResourceId: idempotencyKey,
+          metadata: {
+            adminAction: "deployment_bonus",
+            originalLimit: monthlyRecord.monthlyLimit,
+            bonusAmount: bonusCredits,
+            email: userEmail,
+            timestamp: now.toISOString()
+          }
+        });
+
+      console.log(`✅ ADMIN: Granted ${bonusCredits} bonus credits to ${userEmail}. New limit: ${newLimit}`);
+
+      return {
+        success: true,
+        newLimit,
+        message: `Successfully granted ${bonusCredits} bonus credits to ${userEmail}. New monthly limit: ${newLimit}`
+      };
+    } catch (error) {
+      console.error("Error granting bonus credits:", error);
+      return {
+        success: false,
+        newLimit: 0,
+        message: `Failed to grant credits: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
   }
 
   // Public projects with like/comment counts
