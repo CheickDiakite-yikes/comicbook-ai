@@ -43,6 +43,8 @@ export default function PanelEditor({
   const [dialogueText, setDialogueText] = useState("");
   const [artStyle, setArtStyle] = useState("Comic Book (Classic)");
   const [isGeneratingBackground, setIsGeneratingBackground] = useState(false);
+  const [selectedCharacterForDressing, setSelectedCharacterForDressing] = useState<Character | null>(null);
+  const [showAllCharacters, setShowAllCharacters] = useState(false);
 
   // Fetch existing panels for the current page
   const { data: existingPanels = [], isLoading: panelsLoading } = useQuery<Panel[]>({
@@ -543,7 +545,7 @@ export default function PanelEditor({
             </div>
             
             {/* Show existing speech bubbles */}
-            {currentPanelData?.speechBubbles && Array.isArray(currentPanelData.speechBubbles) && currentPanelData.speechBubbles.length > 0 && (
+            {currentPanelData?.speechBubbles && Array.isArray(currentPanelData.speechBubbles) && currentPanelData.speechBubbles.length > 0 ? (
               <div className="mt-2 space-y-1">
                 <p className="text-xs font-medium text-muted-foreground">Current Bubbles:</p>
                 {(currentPanelData.speechBubbles as Array<{text: string, type: string}>).map((bubble, index) => (
@@ -553,7 +555,7 @@ export default function PanelEditor({
                   </div>
                 ))}
               </div>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -614,23 +616,45 @@ export default function PanelEditor({
                     <span className="text-xs">Loading characters...</span>
                   </div>
                 ) : projectCharacters.length > 0 ? (
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     {projectCharacters.slice(0, 3).map((character, index) => (
-                      <div key={character.id} className="flex items-center space-x-2">
-                        <span 
-                          className={`inline-block w-3 h-3 rounded-full ${
-                            index === 0 ? 'bg-chart-1' : index === 1 ? 'bg-chart-2' : 'bg-chart-3'
-                          }`}
-                        />
-                        <span className="text-sm">{character.name}</span>
-                        {character.role && (
-                          <span className="text-xs text-muted-foreground">({character.role})</span>
-                        )}
+                      <div key={character.id} className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2 flex-1">
+                          <span 
+                            className={`inline-block w-3 h-3 rounded-full ${
+                              index === 0 ? 'bg-chart-1' : index === 1 ? 'bg-chart-2' : 'bg-chart-3'
+                            }`}
+                          />
+                          <span className="text-sm">{character.name}</span>
+                          {character.role && (
+                            <span className="text-xs text-muted-foreground">({character.role})</span>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => setSelectedCharacterForDressing(character)}
+                          data-testid={`button-dress-room-${character.id}`}
+                        >
+                          Dress Room
+                        </Button>
                       </div>
                     ))}
                     {projectCharacters.length > 3 && (
-                      <div className="text-xs text-muted-foreground">
-                        +{projectCharacters.length - 3} more characters
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs text-muted-foreground">
+                          +{projectCharacters.length - 3} more characters
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => setShowAllCharacters(true)}
+                          data-testid="button-show-all-characters"
+                        >
+                          View All
+                        </Button>
                       </div>
                     )}
                   </div>
