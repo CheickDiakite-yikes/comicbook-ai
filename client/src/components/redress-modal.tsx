@@ -1205,9 +1205,13 @@ export function RedressModal({
                   </div>
                 </div>
 
-                {/* Mobile-First Character Grid */}
+                {/* Character Selection Grid - Fixed Layout */}
                 {filteredCharacters.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" data-testid="character-grid">
+                  <div 
+                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full"
+                    style={{ display: 'grid' }}
+                    data-testid="character-grid"
+                  >
                     {filteredCharacters.map((character) => {
                       const isSelected = form.getValues("characters").some(c => c.characterId === character.id);
                       const inPanel = panelCharacterIds.includes(character.id);
@@ -1215,40 +1219,39 @@ export function RedressModal({
                       return (
                         <Card
                           key={character.id}
-                          className={`cursor-pointer transition-all duration-200 hover:shadow-lg active:scale-95 touch-manipulation ${
-                            isSelected ? "ring-2 ring-primary bg-primary/10 border-primary" : "hover:border-muted-foreground/50"
-                          }`}
+                          className={`
+                            block w-full cursor-pointer transition-all duration-200 
+                            hover:shadow-lg active:scale-95 touch-manipulation border
+                            ${isSelected 
+                              ? "ring-2 ring-primary bg-primary/10 border-primary" 
+                              : "hover:border-muted-foreground/50"
+                            }
+                          `}
                           onClick={() => handleCharacterToggle(character)}
                           data-testid={`character-card-${character.id}`}
                         >
                           <CardContent className="p-4">
-                            <div className="flex items-center gap-4">
-                              {/* Large Avatar */}
+                            <div className="flex items-start gap-3">
+                              {/* Avatar with Indicators */}
                               <div className="relative flex-shrink-0">
-                                <Avatar className="h-14 w-14 border-2 border-background">
+                                <Avatar className="h-12 w-12 border-2 border-background">
                                   <AvatarImage src={character.referenceImageUrl || undefined} />
-                                  <AvatarFallback className="text-lg font-semibold">
-                                    {character.name.charAt(0)}
+                                  <AvatarFallback className="text-sm font-semibold bg-gradient-to-br from-blue-400 to-purple-500 text-white">
+                                    {character.name.charAt(0).toUpperCase()}
                                   </AvatarFallback>
                                 </Avatar>
                                 
                                 {/* Selection Indicator */}
-                                <div className={`absolute -top-1 -right-1 w-6 h-6 rounded-full border-2 border-background flex items-center justify-center transition-all ${
-                                  isSelected 
-                                    ? "bg-primary text-primary-foreground" 
-                                    : "bg-muted border-muted-foreground/30"
-                                }`}>
-                                  {isSelected ? (
-                                    <Check className="h-3.5 w-3.5" />
-                                  ) : (
-                                    <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />
-                                  )}
-                                </div>
+                                {isSelected && (
+                                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground rounded-full flex items-center justify-center border-2 border-background">
+                                    <Check className="h-3 w-3" />
+                                  </div>
+                                )}
                                 
                                 {/* Panel Indicator */}
                                 {inPanel && (
-                                  <div className="absolute -bottom-1 -left-1 w-6 h-6 bg-blue-500 text-white rounded-full border-2 border-background flex items-center justify-center">
-                                    <Eye className="h-3 w-3" />
+                                  <div className="absolute -bottom-1 -left-1 w-5 h-5 bg-blue-500 text-white rounded-full border-2 border-background flex items-center justify-center">
+                                    <Eye className="h-2.5 w-2.5" />
                                   </div>
                                 )}
                               </div>
@@ -1256,33 +1259,31 @@ export function RedressModal({
                               {/* Character Info */}
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <h4 className="font-semibold text-base truncate" data-testid={`character-name-${character.id}`}>
+                                  <h4 className="font-semibold text-sm truncate text-foreground" data-testid={`character-name-${character.id}`}>
                                     {character.name}
                                   </h4>
                                   {inPanel && (
-                                    <Badge variant="secondary" className="text-xs px-2 py-0.5 font-medium">
+                                    <Badge variant="secondary" className="text-xs px-1.5 py-0.5 font-medium">
                                       In Panel
                                     </Badge>
                                   )}
                                 </div>
                                 
                                 {character.role && (
-                                  <p className="text-sm text-muted-foreground capitalize mb-2">
+                                  <p className="text-xs text-muted-foreground capitalize mb-1.5 line-clamp-1">
                                     {character.role}
                                   </p>
                                 )}
                                 
                                 {/* Current Outfit Info */}
                                 {character.currentOutfit && (
-                                  <div className="flex items-center gap-2">
-                                    <div className="flex items-center gap-1">
-                                      <Shirt className="h-3.5 w-3.5 text-muted-foreground" />
-                                      <span className="text-xs text-muted-foreground">
-                                        {typeof character.currentOutfit === 'string' 
-                                          ? character.currentOutfit 
-                                          : 'Custom outfit'}
-                                      </span>
-                                    </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <Shirt className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                    <span className="text-xs text-muted-foreground truncate">
+                                      {typeof character.currentOutfit === 'string' 
+                                        ? character.currentOutfit 
+                                        : 'Custom outfit'}
+                                    </span>
                                   </div>
                                 )}
                               </div>
