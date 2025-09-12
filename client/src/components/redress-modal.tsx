@@ -1046,7 +1046,7 @@ export function RedressModal({
   
   return (
     <ModalContainer open={open} onOpenChange={onOpenChange}>
-      <ModalContentComponent className={isMobile ? "max-h-[90vh] overflow-hidden" : "max-w-4xl max-h-[90vh] overflow-hidden"} data-testid="redress-modal">
+      <ModalContentComponent className={isMobile ? "max-h-[90vh] overflow-y-auto" : "max-w-4xl max-h-[90vh] overflow-y-auto"} data-testid="redress-modal">
         <ModalHeaderComponent className="border-b pb-4">
           <div className="flex items-center justify-between">
             <div>
@@ -1340,6 +1340,27 @@ export function RedressModal({
                   </p>
                 </div>
 
+                {/* Selected Characters Summary */}
+                <Card className="bg-primary/5 border-primary/20">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Users className="h-4 w-4 text-primary" />
+                      <h4 className="font-medium text-sm">Selected Characters ({selectedCharacters.length})</h4>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedCharacters.map((char) => (
+                        <Badge key={char.id} variant="secondary" className="flex items-center gap-1.5">
+                          <Avatar className="h-4 w-4">
+                            <AvatarImage src={char.referenceImageUrl || undefined} />
+                            <AvatarFallback className="text-xs">{char.name.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <span>{char.name}</span>
+                        </Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {/* Content Settings */}
                 <Card className="border-2 border-muted/50">
                   <CardHeader className="pb-3">
@@ -1367,12 +1388,16 @@ export function RedressModal({
                           <p className="text-xs text-muted-foreground">Only show general audience content</p>
                         </div>
                       </div>
-                      <Checkbox
-                        checked={safeMode}
-                        onCheckedChange={handleSafeModeToggle}
-                        data-testid="safe-mode-toggle"
-                        aria-describedby="safe-mode-description"
-                      />
+                      <div className="flex items-center">
+                        <Checkbox
+                          id="safe-mode-toggle"
+                          checked={safeMode}
+                          onCheckedChange={handleSafeModeToggle}
+                          data-testid="safe-mode-toggle"
+                          aria-describedby="safe-mode-description"
+                          className="w-5 h-5"
+                        />
+                      </div>
                     </div>
                     
                     {/* Age Verification Status */}
