@@ -51,3 +51,34 @@ Preferred communication style: Simple, everyday language.
 - **Component Composition**: Modular UI components with consistent design system
 - **Data Layer Abstraction**: Storage interface pattern for database operations
 - **Error Boundary**: Comprehensive error handling with user-friendly messages
+
+# Debugging Guide
+
+## Common Issues and Solutions
+
+### JSON Parsing Errors ("Unexpected token < in JSON")
+**Root Cause**: Double JSON parsing after `apiRequest()` calls
+**Pattern**: `const response = await apiRequest(...); const data = await response.json();`
+**Solution**: `apiRequest()` already returns parsed JSON, so use directly: `const data = await apiRequest(...);`
+**Files to Check**: Any component making API calls (profile.tsx, explore.tsx, templates.tsx, characters.tsx, editor.tsx)
+
+### Page Context Issues (Wrong Script Content in Generations)
+**Root Cause**: Database page numbering inconsistency where multiple pages have same `page_number`
+**Symptoms**: Generation uses Page 1 script content when on Page 2
+**Debug Steps**:
+1. Check browser console for 🔍 GENERATION DEBUG output
+2. Verify `currentPageNumber` matches expected page
+3. Check database: `SELECT id, page_number FROM pages WHERE project_id = 'PROJECT_ID' ORDER BY page_number;`
+**Solution**: Update incorrect page numbers: `UPDATE pages SET page_number = 2 WHERE id = 'PAGE_ID';`
+
+### Generation Context Debugging
+**Debug System**: Look for 🔍 GENERATION DEBUG logs in browser console showing:
+- `currentPageIndex`: Position in pages array (0-based)
+- `currentPageNumber`: Expected page number from database
+- `pagesArray`: All pages with their stored page numbers
+**Key Check**: Ensure `currentPageNumber` matches the UI display and `pagesArray` has sequential page numbers
+
+### Server vs Browser Logs
+**Server Logs**: Use `refresh_all_logs` tool for backend errors, API responses, database queries
+**Browser Console**: Check for frontend errors, generation debug output, network failures
+**Pattern**: "Failed to fetch" errors usually indicate JSON parsing issues in frontend code
