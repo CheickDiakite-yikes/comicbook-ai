@@ -96,7 +96,8 @@ class AIService {
       // Construct context-aware prompt
       const contextualPrompt = this.buildContextualPrompt(request);
       
-      const response = await apiRequest("POST", `${this.baseUrl}/generate-image`, {
+      // CRITICAL FIX: apiRequest already returns parsed JSON, don't parse again
+      const jsonData = await apiRequest("POST", `${this.baseUrl}/generate-image`, {
         prompt: contextualPrompt,
         panelId: request.panelId,
         projectContext: request.projectContext,
@@ -104,9 +105,7 @@ class AIService {
         styleOptions: request.styleOptions,
         panelContext: request.panelContext,
       });
-
-      // CRITICAL FIX: Parse the JSON response properly  
-      const jsonData = await response.json();
+      
       return jsonData as GenerateImageResponse;
     } catch (error) {
       console.error("Failed to generate panel image:", error);
@@ -130,16 +129,15 @@ class AIService {
     layoutId?: string
   ): Promise<Array<GenerateImageResponse>> {
     try {
-      const response = await apiRequest("POST", `${this.baseUrl}/generate-full-page`, {
+      // CRITICAL FIX: apiRequest already returns parsed JSON, don't parse again
+      const jsonData = await apiRequest("POST", `${this.baseUrl}/generate-full-page`, {
         projectContext,
         pageScript,
         panelLayout,
         currentPageId,
         layoutId,
       });
-
-      // CRITICAL FIX: Parse the JSON response properly and handle partial success
-      const jsonData = await response.json();
+      
       console.log("Full page response:", jsonData); // Debug logging
       
       if (!Array.isArray(jsonData)) {
@@ -172,9 +170,8 @@ class AIService {
    */
   async generateScript(request: GenerateScriptRequest): Promise<GenerateScriptResponse> {
     try {
-      const response = await apiRequest("POST", `${this.baseUrl}/generate-script`, request);
-      // CRITICAL FIX: Parse the JSON response properly
-      const jsonData = await response.json();
+      // CRITICAL FIX: apiRequest already returns parsed JSON, don't parse again  
+      const jsonData = await apiRequest("POST", `${this.baseUrl}/generate-script`, request);
       return jsonData as GenerateScriptResponse;
     } catch (error) {
       console.error("Failed to generate script:", error);
@@ -192,8 +189,9 @@ class AIService {
     error?: string;
   }> {
     try {
-      const response = await apiRequest("GET", `${this.baseUrl}/generation-status/${generationId}`);
-      return response as unknown as {
+      // CRITICAL FIX: apiRequest already returns parsed JSON
+      const jsonData = await apiRequest("GET", `${this.baseUrl}/generation-status/${generationId}`);
+      return jsonData as {
         status: "pending" | "generating" | "completed" | "failed";
         progress?: number;
         result?: GenerateImageResponse;
