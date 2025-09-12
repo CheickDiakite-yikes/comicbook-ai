@@ -1946,6 +1946,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI Redress API Routes (Authentication Required)
   // ========================================
 
+  // Get contextual outfit suggestions for panel
+  app.get("/api/panels/:panelId/outfit-suggestions", 
+    isAuthenticated,
+    async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const panelId = req.params.panelId;
+      const characterIds = req.query.characterIds as string[];
+      
+      console.log(`🎭 Getting contextual outfit suggestions for panel ${panelId}`);
+
+      // Verify panel exists and user owns it
+      const panel = await storage.getPanel(panelId);
+      if (!panel) {
+        return res.status(404).json({ message: "Panel not found" });
+      }
+
+      // Get the page to verify project ownership
+      const page = await storage.getPage(panel.pageId);
+      if (!page) {
+        return res.status(404).json({ message: "Page not found" });
+      }
+
+      const project = await storage.getProject(page.projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found or not owned by user" });
+      }
+
+      // Default to all project characters if none specified
+      let targetCharacterIds = characterIds;
+      if (!targetCharacterIds || targetCharacterIds.length === 0) {
+        const allCharacters = await storage.getProjectCharacters(project.id);
+        targetCharacterIds = allCharacters.map(c => c.id);
+      }
+
+      // Get contextual outfit suggestions
+      const suggestions = await redressService.getContextualOutfitSuggestions(
+        panelId,
+        targetCharacterIds
+      );
+
+      res.json({
+        panelId,
+        suggestions,
+        contextAnalysis: {
+          projectGenre: project.genre,
+          artStyle: project.artStyle,
+          pageScript: page.scriptSnippet?.substring(0, 200) + (page.scriptSnippet?.length > 200 ? '...' : ''),
+          panelPrompt: panel.prompt?.substring(0, 100) + (panel.prompt?.length > 100 ? '...' : ''),
+          characterCount: targetCharacterIds.length
+        }
+      });
+    } catch (error) {
+      console.error("🎭 Error getting outfit suggestions:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to get outfit suggestions";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
   // Create redress job for panel
   app.post("/api/panels/:panelId/redress", 
     isAuthenticated,

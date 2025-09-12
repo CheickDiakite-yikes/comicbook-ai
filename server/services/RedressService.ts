@@ -1,7 +1,8 @@
 import { randomUUID } from "crypto";
 import { ObjectStorageService } from "../objectStorage";
 import { storage } from "../storage";
-import type { RedressJob, InsertRedressJob, RedressRequest, RedressResponse } from "@shared/schema";
+import type { RedressJob, InsertRedressJob, RedressRequest, RedressResponse, StoryContext } from "@shared/schema";
+import { contextPromptBuilder, type OutfitSpecification, type CharacterData, type ContextualOutfitSuggestion } from "./ContextPromptBuilder";
 
 export interface ProcessingStep {
   step: string;
@@ -160,6 +161,9 @@ export class RedressService {
         })
       );
 
+      // Gather story context data if not provided in request
+      const storyContext = request.context || await this.gatherStoryContext(panelId, request.characters.map(c => c.characterId));
+
       // Create initial job record
       const jobData: InsertRedressJob = {
         userId,
@@ -197,7 +201,7 @@ export class RedressService {
       });
 
       // Start processing asynchronously
-      this.processRedressJob(actualJobId, jobData, characters, request)
+      this.processRedressJob(actualJobId, jobData, characters, request, storyContext)
         .catch(error => {
           console.error("🎭 Redress job failed:", actualJobId, error);
           this.updateJobStatus(actualJobId, "failed", 0, error.message);
@@ -240,7 +244,8 @@ export class RedressService {
     jobId: string,
     jobData: InsertRedressJob,
     characters: any[],
-    request: RedressRequest
+    request: RedressRequest,
+    storyContext?: StoryContext
   ) {
     try {
       console.log("🎭 Starting redress job processing:", jobId);
@@ -278,7 +283,8 @@ export class RedressService {
         clothingMask.maskUrl,
         characters,
         request.outfit,
-        request.strength
+        request.strength,
+        storyContext
       );
       
       await this.updateProcessingStep(jobId, "inpainting", "completed");
@@ -358,11 +364,38 @@ export class RedressService {
     maskUrl: string,
     characters: any[],
     outfit: any,
-    strength: number
+    strength: number,
+    storyContext?: StoryContext
   ) {
-    // Build prompt from outfit specifications and character traits
-    const prompt = this.buildInpaintingPrompt(outfit, characters);
-    const negativePrompt = this.buildNegativePrompt(characters);
+    // Convert characters to CharacterData format
+    const characterData: CharacterData[] = characters.map(char => ({
+      id: char.id,
+      name: char.name,
+      visualDescriptors: char.visualDescriptors,
+      alwaysTraits: char.alwaysTraits,
+      neverTraits: char.neverTraits,
+      currentOutfit: char.currentOutfit,
+      wardrobePresets: char.wardrobePresets
+    }));
+
+    // Convert outfit to OutfitSpecification format
+    const outfitSpec: OutfitSpecification = {
+      type: outfit.type,
+      style: outfit.style,
+      colors: outfit.colors,
+      description: outfit.description,
+      pattern: outfit.pattern,
+      fabric: outfit.fabric,
+      formality: outfit.formality,
+      modesty: outfit.modesty
+    };
+
+    // Build intelligent prompts using context
+    const prompt = contextPromptBuilder.buildContextualPrompt(outfitSpec, characterData, storyContext);
+    const negativePrompt = contextPromptBuilder.buildContextualNegativePrompt(characterData, storyContext);
+
+    console.log("🎭 Context-enhanced prompt:", prompt);
+    console.log("🎭 Context-enhanced negative prompt:", negativePrompt);
 
     return await this.inpainting.inpaint({
       imageUrl,
@@ -374,42 +407,132 @@ export class RedressService {
     });
   }
 
-  private buildInpaintingPrompt(outfit: any, characters: any[]): string {
-    let prompt = `${outfit.type} in ${outfit.style} style`;
-    
-    if (outfit.colors?.length) {
-      prompt += `, ${outfit.colors.join(' and ')} colors`;
-    }
-    
-    if (outfit.pattern) {
-      prompt += `, ${outfit.pattern} pattern`;
-    }
-    
-    if (outfit.fabric) {
-      prompt += `, made of ${outfit.fabric}`;
-    }
-    
-    // Add character visual descriptors
-    characters.forEach(char => {
-      if (char.visualDescriptors) {
-        prompt += `, ${char.visualDescriptors}`;
-      }
-    });
+  /**
+   * Gather comprehensive story context from database for intelligent outfit generation
+   */
+  private async gatherStoryContext(panelId: string, characterIds: string[]): Promise<StoryContext> {
+    try {
+      // Get panel data
+      const panel = await storage.getPanel(panelId);
+      if (!panel) throw new Error("Panel not found");
 
-    return prompt + ", high quality, detailed, photorealistic";
+      // Get page data
+      const page = await storage.getPage(panel.pageId);
+      if (!page) throw new Error("Page not found");
+
+      // Get project data
+      const project = await storage.getProject(page.projectId);
+      if (!project) throw new Error("Project not found");
+
+      // Get characters
+      const characters = await Promise.all(
+        characterIds.map(id => storage.getCharacter(id))
+      );
+
+      // Get structured script data if available
+      let scriptData = null;
+      try {
+        const structuredScript = await storage.getProjectStructuredScript(page.projectId);
+        if (structuredScript) {
+          // Find the script page that matches the current page number
+          const scriptPage = structuredScript.pages.find(sp => sp.pageNumber === page.pageNumber);
+          if (scriptPage) {
+            // Find the script panel that matches the current panel number
+            const scriptPanel = scriptPage.panels.find(sp => sp.panelNumber === panel.panelNumber);
+            scriptData = { scriptPage, scriptPanel };
+          }
+        }
+      } catch (error) {
+        console.log("🎭 No structured script data available:", error);
+      }
+
+      // Build context object
+      const context: StoryContext = {
+        // Project context
+        projectGenre: project.genre,
+        projectCanonRules: project.canonRules,
+        projectArtStyle: project.artStyle,
+
+        // Page context
+        pageScriptSnippet: page.scriptSnippet,
+        pageMood: scriptData?.scriptPage?.mood,
+        pageTimeOfDay: scriptData?.scriptPage?.timeOfDay,
+        pageLocation: scriptData?.scriptPage?.location,
+        pageWeatherConditions: scriptData?.scriptPage?.weatherConditions,
+
+        // Panel context
+        panelPrompt: panel.prompt,
+        panelLayout: page.layoutTemplate, // Using page layout as panel layout
+        panelAction: scriptData?.scriptPanel?.action,
+        panelMood: scriptData?.scriptPanel?.mood,
+        panelCameraAngle: scriptData?.scriptPanel?.cameraAngle,
+        panelShotType: scriptData?.scriptPanel?.shotType,
+
+        // Character context
+        characterCurrentOutfits: {},
+        characterAlwaysTraits: {},
+        characterNeverTraits: {},
+        characterWardrobePresets: {}
+      };
+
+      // Populate character-specific context
+      characters.forEach(char => {
+        if (char) {
+          if (context.characterCurrentOutfits) {
+            context.characterCurrentOutfits[char.id] = char.currentOutfit;
+          }
+          if (context.characterAlwaysTraits && char.alwaysTraits) {
+            context.characterAlwaysTraits[char.id] = char.alwaysTraits;
+          }
+          if (context.characterNeverTraits && char.neverTraits) {
+            context.characterNeverTraits[char.id] = char.neverTraits;
+          }
+          if (context.characterWardrobePresets) {
+            context.characterWardrobePresets[char.id] = char.wardrobePresets;
+          }
+        }
+      });
+
+      console.log("🎭 Gathered story context:", context);
+      return context;
+
+    } catch (error) {
+      console.error("🎭 Error gathering story context:", error);
+      // Return minimal context on error
+      return {};
+    }
   }
 
-  private buildNegativePrompt(characters: any[]): string {
-    let negativePrompt = "low quality, blurry, distorted, deformed";
-    
-    // Add character never traits
-    characters.forEach(char => {
-      if (char.neverTraits) {
-        negativePrompt += `, ${char.neverTraits}`;
-      }
-    });
+  /**
+   * Get contextual outfit suggestions for characters based on story context
+   */
+  async getContextualOutfitSuggestions(
+    panelId: string,
+    characterIds: string[]
+  ): Promise<ContextualOutfitSuggestion[]> {
+    try {
+      const storyContext = await this.gatherStoryContext(panelId, characterIds);
+      const characters = await Promise.all(
+        characterIds.map(id => storage.getCharacter(id))
+      );
 
-    return negativePrompt;
+      const characterData: CharacterData[] = characters
+        .filter(char => char !== null)
+        .map(char => ({
+          id: char.id,
+          name: char.name,
+          visualDescriptors: char.visualDescriptors,
+          alwaysTraits: char.alwaysTraits,
+          neverTraits: char.neverTraits,
+          currentOutfit: char.currentOutfit,
+          wardrobePresets: char.wardrobePresets
+        }));
+
+      return contextPromptBuilder.suggestContextualOutfits(characterData, storyContext);
+    } catch (error) {
+      console.error("🎭 Error getting contextual suggestions:", error);
+      return [];
+    }
   }
 
   private mapClothingTypeToRegion(clothingType: string): string {

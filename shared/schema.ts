@@ -448,6 +448,35 @@ export type ContentRating = z.infer<typeof contentRatingSchema>;
 export const presetCategorySchema = z.enum(["Basic", "Comedy", "Cosplay", "Professional", "Seasonal", "Adult"]);
 export type PresetCategory = z.infer<typeof presetCategorySchema>;
 
+// Story context schemas for intelligent outfit generation
+export const storyContextSchema = z.object({
+  // Project context for style consistency
+  projectGenre: z.string().max(500).optional(), // AI-enhanced detailed genre
+  projectCanonRules: z.string().max(2000).optional(), // Project canon rules
+  projectArtStyle: z.string().max(200).optional(), // Project art style
+  
+  // Page context for scene understanding
+  pageScriptSnippet: z.string().max(1000).optional(), // Scene script snippet
+  pageMood: z.string().max(100).optional(), // Page mood (tense, lighthearted, etc.)
+  pageTimeOfDay: z.string().max(100).optional(), // Time setting
+  pageLocation: z.string().max(200).optional(), // Scene location
+  pageWeatherConditions: z.string().max(100).optional(), // Weather conditions
+  
+  // Panel context for specific scene requirements
+  panelPrompt: z.string().max(1000).optional(), // Current panel prompt
+  panelLayout: z.string().max(100).optional(), // Panel layout type
+  panelAction: z.string().max(500).optional(), // What happens in this panel
+  panelMood: z.string().max(100).optional(), // Panel-specific mood
+  panelCameraAngle: z.string().max(100).optional(), // Camera angle (close-up, wide-shot, etc.)
+  panelShotType: z.string().max(100).optional(), // Shot type (establishing, reaction, etc.)
+  
+  // Character context for consistency
+  characterCurrentOutfits: z.record(z.string(), z.any()).optional(), // Map of characterId -> current outfit
+  characterAlwaysTraits: z.record(z.string(), z.string().max(500)).optional(), // Map of characterId -> always traits
+  characterNeverTraits: z.record(z.string(), z.string().max(500)).optional(), // Map of characterId -> never traits
+  characterWardrobePresets: z.record(z.string(), z.any()).optional(), // Map of characterId -> wardrobe presets
+}).optional();
+
 // Redress request/response schemas
 export const redressRequestSchema = z.object({
   characters: z.array(z.object({
@@ -475,6 +504,8 @@ export const redressRequestSchema = z.object({
     formality: z.number().min(0).max(100).optional(), // 0=very casual, 100=very formal
     modesty: z.number().min(0).max(100).optional(), // 0=revealing, 100=conservative
   }),
+  // Story context for intelligent outfit generation
+  context: storyContextSchema,
   // SECURITY: Server validates these fields to enforce content restrictions
   presetId: z.string().max(100).optional(), // ID of selected preset (if using preset)
   presetRating: contentRatingSchema.optional(), // Content rating of the preset
@@ -532,6 +563,9 @@ export type InsertPage = z.infer<typeof insertPageSchema>;
 export type Page = typeof pages.$inferSelect;
 export type InsertPanel = z.infer<typeof insertPanelSchema>;
 export type Panel = typeof panels.$inferSelect;
+
+// Story context types
+export type StoryContext = z.infer<typeof storyContextSchema>;
 
 // Structured Script types
 export type StructuredScript = typeof structuredScripts.$inferSelect;

@@ -69,6 +69,28 @@ import type { Character, Panel } from "@shared/schema";
 // Content rating types
 type ContentRating = "General" | "Mature" | "Adult";
 
+// Add interface for contextual suggestions
+interface ContextualSuggestion {
+  type: string;
+  style: string;
+  colors: string[];
+  reasoning: string;
+  confidence: number;
+  tags: string[];
+}
+
+interface OutfitSuggestionsResponse {
+  panelId: string;
+  suggestions: ContextualSuggestion[];
+  contextAnalysis: {
+    projectGenre?: string;
+    artStyle?: string;
+    pageScript?: string;
+    panelPrompt?: string;
+    characterCount: number;
+  };
+}
+
 // Outfit preset with enhanced structure
 interface OutfitPreset {
   id: string;
@@ -748,6 +770,8 @@ export function RedressModal({
         presetId: preset?.id,
         presetRating: preset?.rating,
         presetCategory: preset?.category,
+        // Include context data for intelligent AI prompts (server gathers if not provided)
+        context: undefined, // Let server gather context automatically
       };
       
       const response = await apiRequest("POST", `/api/panels/${panelId}/redress`, requestData);
@@ -797,6 +821,23 @@ export function RedressModal({
     },
   });
 
+  // Query for contextual outfit suggestions
+  const { data: contextualSuggestions, isLoading: isLoadingSuggestions } = useQuery({
+    queryKey: ['/api/panels', panelId, 'outfit-suggestions', characters.map(c => c.id)],
+    queryFn: async () => {
+      const characterIds = characters.map(c => c.id);
+      const params = new URLSearchParams();
+      characterIds.forEach(id => params.append('characterIds', id));
+      
+      const response = await fetch(`/api/panels/${panelId}/outfit-suggestions?${params}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch outfit suggestions');
+      }
+      return response.json() as Promise<OutfitSuggestionsResponse>;
+    },
+    enabled: open && !!panelId && characters.length > 0,
+  });
+
   // Apply mutation (3 credits)
   const applyMutation = useMutation({
     mutationFn: async (data: RedressFormData) => {
@@ -810,6 +851,8 @@ export function RedressModal({
         presetId: preset?.id,
         presetRating: preset?.rating,
         presetCategory: preset?.category,
+        // Include context data for intelligent AI prompts (server gathers if not provided)
+        context: undefined, // Let server gather context automatically
       };
       
       const response = await apiRequest("POST", `/api/panels/${panelId}/redress`, requestData);
@@ -1383,11 +1426,133 @@ export function RedressModal({
                   </CardContent>
                 </Card>
 
-                <Tabs defaultValue="presets" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2" data-testid="outfit-tabs">
+                <Tabs defaultValue="suggestions" className="w-full">
+                  <TabsList className="grid w-full grid-cols-3" data-testid="outfit-tabs">
+                    <TabsTrigger value="suggestions" data-testid="suggestions-tab">
+                      <Settings className="w-4 h-4 mr-1" />
+                      AI Suggestions
+                    </TabsTrigger>
                     <TabsTrigger value="presets" data-testid="presets-tab">Outfit Presets</TabsTrigger>
                     <TabsTrigger value="custom" data-testid="custom-tab">Custom Outfit</TabsTrigger>
                   </TabsList>
+
+                  {/* AI-Powered Contextual Suggestions */}
+                  <TabsContent value="suggestions" className="space-y-4">
+                    <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
+                      <CardHeader>
+                        <CardTitle className="flex items-center text-blue-700 dark:text-blue-300">
+                          <Settings className="w-5 h-5 mr-2" />
+                          Context-Aware Suggestions
+                        </CardTitle>
+                        <CardDescription className="text-blue-600 dark:text-blue-400">
+                          AI-powered outfit suggestions based on your story context, character traits, and scene requirements.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {isLoadingSuggestions ? (
+                          <div className="flex items-center justify-center py-8">
+                            <Loader2 className="h-8 w-8 animate-spin" />
+                            <span className="ml-2">Analyzing story context...</span>
+                          </div>
+                        ) : contextualSuggestions?.suggestions?.length > 0 ? (
+                          <div className="space-y-4">
+                            {/* Context Analysis Summary */}
+                            {contextualSuggestions.contextAnalysis && (
+                              <div className="bg-white/50 dark:bg-gray-900/50 rounded-lg p-3 text-sm">
+                                <h4 className="font-medium mb-2 text-gray-700 dark:text-gray-300">Story Context Analysis:</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-400">
+                                  {contextualSuggestions.contextAnalysis.projectGenre && (
+                                    <div><strong>Genre:</strong> {contextualSuggestions.contextAnalysis.projectGenre}</div>
+                                  )}
+                                  {contextualSuggestions.contextAnalysis.artStyle && (
+                                    <div><strong>Art Style:</strong> {contextualSuggestions.contextAnalysis.artStyle}</div>
+                                  )}
+                                  {contextualSuggestions.contextAnalysis.pageScript && (
+                                    <div><strong>Scene:</strong> {contextualSuggestions.contextAnalysis.pageScript}</div>
+                                  )}
+                                  {contextualSuggestions.contextAnalysis.panelPrompt && (
+                                    <div><strong>Panel:</strong> {contextualSuggestions.contextAnalysis.panelPrompt}</div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Contextual Suggestions Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {contextualSuggestions.suggestions.slice(0, 6).map((suggestion, index) => (
+                                <Card 
+                                  key={index} 
+                                  className="cursor-pointer hover:shadow-md transition-shadow border-l-4 border-l-blue-500"
+                                  onClick={() => {
+                                    // Apply suggestion to form
+                                    form.setValue("outfit.type", suggestion.type);
+                                    form.setValue("outfit.style", suggestion.style);
+                                    form.setValue("outfit.colors", suggestion.colors.slice(0, 3)); // Limit to 3 colors
+                                    setSelectedColors(suggestion.colors.slice(0, 3));
+                                  }}
+                                  data-testid={`suggestion-${index}`}
+                                >
+                                  <CardContent className="p-4">
+                                    <div className="flex items-start justify-between mb-2">
+                                      <div className="flex-1">
+                                        <h4 className="font-medium text-sm capitalize">{suggestion.type.replace('_', ' ')}</h4>
+                                        <p className="text-xs text-gray-600 dark:text-gray-400 capitalize">{suggestion.style}</p>
+                                      </div>
+                                      <div className="flex items-center text-xs">
+                                        <div className="bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-2 py-1 rounded">
+                                          {suggestion.confidence}% match
+                                        </div>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Color Preview */}
+                                    <div className="flex gap-1 mb-2">
+                                      {suggestion.colors.slice(0, 4).map((color, colorIndex) => (
+                                        <div
+                                          key={colorIndex}
+                                          className="w-4 h-4 rounded border border-gray-300 dark:border-gray-600"
+                                          style={{ backgroundColor: color }}
+                                          title={color}
+                                        />
+                                      ))}
+                                      {suggestion.colors.length > 4 && (
+                                        <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                                          +{suggestion.colors.length - 4}
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    <p className="text-xs text-gray-700 dark:text-gray-300 mb-2">{suggestion.reasoning}</p>
+                                    
+                                    {/* Tags */}
+                                    <div className="flex flex-wrap gap-1">
+                                      {suggestion.tags.slice(0, 3).map((tag, tagIndex) => (
+                                        <Badge key={tagIndex} variant="secondary" className="text-xs px-1 py-0">
+                                          {tag}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </div>
+
+                            {contextualSuggestions.suggestions.length > 6 && (
+                              <div className="text-center text-xs text-gray-500 dark:text-gray-400">
+                                Showing top 6 suggestions based on story context
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                            <Settings className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            <p>No contextual suggestions available</p>
+                            <p className="text-xs mt-1">Ensure characters are selected and story context is available</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
 
                   <TabsContent value="presets" className="space-y-4">
                     {filteredPresets.length > 0 ? (
