@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { comicLayouts } from "@/lib/comic-layouts";
 import { generateEnhancedPanelContext, getPanelAspectRatioInfo, calculateOptimalDimensions } from "@/lib/aspect-ratio-utils";
+import CharacterDressRoom from "@/components/character-dress-room";
 import type { Project, Page, Panel, Character } from "@shared/schema";
 
 interface PanelEditorProps {
@@ -669,6 +670,19 @@ export default function PanelEditor({
         </div>
         </div>
       </aside>
+
+      {/* Character Dress Room Modal */}
+      {selectedCharacterForDressing && (
+        <CharacterDressRoom
+          character={selectedCharacterForDressing}
+          project={project}
+          currentPanel={currentPanelData || undefined}
+          selectedPanelNumber={selectedPanel}
+          isOpen={!!selectedCharacterForDressing}
+          onClose={() => setSelectedCharacterForDressing(null)}
+          onCharacterRedressed={onImageGenerated}
+        />
+      )}
     </>
   );
 }
