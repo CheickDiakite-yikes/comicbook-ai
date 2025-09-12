@@ -81,6 +81,7 @@ export interface IStorage {
 
   // Panel operations
   createPanel(panel: InsertPanel): Promise<Panel>;
+  getPanel(id: string): Promise<Panel | undefined>;
   getPagePanels(pageId: string): Promise<Panel[]>;
   updatePanel(id: string, updates: Partial<InsertPanel>): Promise<Panel | undefined>;
   deletePanel(id: string): Promise<boolean>;
@@ -375,6 +376,10 @@ export class MemStorage implements IStorage {
     return panel;
   }
 
+  async getPanel(id: string): Promise<Panel | undefined> {
+    return this.panels.get(id);
+  }
+
   async getPagePanels(pageId: string): Promise<Panel[]> {
     return Array.from(this.panels.values())
       .filter(p => p.pageId === pageId)
@@ -593,7 +598,7 @@ export class MemStorage implements IStorage {
   async getUserRedressJobs(userId: string, limit: number = 50): Promise<RedressJob[]> {
     const userJobs = Array.from(this.redressJobs.values())
       .filter(job => job.userId === userId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .sort((a, b) => (b.createdAt || new Date()).getTime() - (a.createdAt || new Date()).getTime())
       .slice(0, limit);
     return userJobs;
   }
@@ -861,6 +866,15 @@ export class DatabaseStorage implements IStorage {
   // Panel operations
   async createPanel(panelData: InsertPanel): Promise<Panel> {
     const [panel] = await db.insert(panels).values(panelData).returning();
+    return panel;
+  }
+
+  async getPanel(id: string): Promise<Panel | undefined> {
+    const [panel] = await db
+      .select()
+      .from(panels)
+      .where(eq(panels.id, id))
+      .limit(1);
     return panel;
   }
 

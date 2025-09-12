@@ -79,10 +79,11 @@ class MockClothingMaskProvider implements ClothingMaskProvider {
   async generateClothingMask(imageUrl: string, targetRegion: string) {
     // Mock implementation - would use human parsing model
     await new Promise(resolve => setTimeout(resolve, 2000));
-    const objectStorage = new ObjectStorageService();
     
-    // In real implementation, this would generate actual clothing masks
-    const mockMaskUrl = "/objects/public/mock_clothing_mask.png";
+    // Create a placeholder mask image that will trigger the fallback SVG system
+    // This ensures the URL exists and serves proper placeholder content
+    const timestamp = Date.now();
+    const mockMaskUrl = `/generated/mask_${targetRegion}_${timestamp}.png`;
     
     return {
       maskUrl: mockMaskUrl,
@@ -103,9 +104,10 @@ class MockInpaintingProvider implements InpaintingProvider {
     // Mock implementation - would use SDXL inpainting
     await new Promise(resolve => setTimeout(resolve, 3000));
     
-    // In real implementation, this would return actual inpainted image
+    // Create a placeholder result image that will trigger the fallback SVG system
+    // This ensures the URL exists and serves proper placeholder content
     const timestamp = Date.now();
-    const mockResultUrl = `/objects/public/redress_result_${timestamp}.png`;
+    const mockResultUrl = `/generated/redress_result_${timestamp}.png`;
     
     return {
       resultUrl: mockResultUrl,
@@ -134,7 +136,6 @@ export class RedressService {
     panelId: string,
     request: RedressRequest
   ): Promise<RedressResponse> {
-    const jobId = randomUUID();
     
     try {
       // Get panel data
@@ -183,7 +184,7 @@ export class RedressService {
       const actualJobId = savedJob.id; // Use the actual database-generated job ID
       console.log("🎭 Created redress job in database:", actualJobId);
 
-      // Store active job data for processing
+      // Store active job data for processing (for current session only)
       this.activeJobs.set(actualJobId, {
         jobId: actualJobId,
         userId,
@@ -226,7 +227,7 @@ export class RedressService {
     return {
       jobId: dbJob.id,
       status: dbJob.status as "queued" | "processing" | "completed" | "failed",
-      progress: dbJob.progress,
+      progress: dbJob.progress || 0,
       previewUrl: dbJob.previewImageUrl || undefined,
       finalUrl: dbJob.finalImageUrl || undefined,
       errorMessage: dbJob.errorMessage || undefined,
@@ -312,7 +313,7 @@ export class RedressService {
 
     } catch (error) {
       console.error("🎭 Redress job processing failed:", jobId, error);
-      await this.updateJobStatus(jobId, "failed", 0, error.message);
+      await this.updateJobStatus(jobId, "failed", 0, error instanceof Error ? error.message : String(error));
       throw error;
     }
   }
@@ -429,8 +430,9 @@ export class RedressService {
 
   private async saveResultImage(resultUrl: string, jobId: string): Promise<string> {
     // In real implementation, would save the processed image to object storage
+    // For now, return the mock result URL which will trigger the fallback placeholder system
     const timestamp = Date.now();
-    const savedUrl = `/objects/public/redress_final_${jobId}_${timestamp}.png`;
+    const savedUrl = `/generated/redress_final_${jobId}_${timestamp}.png`;
     console.log("🎭 Saving result image:", savedUrl);
     return savedUrl;
   }

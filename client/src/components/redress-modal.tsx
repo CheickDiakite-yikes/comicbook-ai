@@ -197,17 +197,35 @@ export function RedressModal({
     },
   });
 
-  // Poll job status
-  const { data: jobStatus } = useQuery<RedressJob>({
-    queryKey: ["/api/redress", pollingJobId],
-    enabled: !!pollingJobId,
+  // Poll job status with exponential backoff and error handling
+  const { data: jobStatus, error: jobError, refetch: refetchJobStatus } = useQuery<RedressJob>({
+    queryKey: ["redress-job", pollingJobId],
+    enabled: !!pollingJobId && open, // Only poll when modal is open
     refetchInterval: (data) => {
-      if (data?.status === "completed" || data?.status === "failed") {
-        return false; // Stop polling
+      // Stop polling on completion or failure
+      if (data?.state === "error" || data?.status === "completed" || data?.status === "failed") {
+        return false;
       }
+      
       return 2000; // Poll every 2 seconds
     },
+    retry: (failureCount, error) => {
+      // Retry up to 3 times, but not for 404s (job not found)
+      if (error && 'status' in error && error.status === 404) {
+        return false;
+      }
+      return failureCount < 3;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
+
+  // Cleanup polling when modal closes
+  useEffect(() => {
+    if (!open) {
+      setPollingJobId(null);
+      setCurrentJob(null);
+    }
+  }, [open]);
 
   // Update current job when polling data changes
   useEffect(() => {
@@ -233,6 +251,24 @@ export function RedressModal({
       }
     }
   }, [jobStatus, onSuccess, toast]);
+
+  // Handle polling errors
+  useEffect(() => {
+    if (jobError && pollingJobId) {
+      console.error("Job polling error:", jobError);
+      // Don't show error toast immediately - let retry logic handle it
+      // Only show if all retries failed
+      if (jobError && 'status' in jobError && jobError.status === 404) {
+        setPollingJobId(null);
+        setCurrentJob(null);
+        toast({
+          title: "Job Not Found",
+          description: "The redress job could not be found. It may have expired.",
+          variant: "destructive",
+        });
+      }
+    }
+  }, [jobError, pollingJobId, toast]);
 
   // Preview mutation (1 credit)
   const previewMutation = useMutation({
@@ -826,6 +862,38 @@ export function RedressModal({
                         {currentJob.errorMessage && (
                           <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                             <p className="text-sm text-red-600" data-testid="error-message">{currentJob.errorMessage}</p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                // Reset job and allow retry
+                                setCurrentJob(null);
+                                setPollingJobId(null);
+                                setCurrentStep("outfit");
+                              }}
+                              className="mt-2"
+                              data-testid="retry-button"
+                            >
+                              <RefreshCw className="mr-2 h-4 w-4" />
+                              Try Again
+                            </Button>
+                          </div>
+                        )}
+
+                        {/* Polling Error Message */}
+                        {jobError && pollingJobId && (
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                            <p className="text-sm text-yellow-600">Connection issue while checking job status...</p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => refetchJobStatus()}
+                              className="mt-2"
+                              data-testid="retry-polling-button"
+                            >
+                              <RefreshCw className="mr-2 h-4 w-4" />
+                              Retry
+                            </Button>
                           </div>
                         )}
                       </div>
