@@ -123,8 +123,7 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
         // Keep the AI-enhanced genre in the genre field
       }
 
-      const projectResponse = await apiRequest("POST", "/api/projects", projectData);
-      const project = await projectResponse.json() as Project;
+      const project = await apiRequest("POST", "/api/projects", projectData) as Project;
       
       // Then create the characters
       const validCharacters = characters.filter(char => char.name && char.role);
