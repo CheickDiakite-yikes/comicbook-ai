@@ -58,8 +58,8 @@ export default function Dashboard() {
       const allCharacters = [];
       for (const project of projects) {
         try {
-          const response = await apiRequest("GET", `/api/projects/${project.id}/characters`, undefined);
-          const characters = await response.json();
+          // CRITICAL FIX: apiRequest already returns parsed JSON, don't parse again
+          const characters = await apiRequest("GET", `/api/projects/${project.id}/characters`, undefined);
           allCharacters.push(...characters.map((char: any) => ({ ...char, projectId: project.id })));
         } catch (error) {
           console.error(`Failed to fetch characters for project ${project.id}:`, error);
@@ -77,8 +77,8 @@ export default function Dashboard() {
       const allPages = [];
       for (const project of projects) {
         try {
-          const response = await apiRequest("GET", `/api/projects/${project.id}/pages`, undefined);
-          const pages = await response.json();
+          // CRITICAL FIX: apiRequest already returns parsed JSON, don't parse again
+          const pages = await apiRequest("GET", `/api/projects/${project.id}/pages`, undefined);
           allPages.push(...pages.map((page: any) => ({ ...page, projectId: project.id })));
         } catch (error) {
           console.error(`Failed to fetch pages for project ${project.id}:`, error);
@@ -117,8 +117,8 @@ export default function Dashboard() {
   // Generate cover art mutation
   const generateCoverArtMutation = useMutation({
     mutationFn: async (projectId: string) => {
-      const response = await apiRequest("POST", `/api/projects/${projectId}/generate-cover-art`, {});
-      return response.json();
+      // CRITICAL FIX: apiRequest already returns parsed JSON, don't parse again
+      return await apiRequest("POST", `/api/projects/${projectId}/generate-cover-art`, {});
     },
     onMutate: (projectId: string) => {
       setGeneratingCoverArt(projectId);
