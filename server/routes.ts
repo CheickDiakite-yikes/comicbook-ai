@@ -577,6 +577,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Project not found" });
       }
 
+      // Find the current panel image to edit
+      let currentPanelImage: string | undefined;
+      try {
+        const projectPages = await storage.getProjectPages(projectId);
+        for (const page of projectPages) {
+          const pagePanels = await storage.getPagePanels(page.id);
+          const targetPanel = pagePanels.find(p => p.panelNumber === panelId);
+          if (targetPanel && targetPanel.imageUrl) {
+            currentPanelImage = targetPanel.imageUrl;
+            break;
+          }
+        }
+      } catch (error) {
+        console.warn("Could not find current panel image, will generate new image instead:", error);
+      }
+
       // Verify user ownership
       const userId = getUserId(req.user);
       if (project.userId !== userId) {
@@ -605,10 +621,11 @@ Redress this character in the specified outfit while maintaining their core visu
         artStyle: project.artStyle || 'Comic Book (Classic)'
       };
 
-      // Generate the redressed character image
+      // Generate the redressed character image (edit existing panel if available)
       const result = await geminiService.generatePanelImage({
         prompt: characterPrompt,
         panelId: panelId,
+        sourceImageUrl: currentPanelImage, // Pass current panel image for editing
         projectContext: projectContext,
         characterContext: [{
           name: character.name,

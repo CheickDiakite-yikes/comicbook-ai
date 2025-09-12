@@ -13,6 +13,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 export interface GenerateImageRequest {
   prompt: string;
   panelId: string | number;
+  sourceImageUrl?: string; // For image editing - the existing panel image
   projectContext: {
     title: string;
     genre?: string;
@@ -207,18 +208,65 @@ export class GeminiService {
     }
   }
   /**
-   * Generate an image for a comic panel using Gemini's image generation
+   * Helper method to download image from URL and convert to base64
+   */
+  private async downloadImageAsBase64(imageUrl: string): Promise<{ data: string; mimeType: string }> {
+    try {
+      const response = await fetch(imageUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to download image: ${response.statusText}`);
+      }
+      
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const base64Data = buffer.toString('base64');
+      
+      // Determine MIME type from content type or file extension
+      const contentType = response.headers.get('content-type') || 'image/png';
+      
+      return {
+        data: base64Data,
+        mimeType: contentType
+      };
+    } catch (error) {
+      console.error('Error downloading image:', error);
+      throw new Error('Failed to download source image for editing');
+    }
+  }
+
+  /**
+   * Generate an image for a comic panel using Gemini's image generation or editing
    */
   async generatePanelImage(request: GenerateImageRequest): Promise<GenerateImageResponse> {
     try {
       // Build context-aware prompt
       const contextualPrompt = this.buildContextualPrompt(request);
       
-      console.log(`Generating image for panel ${request.panelId} with prompt: ${contextualPrompt}`);
+      console.log(`${request.sourceImageUrl ? 'Editing' : 'Generating'} image for panel ${request.panelId} with prompt: ${contextualPrompt}`);
+
+      let contentParts: any[];
+      
+      if (request.sourceImageUrl) {
+        // Image editing mode - include the source image
+        const imageData = await this.downloadImageAsBase64(request.sourceImageUrl);
+        
+        contentParts = [
+          {
+            inlineData: {
+              mimeType: imageData.mimeType,
+              data: imageData.data,
+            },
+          },
+          { text: contextualPrompt }
+        ];
+      } else {
+        // Text-to-image generation mode
+        contentParts = [{ text: contextualPrompt }];
+      }
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-image-preview",
-        contents: contextualPrompt,
+        contents: contentParts,
       });
 
       // Process the response to extract image data
