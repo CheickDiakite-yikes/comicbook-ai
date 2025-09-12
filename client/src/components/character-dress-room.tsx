@@ -137,6 +137,11 @@ export default function CharacterDressRoom({
       return response;
     },
     onSuccess: (data) => {
+      // Debug: Log the actual response data
+      console.log("🎯 FRONTEND: Redress response received:", data);
+      console.log("🎯 FRONTEND: Response type:", typeof data);
+      console.log("🎯 FRONTEND: Response keys:", data && typeof data === 'object' ? Object.keys(data) : 'not an object');
+      
       // Check if the operation actually succeeded
       if (data && typeof data === 'object' && 'status' in data && data.status === 'completed' && 'imageUrl' in data && data.imageUrl) {
         toast({
