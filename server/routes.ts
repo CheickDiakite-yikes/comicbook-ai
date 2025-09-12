@@ -577,20 +577,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Project not found" });
       }
 
-      // Find the current panel image to edit
+      // Find the current panel by database ID to edit
       let currentPanelImage: string | undefined;
+      let targetPanelId: string | undefined;
       try {
         const projectPages = await storage.getProjectPages(projectId);
         for (const page of projectPages) {
           const pagePanels = await storage.getPagePanels(page.id);
-          const targetPanel = pagePanels.find(p => p.panelNumber === panelId);
-          if (targetPanel && targetPanel.imageUrl) {
+          const targetPanel = pagePanels.find(p => p.id === panelId);
+          if (targetPanel) {
+            targetPanelId = targetPanel.id;
             currentPanelImage = targetPanel.imageUrl;
             break;
           }
         }
       } catch (error) {
         console.warn("Could not find current panel image, will generate new image instead:", error);
+      }
+
+      // If no panel found by database ID, return error
+      if (!targetPanelId) {
+        return res.status(404).json({ 
+          status: "failed",
+          message: "Panel not found with the provided ID" 
+        });
       }
 
       // Verify user ownership
@@ -688,12 +698,14 @@ Redress this character in the specified outfit while maintaining their core visu
       // Update the panel with the new character image if generation succeeded
       if (result.status === "completed" && result.imageUrl) {
         try {
-          await storage.updatePanel(panelId, {
+          // CRITICAL FIX: Use targetPanelId (database ID) instead of panelId (panelNumber)
+          // Only update imageUrl field to preserve existing panel data (chat bubbles, overlays, etc.)
+          await storage.updatePanel(targetPanelId, {
             imageUrl: result.imageUrl,
             isGenerated: true,
             generationStatus: "completed"
           });
-          console.log(`✅ Panel ${panelId} updated with new character image: ${result.imageUrl}`);
+          console.log(`✅ Panel ${targetPanelId} updated with new character image: ${result.imageUrl}`);
         } catch (updateError) {
           console.error("⚠️ Failed to update panel with new image:", updateError);
           // Continue - the image was generated successfully even if database update failed

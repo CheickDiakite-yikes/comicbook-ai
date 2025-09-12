@@ -24,6 +24,7 @@ interface CharacterDressRoomProps {
   project: Project;
   currentPanel?: Panel;
   selectedPanelNumber?: number | null;
+  selectedPanelId?: string | null;
   isOpen: boolean;
   onClose: () => void;
   onCharacterRedressed?: (panelId: number, imageUrl: string) => void;
@@ -34,6 +35,7 @@ export default function CharacterDressRoom({
   project,
   currentPanel,
   selectedPanelNumber,
+  selectedPanelId,
   isOpen,
   onClose,
   onCharacterRedressed
@@ -109,8 +111,9 @@ export default function CharacterDressRoom({
   // Character redressing mutation
   const redressCharacterMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedPanelNumber) {
-        throw new Error("No panel selected for character redressing");
+      // CRITICAL FIX: Use database panel ID instead of visual panel number
+      if (!selectedPanelId) {
+        throw new Error("No panel ID selected for character redressing");
       }
 
       // Build the outfit description
@@ -133,9 +136,10 @@ export default function CharacterDressRoom({
         }
       }
 
+      // CRITICAL FIX: Use selectedPanelId (database ID) instead of selectedPanelNumber
       const response = await apiRequest("POST", "/api/redress-character", {
         characterId: character.id,
-        panelId: selectedPanelNumber,
+        panelId: selectedPanelId,
         projectId: project.id,
         outfitDescription,
         outfitType,
@@ -189,7 +193,8 @@ export default function CharacterDressRoom({
   });
 
   const handleRedress = () => {
-    if (!selectedPanelNumber) {
+    // CRITICAL FIX: Check for database panel ID instead of visual panel number
+    if (!selectedPanelId) {
       toast({
         title: "No panel selected",
         description: "Please select a panel before redressing the character.",
@@ -374,7 +379,7 @@ export default function CharacterDressRoom({
           </Button>
           <Button 
             onClick={handleRedress}
-            disabled={redressCharacterMutation.isPending || !selectedPanelNumber}
+            disabled={redressCharacterMutation.isPending || !selectedPanelId}
             data-testid="button-redress-character"
           >
             {redressCharacterMutation.isPending ? (

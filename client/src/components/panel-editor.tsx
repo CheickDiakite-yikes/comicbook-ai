@@ -678,6 +678,7 @@ export default function PanelEditor({
           project={project}
           currentPanel={currentPanelData || undefined}
           selectedPanelNumber={selectedPanel}
+          selectedPanelId={currentPanelData?.id || null}
           isOpen={!!selectedCharacterForDressing}
           onClose={() => setSelectedCharacterForDressing(null)}
           onCharacterRedressed={onImageGenerated}
