@@ -541,6 +541,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Character redressing endpoint
+  app.post('/api/redress-character',
+    isAuthenticated,
+    requireCredits({
+      operationType: "panel_generation",
+      getResourceId: (req: any) => req.body.panelId,
+      getMetadata: (req) => createOperationMetadata(req, { 
+        characterId: req.body.characterId,
+        outfitType: req.body.outfitType,
+        panelId: req.body.panelId 
+      })
+    }),
+    async (req: any, res) => {
+    try {
+      const { 
+        characterId, 
+        panelId, 
+        projectId, 
+        outfitDescription, 
+        outfitType, 
+        clothingStyle, 
+        colorScheme, 
+        occasion 
+      } = req.body;
+
+      // Get character and project details for context
+      const character = await storage.getCharacter(characterId);
+      const project = await storage.getProject(projectId);
+
+      if (!character) {
+        return res.status(404).json({ message: "Character not found" });
+      }
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Verify user ownership
+      const userId = getUserId(req.user);
+      if (project.userId !== userId) {
+        return res.status(403).json({ message: "Unauthorized access to project" });
+      }
+
+      // Build enhanced character prompt with outfit context
+      const characterPrompt = `Character: ${character.name} ${character.role ? `(${character.role})` : ''}
+Visual Description: ${character.visualDescriptors || 'Standard appearance'}
+Always Traits: ${character.alwaysTraits || 'None specified'}
+Never Traits: ${character.neverTraits || 'None specified'}
+Color Scheme: ${character.colorScheme || 'Default colors'}
+
+NEW OUTFIT: ${outfitDescription}
+Style: ${clothingStyle}
+Occasion: ${occasion}
+Colors: ${colorScheme !== 'character-default' ? colorScheme : character.colorScheme || 'default colors'}
+
+Redress this character in the specified outfit while maintaining their core visual identity and traits.`;
+
+      // Build project context for consistent world-building
+      const projectContext = {
+        title: project.title,
+        description: project.description || undefined,
+        genre: project.genre || undefined,
+        artStyle: project.artStyle || 'Comic Book (Classic)'
+      };
+
+      // Generate the redressed character image
+      const result = await geminiService.generatePanelImage({
+        prompt: characterPrompt,
+        panelId: panelId,
+        projectContext: projectContext,
+        characterContext: [{
+          name: character.name,
+          role: character.role || '',
+          visualDescriptors: character.visualDescriptors || ''
+        }],
+        styleOptions: {
+          artStyle: project.artStyle || 'Comic Book (Classic)'
+        },
+        panelContext: undefined,
+      });
+
+      // Update the panel with the new character image if generation succeeded
+      if (result.status === "completed" && result.imageUrl) {
+        await storage.updatePanel(panelId, {
+          imageUrl: result.imageUrl,
+          isGenerated: true,
+          generationStatus: "completed"
+        });
+      }
+      
+      res.json({
+        ...result,
+        message: "Character redressed successfully",
+        characterName: character.name,
+        outfitDescription: outfitDescription
+      });
+    } catch (error) {
+      console.error("Error redressing character:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to redress character";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
   // Background Generation route - enhanced for both panel and page-level generation
   app.post("/api/generate-background", 
     isAuthenticated,
