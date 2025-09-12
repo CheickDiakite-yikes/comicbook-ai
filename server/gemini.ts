@@ -233,43 +233,7 @@ export class GeminiService {
           data: base64Data,
           mimeType: contentType
         };
-      } else if (imageUrl.startsWith('/generated/')) {
-        // Handle generated images from local file system - SECURE PATH HANDLING
-        console.log('Using local file system for generated path:', imageUrl);
-        
-        const fs = await import('fs/promises');
-        const path = await import('path');
-        
-        // SECURITY FIX: Build path securely and validate it's within allowed directory
-        const safePath = path.join(process.cwd(), 'public', imageUrl.replace(/^\//, ''));
-        const allowedDir = path.join(process.cwd(), 'public', 'generated');
-        const resolvedPath = path.resolve(safePath);
-        const resolvedAllowedDir = path.resolve(allowedDir);
-        
-        // SECURITY CHECK: Prevent path traversal - ensure resolved path stays within public/generated
-        if (!resolvedPath.startsWith(resolvedAllowedDir + path.sep) && resolvedPath !== resolvedAllowedDir) {
-          const errorMsg = `Security violation: Path traversal attempt blocked. Requested: ${imageUrl}, Resolved: ${resolvedPath}`;
-          console.error(errorMsg);
-          throw new Error(`Invalid file path: Access denied for security reasons`);
-        }
-        
-        console.log(`Validated secure path: ${resolvedPath}`);
-        
-        try {
-          const buffer = await fs.readFile(resolvedPath);
-          const base64Data = buffer.toString('base64');
-          
-          console.log(`Successfully downloaded generated file: ${imageUrl} (${buffer.length} bytes)`);
-          
-          return {
-            data: base64Data,
-            mimeType: 'image/png'
-          };
-        } catch (fsError) {
-          console.error(`Failed to read local file ${resolvedPath}:`, fsError);
-          throw new Error(`Failed to read generated image file: ${imageUrl}`);
-        }
-      } else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      } else {
         // Handle external URLs via fetch
         console.log('Using fetch for external URL:', imageUrl);
         
@@ -289,8 +253,6 @@ export class GeminiService {
           data: base64Data,
           mimeType: contentType
         };
-      } else {
-        throw new Error(`Unsupported URL format: ${imageUrl}. Must start with /objects/, /generated/, http://, or https://`);
       }
     } catch (error) {
       console.error('Error downloading image:', error);
