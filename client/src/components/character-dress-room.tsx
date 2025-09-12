@@ -137,8 +137,6 @@ export default function CharacterDressRoom({
       return response;
     },
     onSuccess: (data) => {
-      console.log("Character redressing response:", data);
-      
       // Check if the operation actually succeeded
       if (data && typeof data === 'object' && 'status' in data && (data as any).status === 'completed') {
         const imageUrl = (data as any).imageUrl;
@@ -164,8 +162,6 @@ export default function CharacterDressRoom({
         const errorMessage = data && typeof data === 'object' && 'message' in data 
           ? (data as any).message 
           : 'The character redressing operation failed. Please try again.';
-        
-        console.error("Character redressing failed with response:", data);
         
         toast({
           title: "Redressing failed",

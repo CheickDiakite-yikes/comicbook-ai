@@ -233,7 +233,31 @@ export class GeminiService {
           data: base64Data,
           mimeType: contentType
         };
-      } else {
+      } else if (imageUrl.startsWith('/generated/')) {
+        // Handle generated images from local file system
+        console.log('Using local file system for generated path:', imageUrl);
+        
+        const fs = await import('fs/promises');
+        const path = await import('path');
+        
+        // Convert relative path to absolute path 
+        const fullPath = path.join(process.cwd(), imageUrl);
+        
+        try {
+          const buffer = await fs.readFile(fullPath);
+          const base64Data = buffer.toString('base64');
+          
+          console.log(`Successfully downloaded generated file: ${imageUrl} (${buffer.length} bytes)`);
+          
+          return {
+            data: base64Data,
+            mimeType: 'image/png'
+          };
+        } catch (fsError) {
+          console.error(`Failed to read local file ${fullPath}:`, fsError);
+          throw new Error(`Failed to read generated image file: ${imageUrl}`);
+        }
+      } else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
         // Handle external URLs via fetch
         console.log('Using fetch for external URL:', imageUrl);
         
@@ -253,6 +277,8 @@ export class GeminiService {
           data: base64Data,
           mimeType: contentType
         };
+      } else {
+        throw new Error(`Unsupported URL format: ${imageUrl}. Must start with /objects/, /generated/, http://, or https://`);
       }
     } catch (error) {
       console.error('Error downloading image:', error);
