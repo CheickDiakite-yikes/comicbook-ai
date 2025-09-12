@@ -230,12 +230,23 @@ class AIService {
       prompt += `, in ${request.projectContext.artStyle} art style`;
     }
 
-    // Add character context for consistency
+    // 🎯 ENHANCED CHARACTER CONSISTENCY - Use Gemini's character reference capabilities
     if (request.characterContext && request.characterContext.length > 0) {
-      const characterDescriptions = request.characterContext
-        .map(char => `${char.name} (${char.role}): ${char.visualDescriptors}`)
-        .join(", ");
-      prompt += `. Characters present: ${characterDescriptions}`;
+      // Build detailed character descriptions using proven consistency techniques
+      const characterDescriptions = request.characterContext.map(char => {
+        return this.buildCharacterConsistencyPrompt(char.name, char.visualDescriptors, char.role);
+      }).join(". ");
+      
+      prompt += `. CRITICAL CHARACTER CONSISTENCY: ${characterDescriptions}`;
+    }
+
+    // Add previous panel context for visual continuity
+    if (request.previousPanelsContext && request.previousPanelsContext.length > 0) {
+      const previousContext = request.previousPanelsContext
+        .slice(-2) // Only use last 2 panels to avoid prompt bloat
+        .map(panel => `Panel ${panel.panelNumber}: ${panel.prompt}`)
+        .join(". ");
+      prompt += `. Previous panel context for consistency: ${previousContext}`;
     }
 
     // Add story context
@@ -257,10 +268,18 @@ class AIService {
       prompt += `. Color palette: ${request.styleOptions.colorPalette.join(", ")}`;
     }
 
-    // Add consistency and quality instructions
-    prompt += ". Maintain character visual consistency with previous panels. Create a detailed, high-quality comic book illustration.";
+    // 🎯 ENHANCED CONSISTENCY INSTRUCTIONS using Gemini best practices
+    prompt += ". CONSISTENCY RULES: Keep ALL character physical features identical (facial structure, hair color/style, body type, skin tone, distinctive marks). Only clothing may change if story requires it. Use the EXACT SAME character visual details from previous panels. Create a detailed, high-quality comic book illustration with perfect character consistency.";
 
     return prompt;
+  }
+
+  /**
+   * 🎯 NEW: Build enhanced character consistency prompt using AI art best practices
+   */
+  private buildCharacterConsistencyPrompt(name: string, visualDescriptors: string, role: string): string {
+    // Enhanced prompt structure for maximum consistency
+    return `${name} (${role}) MUST appear with these EXACT features: ${visualDescriptors}. Maintain IDENTICAL facial structure, hair, body type, and all distinctive physical characteristics`;
   }
 
   /**
