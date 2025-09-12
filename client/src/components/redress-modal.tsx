@@ -20,7 +20,7 @@ import {
   DrawerDescription,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1165,7 +1165,7 @@ export function RedressModal({
                       <Checkbox
                         id="panel-characters-only"
                         checked={showPanelCharactersOnly}
-                        onCheckedChange={setShowPanelCharactersOnly}
+                        onCheckedChange={(checked) => setShowPanelCharactersOnly(checked === true)}
                         data-testid="panel-characters-filter"
                         aria-describedby="panel-filter-description"
                         className="min-h-[48px] min-w-[48px] data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
@@ -1455,24 +1455,24 @@ export function RedressModal({
                             <Loader2 className="h-8 w-8 animate-spin" />
                             <span className="ml-2">Analyzing story context...</span>
                           </div>
-                        ) : contextualSuggestions?.suggestions?.length > 0 ? (
+                        ) : (contextualSuggestions?.suggestions?.length || 0) > 0 ? (
                           <div className="space-y-4">
                             {/* Context Analysis Summary */}
-                            {contextualSuggestions.contextAnalysis && (
+                            {contextualSuggestions?.contextAnalysis && (
                               <div className="bg-white/50 dark:bg-gray-900/50 rounded-lg p-3 text-sm">
                                 <h4 className="font-medium mb-2 text-gray-700 dark:text-gray-300">Story Context Analysis:</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-400">
-                                  {contextualSuggestions.contextAnalysis.projectGenre && (
-                                    <div><strong>Genre:</strong> {contextualSuggestions.contextAnalysis.projectGenre}</div>
+                                  {contextualSuggestions?.contextAnalysis?.projectGenre && (
+                                    <div><strong>Genre:</strong> {contextualSuggestions?.contextAnalysis?.projectGenre}</div>
                                   )}
-                                  {contextualSuggestions.contextAnalysis.artStyle && (
-                                    <div><strong>Art Style:</strong> {contextualSuggestions.contextAnalysis.artStyle}</div>
+                                  {contextualSuggestions?.contextAnalysis?.artStyle && (
+                                    <div><strong>Art Style:</strong> {contextualSuggestions?.contextAnalysis?.artStyle}</div>
                                   )}
-                                  {contextualSuggestions.contextAnalysis.pageScript && (
-                                    <div><strong>Scene:</strong> {contextualSuggestions.contextAnalysis.pageScript}</div>
+                                  {contextualSuggestions?.contextAnalysis?.pageScript && (
+                                    <div><strong>Scene:</strong> {contextualSuggestions?.contextAnalysis?.pageScript}</div>
                                   )}
-                                  {contextualSuggestions.contextAnalysis.panelPrompt && (
-                                    <div><strong>Panel:</strong> {contextualSuggestions.contextAnalysis.panelPrompt}</div>
+                                  {contextualSuggestions?.contextAnalysis?.panelPrompt && (
+                                    <div><strong>Panel:</strong> {contextualSuggestions?.contextAnalysis?.panelPrompt}</div>
                                   )}
                                 </div>
                               </div>
@@ -1480,7 +1480,7 @@ export function RedressModal({
 
                             {/* Contextual Suggestions Grid */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              {contextualSuggestions.suggestions.slice(0, 6).map((suggestion, index) => (
+                              {(contextualSuggestions?.suggestions || []).slice(0, 6).map((suggestion, index) => (
                                 <Card 
                                   key={index} 
                                   className="cursor-pointer hover:shadow-md transition-shadow border-l-4 border-l-blue-500"
@@ -1538,9 +1538,9 @@ export function RedressModal({
                               ))}
                             </div>
 
-                            {contextualSuggestions.suggestions.length > 6 && (
+                            {(contextualSuggestions?.suggestions?.length || 0) > 6 && (
                               <div className="text-center text-xs text-gray-500 dark:text-gray-400">
-                                Showing top 6 suggestions based on story context
+                                Showing top 6 of {contextualSuggestions?.suggestions?.length || 0} suggestions
                               </div>
                             )}
                           </div>
