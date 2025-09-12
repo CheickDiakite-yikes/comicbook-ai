@@ -278,8 +278,8 @@ export class GeminiService {
       console.log(`🎬 Project: ${request.projectContext?.title || 'Unknown'}`);
       console.log(`🎨 Art Style: ${request.styleOptions?.artStyle || request.projectContext?.artStyle || 'Default'}`);
       
-      // Build context-aware prompt
-      const contextualPrompt = this.buildContextualPrompt(request);
+      // Build context-aware prompt (optimized for edit vs generation)
+      const contextualPrompt = this.buildContextualPrompt(request, isEditMode);
       console.log(`📝 Generated Prompt (${contextualPrompt.length} chars):`);
       console.log(`"${contextualPrompt.substring(0, 200)}${contextualPrompt.length > 200 ? '...' : ''}"`);
 
@@ -408,6 +408,30 @@ export class GeminiService {
       console.error(`⏱️ Duration: ${duration}ms`);
       console.error(`📋 Panel: ${request.panelId}`);
       console.error(`🚨 Error:`, error);
+      
+      // If image editing failed due to Gemini API error, try fallback to text-to-image generation
+      if (isEditMode && error && typeof error === 'object' && 'status' in error && error.status === 500) {
+        console.log(`🔄 === FALLBACK TO TEXT-TO-IMAGE GENERATION ===`);
+        console.log(`📋 Panel: ${request.panelId}`);
+        console.log(`💡 Reason: Image editing failed with API error, trying fresh generation`);
+        
+        try {
+          // Remove source image and try text-to-image generation
+          const fallbackRequest = { ...request, sourceImageUrl: undefined };
+          const fallbackResult = await this.generatePanelImage(fallbackRequest);
+          
+          if (fallbackResult.status === "completed") {
+            console.log(`✅ === FALLBACK GENERATION SUCCEEDED ===`);
+            console.log(`📋 Panel: ${request.panelId}`);
+            console.log(`🖼️ Image URL: ${fallbackResult.imageUrl}`);
+            return fallbackResult;
+          }
+        } catch (fallbackError) {
+          console.error(`❌ === FALLBACK GENERATION ALSO FAILED ===`);
+          console.error(`📋 Panel: ${request.panelId}`);
+          console.error(`🚨 Fallback Error:`, fallbackError);
+        }
+      }
       
       const errorMessage = error instanceof Error ? error.message : "Failed to generate image";
       return {
@@ -1154,7 +1178,35 @@ export class GeminiService {
     return prompt;
   }
 
-  private buildContextualPrompt(request: GenerateImageRequest): string {
+  /**
+   * Build a shorter, focused prompt specifically for image editing
+   */
+  private buildEditingPrompt(request: GenerateImageRequest): string {
+    let prompt = `Edit this image: ${request.prompt}`;
+    
+    // Add essential art style
+    if (request.projectContext?.artStyle) {
+      prompt += ` in ${request.projectContext.artStyle} style`;
+    }
+    
+    // Add key character details if present
+    if (request.characterContext && request.characterContext.length > 0) {
+      const mainCharacter = request.characterContext[0];
+      prompt += `. Character: ${mainCharacter.name} - ${mainCharacter.visualDescriptors}`;
+    }
+    
+    // Add simple quality instruction
+    prompt += `. Maintain artistic consistency.`;
+    
+    return prompt;
+  }
+
+  private buildContextualPrompt(request: GenerateImageRequest, isEditMode: boolean = false): string {
+    // For image editing, use a much shorter, focused prompt
+    if (isEditMode) {
+      return this.buildEditingPrompt(request);
+    }
+    
     // Start with Google's native aspect ratio specifications for optimal generation
     let prompt = "";
     
