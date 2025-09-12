@@ -11,7 +11,7 @@ export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
-): Promise<Response> {
+): Promise<any> {
   const res = await fetch(url, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
@@ -20,7 +20,25 @@ export async function apiRequest(
   });
 
   await throwIfResNotOk(res);
-  return res;
+  
+  // Debug the response
+  if (url.includes('redress-character')) {
+    console.log('🔍 DEBUG: Raw response status:', res.status);
+    console.log('🔍 DEBUG: Raw response headers:', Object.fromEntries(res.headers.entries()));
+    const responseText = await res.text();
+    console.log('🔍 DEBUG: Raw response text:', responseText);
+    
+    try {
+      const parsed = JSON.parse(responseText);
+      console.log('🔍 DEBUG: Parsed JSON:', parsed);
+      return parsed;
+    } catch (parseError) {
+      console.error('🔍 DEBUG: JSON parse error:', parseError);
+      throw new Error(`Invalid JSON response: ${responseText}`);
+    }
+  }
+  
+  return await res.json();
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
