@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,6 +11,14 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerFooter,
+  DrawerTitle,
+  DrawerDescription,
+} from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +39,7 @@ import {
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Shirt,
   Palette,
@@ -44,6 +53,11 @@ import {
   X,
   ChevronRight,
   ChevronLeft,
+  Search,
+  Filter,
+  Users,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 import type { Character, Panel } from "@shared/schema";
 
@@ -165,11 +179,53 @@ export function RedressModal({
 }: RedressModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
   const [currentStep, setCurrentStep] = useState<"characters" | "outfit" | "preview">("characters");
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [currentJob, setCurrentJob] = useState<RedressJob | null>(null);
   const [pollingJobId, setPollingJobId] = useState<string | null>(null);
+  
+  // Character selection state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showPanelCharactersOnly, setShowPanelCharactersOnly] = useState(true);
+  
+  // Panel character detection - for now we'll use a mock implementation
+  // In a real app, this would come from panel generation data or face recognition
+  const panelCharacterIds = useMemo(() => {
+    // Mock implementation: assume first 2-3 characters are in panel
+    // This would be replaced with actual panel character detection logic
+    return characters.slice(0, Math.min(3, characters.length)).map(c => c.id);
+  }, [characters]);
+  
+  // Filtered and sorted characters with panel filter UX improvements
+  const filteredCharacters = useMemo(() => {
+    let filtered = characters.filter((character) =>
+      character.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (character.role && character.role.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+    
+    if (showPanelCharactersOnly) {
+      const panelFiltered = filtered.filter(character => panelCharacterIds.includes(character.id));
+      // If no panel characters found but we have search results, fall back to all characters
+      if (panelFiltered.length === 0 && filtered.length > 0) {
+        // Auto-disable panel filter to show results (async to avoid state update during render)
+        setTimeout(() => setShowPanelCharactersOnly(false), 0);
+        return filtered; // Return unfiltered results immediately for better UX
+      }
+      filtered = panelFiltered;
+    }
+    
+    // Sort to show panel characters first, then others
+    return filtered.sort((a, b) => {
+      const aInPanel = panelCharacterIds.includes(a.id);
+      const bInPanel = panelCharacterIds.includes(b.id);
+      
+      if (aInPanel && !bInPanel) return -1;
+      if (!aInPanel && bInPanel) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [characters, searchTerm, showPanelCharactersOnly, panelCharacterIds]);
 
   // Fetch current user credits
   const { data: creditData } = useQuery<{
@@ -203,7 +259,7 @@ export function RedressModal({
     enabled: !!pollingJobId && open, // Only poll when modal is open
     refetchInterval: (data) => {
       // Stop polling on completion or failure
-      if (data?.state === "error" || data?.status === "completed" || data?.status === "failed") {
+      if (data?.status === "completed" || data?.status === "failed") {
         return false;
       }
       
@@ -374,6 +430,22 @@ export function RedressModal({
     
     form.setValue("characters", newCharacters);
   };
+  
+  // Bulk selection handlers
+  const handleSelectAll = () => {
+    const allCharacterSelections = filteredCharacters.map(character => ({
+      characterId: character.id,
+      referenceImageUrl: character.referenceImageUrl || undefined,
+    }));
+    form.setValue("characters", allCharacterSelections);
+  };
+  
+  const handleClearAll = () => {
+    form.setValue("characters", []);
+  };
+  
+  const selectedCount = form.getValues("characters").length;
+  const filteredCount = filteredCharacters.length;
 
   // Submit handlers
   const handlePreview = () => {
@@ -429,6 +501,9 @@ export function RedressModal({
     setSelectedColors([]);
     setCurrentJob(null);
     setPollingJobId(null);
+    // Reset search and filter state
+    setSearchTerm("");
+    setShowPanelCharactersOnly(true);
     onOpenChange(false);
   };
 
@@ -441,19 +516,27 @@ export function RedressModal({
   const hasEnoughForPreview = creditData?.isAdmin || currentCredits >= previewCost;
   const hasEnoughForApply = creditData?.isAdmin || currentCredits >= applyCost;
 
+  // Responsive container component
+  const ModalContainer = isMobile ? Drawer : Dialog;
+  const ModalContentComponent = isMobile ? DrawerContent : DialogContent;
+  const ModalHeaderComponent = isMobile ? DrawerHeader : DialogHeader;
+  const ModalFooterComponent = isMobile ? DrawerFooter : DialogFooter;
+  const ModalTitleComponent = isMobile ? DrawerTitle : DialogTitle;
+  const ModalDescriptionComponent = isMobile ? DrawerDescription : DialogDescription;
+  
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden" data-testid="redress-modal">
-        <DialogHeader className="border-b pb-4">
+    <ModalContainer open={open} onOpenChange={onOpenChange}>
+      <ModalContentComponent className={isMobile ? "max-h-[90vh] overflow-hidden" : "max-w-4xl max-h-[90vh] overflow-hidden"} data-testid="redress-modal">
+        <ModalHeaderComponent className="border-b pb-4">
           <div className="flex items-center justify-between">
             <div>
-              <DialogTitle className="flex items-center gap-2" data-testid="modal-title">
+              <ModalTitleComponent className="flex items-center gap-2" data-testid="modal-title">
                 <Shirt className="h-5 w-5" />
                 Change Character Outfits
-              </DialogTitle>
-              <DialogDescription data-testid="modal-description">
+              </ModalTitleComponent>
+              <ModalDescriptionComponent data-testid="modal-description">
                 Select characters and customize their clothing using AI-powered outfit generation
-              </DialogDescription>
+              </ModalDescriptionComponent>
             </div>
             
             {/* Credit Display */}
@@ -497,96 +580,228 @@ export function RedressModal({
               <span className="text-sm">Preview & Apply</span>
             </div>
           </div>
-        </DialogHeader>
+        </ModalHeaderComponent>
 
         <div className="flex-1 overflow-y-auto p-6">
           <Form {...form}>
             {/* Step 1: Character Selection */}
             {currentStep === "characters" && (
-              <div className="space-y-6">
+              <div className="space-y-4">
+                {/* Header and Stats */}
                 <div>
-                  <h3 className="text-lg font-semibold mb-3" data-testid="character-selection-title">
+                  <h3 className="text-lg font-semibold mb-2" data-testid="character-selection-title">
                     Select Characters to Redress
                   </h3>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Choose which characters in this panel should have their outfits changed.
+                    Choose which characters should have their outfits changed.
                   </p>
+                  
+                  {/* Selection Stats */}
+                  <div className="flex items-center gap-4 mb-4">
+                    <Badge variant="outline" className="text-sm" data-testid="selection-count">
+                      <Users className="h-4 w-4 mr-1" />
+                      {selectedCount} of {filteredCount} selected
+                    </Badge>
+                    {panelCharacterIds.length > 0 && (
+                      <Badge variant="secondary" className="text-sm">
+                        <Eye className="h-4 w-4 mr-1" />
+                        {panelCharacterIds.length} in panel
+                      </Badge>
+                    )}
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="character-grid">
-                  {characters.map((character) => {
-                    const isSelected = form.getValues("characters").some(c => c.characterId === character.id);
-                    
-                    return (
-                      <Card
-                        key={character.id}
-                        className={`cursor-pointer transition-all hover:shadow-md ${
-                          isSelected ? "ring-2 ring-primary bg-primary/5" : ""
-                        }`}
-                        onClick={() => handleCharacterToggle(character)}
-                        data-testid={`character-card-${character.id}`}
+                {/* Search and Filter Controls */}
+                <div className="space-y-3">
+                  {/* Search Bar */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                    <Input
+                      placeholder="Search characters by name or role..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10 h-12 text-base min-h-[48px]" // Larger for mobile with proper touch targets
+                      data-testid="character-search-input"
+                      aria-label="Search characters by name or role"
+                    />
+                    {searchTerm && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSearchTerm("")}
+                        className="absolute right-1 top-1/2 transform -translate-y-1/2 h-10 w-10 p-0 min-h-[48px] min-w-[48px] flex items-center justify-center"
+                        data-testid="clear-search-button"
+                        aria-label="Clear search"
                       >
-                        <CardContent className="p-4">
-                          <div className="flex items-start gap-3">
-                            <div className="relative">
-                              <Avatar className="h-12 w-12">
-                                <AvatarImage src={character.referenceImageUrl || undefined} />
-                                <AvatarFallback>
-                                  <User className="h-6 w-6" />
-                                </AvatarFallback>
-                              </Avatar>
-                              {isSelected && (
-                                <div className="absolute -top-1 -right-1 bg-primary text-primary-foreground rounded-full p-1">
-                                  <Check className="h-3 w-3" />
-                                </div>
-                              )}
-                            </div>
-                            
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-medium truncate" data-testid={`character-name-${character.id}`}>
-                                {character.name}
-                              </h4>
-                              {character.role && (
-                                <p className="text-xs text-muted-foreground capitalize">
-                                  {character.role}
-                                </p>
-                              )}
-                              
-                              {/* Current Outfit Info */}
-                              {character.currentOutfit && (
-                                <div className="mt-2">
-                                  <Badge variant="secondary" className="text-xs">
-                                    Current Outfit
-                                  </Badge>
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    {typeof character.currentOutfit === 'string' 
-                                      ? character.currentOutfit 
-                                      : 'Custom outfit'}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-
-                            <Checkbox
-                              checked={isSelected}
-                              onChange={() => handleCharacterToggle(character)}
-                              className="pointer-events-none"
-                              data-testid={`character-checkbox-${character.id}`}
-                            />
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+                        <X className="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {/* Filter and Bulk Action Row */}
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    {/* Panel Filter Toggle */}
+                    <div className="flex items-center gap-2 flex-1">
+                      <Checkbox
+                        id="panel-characters-only"
+                        checked={showPanelCharactersOnly}
+                        onCheckedChange={setShowPanelCharactersOnly}
+                        data-testid="panel-characters-filter"
+                        aria-describedby="panel-filter-description"
+                        className="min-h-[48px] min-w-[48px] data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                      />
+                      <Label htmlFor="panel-characters-only" className="text-sm cursor-pointer min-h-[48px] flex items-center" id="panel-filter-description">
+                        Only show characters in this panel
+                      </Label>
+                    </div>
+                    
+                    {/* Bulk Actions */}
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSelectAll}
+                        disabled={filteredCharacters.length === 0}
+                        className="h-12 min-h-[48px] px-4"
+                        data-testid="select-all-button"
+                        aria-label={`Select all ${filteredCharacters.length} filtered characters`}
+                      >
+                        <CheckSquare className="h-4 w-4 mr-2" aria-hidden="true" />
+                        Select All
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleClearAll}
+                        disabled={selectedCount === 0}
+                        className="h-12 min-h-[48px] px-4"
+                        data-testid="clear-all-button"
+                        aria-label={`Clear all ${selectedCount} selected characters`}
+                      >
+                        <Square className="h-4 w-4 mr-2" aria-hidden="true" />
+                        Clear All
+                      </Button>
+                    </div>
+                  </div>
                 </div>
 
-                {characters.length === 0 && (
+                {/* Mobile-First Character Grid */}
+                {filteredCharacters.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" data-testid="character-grid">
+                    {filteredCharacters.map((character) => {
+                      const isSelected = form.getValues("characters").some(c => c.characterId === character.id);
+                      const inPanel = panelCharacterIds.includes(character.id);
+                      
+                      return (
+                        <Card
+                          key={character.id}
+                          className={`cursor-pointer transition-all duration-200 hover:shadow-lg active:scale-95 touch-manipulation ${
+                            isSelected ? "ring-2 ring-primary bg-primary/10 border-primary" : "hover:border-muted-foreground/50"
+                          }`}
+                          onClick={() => handleCharacterToggle(character)}
+                          data-testid={`character-card-${character.id}`}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-4">
+                              {/* Large Avatar */}
+                              <div className="relative flex-shrink-0">
+                                <Avatar className="h-14 w-14 border-2 border-background">
+                                  <AvatarImage src={character.referenceImageUrl || undefined} />
+                                  <AvatarFallback className="text-lg font-semibold">
+                                    {character.name.charAt(0)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                
+                                {/* Selection Indicator */}
+                                <div className={`absolute -top-1 -right-1 w-6 h-6 rounded-full border-2 border-background flex items-center justify-center transition-all ${
+                                  isSelected 
+                                    ? "bg-primary text-primary-foreground" 
+                                    : "bg-muted border-muted-foreground/30"
+                                }`}>
+                                  {isSelected ? (
+                                    <Check className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />
+                                  )}
+                                </div>
+                                
+                                {/* Panel Indicator */}
+                                {inPanel && (
+                                  <div className="absolute -bottom-1 -left-1 w-6 h-6 bg-blue-500 text-white rounded-full border-2 border-background flex items-center justify-center">
+                                    <Eye className="h-3 w-3" />
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Character Info */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4 className="font-semibold text-base truncate" data-testid={`character-name-${character.id}`}>
+                                    {character.name}
+                                  </h4>
+                                  {inPanel && (
+                                    <Badge variant="secondary" className="text-xs px-2 py-0.5 font-medium">
+                                      In Panel
+                                    </Badge>
+                                  )}
+                                </div>
+                                
+                                {character.role && (
+                                  <p className="text-sm text-muted-foreground capitalize mb-2">
+                                    {character.role}
+                                  </p>
+                                )}
+                                
+                                {/* Current Outfit Info */}
+                                {character.currentOutfit && (
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1">
+                                      <Shirt className="h-3.5 w-3.5 text-muted-foreground" />
+                                      <span className="text-xs text-muted-foreground">
+                                        {typeof character.currentOutfit === 'string' 
+                                          ? character.currentOutfit 
+                                          : 'Custom outfit'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                ) : (
                   <Card className="p-8 text-center">
-                    <User className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h4 className="font-medium text-muted-foreground mb-2">No Characters Found</h4>
-                    <p className="text-sm text-muted-foreground">
-                      No characters are available for this panel. Add characters to your project first.
-                    </p>
+                    {characters.length === 0 ? (
+                      <>
+                        <User className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                        <h4 className="font-medium text-muted-foreground mb-2">No Characters Found</h4>
+                        <p className="text-sm text-muted-foreground">
+                          No characters are available for this panel. Add characters to your project first.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                        <h4 className="font-medium text-muted-foreground mb-2">No Characters Match</h4>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          No characters found matching "{searchTerm}"
+                          {showPanelCharactersOnly && " in this panel"}.
+                        </p>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => {
+                            setSearchTerm("");
+                            setShowPanelCharactersOnly(false);
+                          }}
+                          data-testid="reset-filters-button"
+                        >
+                          Reset Filters
+                        </Button>
+                      </>
+                    )}
                   </Card>
                 )}
               </div>
@@ -964,7 +1179,7 @@ export function RedressModal({
           </Form>
         </div>
 
-        <DialogFooter className="border-t pt-4">
+        <ModalFooterComponent className={`border-t pt-4 ${isMobile ? "sticky bottom-0 bg-background" : ""}`}>
           <div className="flex justify-between w-full">
             <div className="flex gap-2">
               {currentStep !== "characters" && (
@@ -999,8 +1214,8 @@ export function RedressModal({
               )}
             </div>
           </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </ModalFooterComponent>
+      </ModalContentComponent>
+    </ModalContainer>
   );
 }
