@@ -640,9 +640,9 @@ export function RedressModal({
       const panelFiltered = filtered.filter(character => panelCharacterIds.includes(character.id));
       // If no panel characters found but we have search results, fall back to all characters
       if (panelFiltered.length === 0 && filtered.length > 0) {
-        // Auto-disable panel filter to show results (async to avoid state update during render)
-        setTimeout(() => setShowPanelCharactersOnly(false), 0);
-        return filtered; // Return unfiltered results immediately for better UX
+        // Return unfiltered results when no panel characters match search
+        // Note: Panel filter will be auto-disabled via useEffect
+        return filtered;
       }
       filtered = panelFiltered;
     }
@@ -656,6 +656,20 @@ export function RedressModal({
       if (!aInPanel && bInPanel) return 1;
       return a.name.localeCompare(b.name);
     });
+  }, [characters, searchTerm, showPanelCharactersOnly, panelCharacterIds]);
+
+  // Auto-disable panel filter when no results found (moved from useMemo to avoid state updates during render)
+  useEffect(() => {
+    if (showPanelCharactersOnly && searchTerm) {
+      const panelFiltered = characters.filter(character => 
+        panelCharacterIds.includes(character.id) &&
+        (character.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         (character.role && character.role.toLowerCase().includes(searchTerm.toLowerCase())))
+      );
+      if (panelFiltered.length === 0) {
+        setShowPanelCharactersOnly(false);
+      }
+    }
   }, [characters, searchTerm, showPanelCharactersOnly, panelCharacterIds]);
 
   // Fetch current user credits
@@ -964,7 +978,9 @@ export function RedressModal({
     form.setValue("characters", []);
   };
   
-  const selectedCount = form.getValues("characters").length;
+  // Use form.watch for reactive character selection count
+  const watchedCharacters = form.watch("characters");
+  const selectedCount = watchedCharacters.length;
   const filteredCount = filteredCharacters.length;
 
   // Submit handlers
@@ -991,6 +1007,14 @@ export function RedressModal({
         return;
       }
       setCurrentStep("outfit");
+      
+      // Auto-select a default outfit preset to prevent validation failures
+      if (!selectedPreset) {
+        const defaultPreset = OUTFIT_PRESETS.find(p => p.id === "casual-modern");
+        if (defaultPreset) {
+          handlePresetSelect(defaultPreset);
+        }
+      }
     } else if (currentStep === "outfit") {
       const outfit = form.getValues("outfit");
       if (!outfit.type || !outfit.style || outfit.colors.length === 0) {
@@ -1213,7 +1237,7 @@ export function RedressModal({
                     data-testid="character-grid"
                   >
                     {filteredCharacters.map((character) => {
-                      const isSelected = form.getValues("characters").some(c => c.characterId === character.id);
+                      const isSelected = watchedCharacters.some(c => c.characterId === character.id);
                       const inPanel = panelCharacterIds.includes(character.id);
                       
                       return (
@@ -1342,7 +1366,7 @@ export function RedressModal({
 
                 {/* Selected Characters Summary */}
                 {(() => {
-                  const selectedCharacterData = form.getValues("characters") || [];
+                  const selectedCharacterData = watchedCharacters || [];
                   const selectedWithNames = selectedCharacterData.map(sc => {
                     const char = characters.find(c => c.id === sc.characterId);
                     return char ? { ...sc, name: char.name, id: char.id, referenceImageUrl: char.referenceImageUrl } : null;
