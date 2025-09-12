@@ -32,6 +32,10 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  isAgeVerified: boolean("is_age_verified").default(false),
+  ageVerifiedAt: timestamp("age_verified_at"),
+  birthMonth: integer("birth_month"), // 1-12
+  birthYear: integer("birth_year"), // YYYY
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -234,12 +238,24 @@ export const creditTransactions = pgTable("credit_transactions", {
 });
 
 // Insert schemas
-export const insertUserSchema = createInsertSchema(users).pick({
-  id: true,
-  email: true,
-  firstName: true,
-  lastName: true,
-  profileImageUrl: true,
+// Enhanced user schema with strict age verification validation
+export const insertUserSchema = createInsertSchema(users).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+}).extend({
+  birthMonth: z.number().int().min(1).max(12).optional(), // strict validation 1-12
+  birthYear: z.number().int().min(1900).max(new Date().getFullYear()).optional(), // reasonable range
+  isAgeVerified: z.literal(false).optional(), // prevent client-side setting to true
+  ageVerifiedAt: z.never().optional(), // prevent client-side setting
+});
+
+// Server-only schema for internal age verification updates
+export const serverOnlyUserUpdateSchema = z.object({
+  isAgeVerified: z.boolean(),
+  ageVerifiedAt: z.date(),
+  birthMonth: z.number().int().min(1).max(12).optional(),
+  birthYear: z.number().int().min(1900).max(new Date().getFullYear()).optional(),
 });
 
 export const insertProjectSchema = createInsertSchema(projects).omit({
@@ -313,6 +329,73 @@ export const insertUserFollowSchema = createInsertSchema(userFollows).omit({
   createdAt: true,
 });
 
+// Security audit logs table - Enterprise-grade tamper-evident logging
+export const securityAuditLogs = pgTable("security_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id), // nullable for unauthenticated attempts
+  sessionId: varchar("session_id"),
+  ipAddress: varchar("ip_address").notNull(),
+  userAgent: text("user_agent"),
+  endpoint: varchar("endpoint").notNull(),
+  httpMethod: varchar("http_method").notNull(),
+  requestId: varchar("request_id"), // for tracing
+  
+  // Content classification results
+  contentRating: varchar("content_rating"), // General, Mature, Adult
+  contentCategories: text("content_categories").array(), // detected content categories
+  contentSafetyScore: integer("content_safety_score"), // 0-100 safety score
+  contentFlags: jsonb("content_flags"), // detailed flagging results
+  
+  // Age verification status
+  userAge: integer("user_age"),
+  isAgeVerified: boolean("is_age_verified"),
+  ageVerificationDate: timestamp("age_verification_date"),
+  verificationMethod: varchar("verification_method"),
+  
+  // Access decision
+  accessDecision: varchar("access_decision").notNull(), // GRANTED, DENIED, BLOCKED
+  denialReason: varchar("denial_reason"), // age_restriction, content_violation, rate_limit, etc.
+  
+  // Request context
+  resourceId: varchar("resource_id"), // project/panel/character ID being accessed
+  operationType: varchar("operation_type"), // panel_generation, character_creation, etc.
+  inputContent: jsonb("input_content"), // sanitized version of user input for analysis
+  
+  // Rate limiting data
+  requestCount: integer("request_count").default(1),
+  timeWindow: varchar("time_window"), // hour, day, month
+  
+  // Security flags
+  isSuspiciousActivity: boolean("is_suspicious_activity").default(false),
+  alertLevel: varchar("alert_level"), // low, medium, high, critical
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("audit_user_idx").on(table.userId),
+  index("audit_ip_idx").on(table.ipAddress),
+  index("audit_endpoint_idx").on(table.endpoint),
+  index("audit_timestamp_idx").on(table.createdAt),
+  index("audit_decision_idx").on(table.accessDecision),
+  index("audit_suspicious_idx").on(table.isSuspiciousActivity),
+]);
+
+// Rate limiting table for enterprise-grade throttling
+export const rateLimitingLog = pgTable("rate_limiting_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  ipAddress: varchar("ip_address").notNull(),
+  endpoint: varchar("endpoint").notNull(),
+  requestCount: integer("request_count").default(1),
+  windowStart: timestamp("window_start").notNull(),
+  windowEnd: timestamp("window_end").notNull(),
+  limitExceeded: boolean("limit_exceeded").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("rate_limit_user_endpoint_idx").on(table.userId, table.endpoint),
+  index("rate_limit_ip_endpoint_idx").on(table.ipAddress, table.endpoint),
+  index("rate_limit_window_idx").on(table.windowStart, table.windowEnd),
+]);
+
 // Redress job tables for AI-powered clothing changes
 export const redressJobs = pgTable("redress_jobs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -353,13 +436,25 @@ export const insertRedressJobSchema = createInsertSchema(redressJobs).omit({
   updatedAt: true,
 });
 
+// Security audit insert schemas
+export const insertSecurityAuditLogSchema = createInsertSchema(securityAuditLogs).omit({ id: true, createdAt: true });
+export const insertRateLimitingLogSchema = createInsertSchema(rateLimitingLog).omit({ id: true, createdAt: true });
+
+// Content rating definitions
+export const contentRatingSchema = z.enum(["General", "Mature", "Adult"]);
+export type ContentRating = z.infer<typeof contentRatingSchema>;
+
+// Outfit preset categories
+export const presetCategorySchema = z.enum(["Basic", "Comedy", "Cosplay", "Professional", "Seasonal", "Adult"]);
+export type PresetCategory = z.infer<typeof presetCategorySchema>;
+
 // Redress request/response schemas
 export const redressRequestSchema = z.object({
   characters: z.array(z.object({
-    characterId: z.string(),
-    referenceImageUrl: z.string().optional(),
+    characterId: z.string().max(100),
+    referenceImageUrl: z.string().max(500).optional(),
     targetRegion: z.enum(["upper_clothes", "lower_clothes", "dress", "shoes", "hat", "accessories"]).optional(),
-  })).min(1),
+  })).min(1).max(5), // reasonable limit on characters
   outfit: z.object({
     type: z.enum([
       // Basic clothing types
@@ -372,17 +467,22 @@ export const redressRequestSchema = z.object({
       // Mature content (properly gated)
       "lingerie", "fetish_wear", "revealing_outfit"
     ]),
-    style: z.string(), // e.g. "casual", "formal", "vintage", etc.
-    colors: z.array(z.string()).optional(), // Array of color names or hex codes
-    description: z.string().optional(), // Additional description of the outfit
+    style: z.string().max(200), // limit style description length
+    colors: z.array(z.string().max(50)).max(10).optional(), // Array of color names or hex codes
+    description: z.string().max(2000).optional(), // Additional description with length limit
     pattern: z.enum(["solid", "stripes", "polka_dots", "plaid", "floral", "geometric", "abstract", "character_themed"]).optional(),
     fabric: z.enum(["cotton", "denim", "silk", "leather", "wool", "synthetic", "latex", "lace", "metallic"]).optional(),
     formality: z.number().min(0).max(100).optional(), // 0=very casual, 100=very formal
     modesty: z.number().min(0).max(100).optional(), // 0=revealing, 100=conservative
   }),
+  // SECURITY: Server validates these fields to enforce content restrictions
+  presetId: z.string().max(100).optional(), // ID of selected preset (if using preset)
+  presetRating: contentRatingSchema.optional(), // Content rating of the preset
+  presetCategory: presetCategorySchema.optional(), // Category of the preset
   preview: z.boolean().default(false), // Preview mode: fast, lower quality
   strength: z.number().min(0).max(100).default(75), // Inpainting strength
-});
+  customPrompt: z.string().max(2000).optional(), // Custom prompt with length limit
+}).strict(); // reject additional properties
 
 export const redressResponseSchema = z.object({
   jobId: z.string(),
@@ -480,3 +580,28 @@ export type InsertRedressJob = z.infer<typeof insertRedressJobSchema>;
 export type RedressRequest = z.infer<typeof redressRequestSchema>;
 export type RedressResponse = z.infer<typeof redressResponseSchema>;
 export type RedressJobStatus = z.infer<typeof redressJobStatusSchema>;
+
+// Security audit types
+export type SecurityAuditLog = typeof securityAuditLogs.$inferSelect;
+export type InsertSecurityAuditLog = z.infer<typeof insertSecurityAuditLogSchema>;
+export type RateLimitingLog = typeof rateLimitingLog.$inferSelect;
+export type InsertRateLimitingLog = z.infer<typeof insertRateLimitingLogSchema>;
+
+// Content generation request schemas with security validation
+export const contentGenerationRequestSchema = z.object({
+  prompt: z.string().min(1).max(2000),
+  projectId: z.string().uuid().optional(),
+  characterId: z.string().uuid().optional(),
+  panelId: z.string().uuid().optional(),
+  description: z.string().max(2000).optional(),
+  genre: z.string().max(200).optional(),
+  artStyle: z.string().max(200).optional(),
+  customInstructions: z.string().max(1000).optional(),
+}).strict(); // reject additional properties
+
+// Enhanced validation for all text inputs that go through AI generation
+export const textInputValidationSchema = z.object({
+  content: z.string().min(1).max(5000), // comprehensive limit
+  context: z.string().max(1000).optional(),
+  restrictions: z.array(z.string()).optional(),
+}).strict();

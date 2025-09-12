@@ -17,6 +17,17 @@ import { z } from "zod";
 import { requireCredits, getProjectIdFromParams, getPanelIdFromBody, getPageIdFromRequest, createOperationMetadata } from "./creditMiddleware";
 import { redressService } from "./services/RedressService";
 import { redressRequestSchema, redressResponseSchema } from "@shared/schema";
+import { validateRedressContent, auditContentAccess, requireAgeVerification } from "./ageVerificationMiddleware";
+import { createEnterpriseSecurityMiddleware, cleanupSecurityLogs } from "./enterpriseSecurityMiddleware";
+import { rateLimitingMiddleware } from "./middleware/RateLimitingMiddleware";
+import type { ContentRating } from "@shared/schema";
+import { z } from "zod";
+
+// Secure validation schema for age verification
+const ageVerificationSchema = z.object({
+  birthMonth: z.number().min(1).max(12),
+  birthYear: z.number().min(1900).max(new Date().getFullYear()),
+});
 
 // Helper function to get user ID from different auth providers
 function getUserId(user: any): string {
@@ -30,6 +41,13 @@ function getUserId(user: any): string {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
+
+  // Start security log cleanup job (run every hour)
+  setInterval(cleanupSecurityLogs, 60 * 60 * 1000);
+  
+  // Wire up secure age verification endpoints
+  const { setupSecureAgeVerification } = await import("./routes/secureAgeVerification");
+  setupSecureAgeVerification(app);
 
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
@@ -515,6 +533,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI Generation endpoints
   app.post("/api/generate-image", 
     isAuthenticated,
+    createEnterpriseSecurityMiddleware({
+      operationType: "panel_generation",
+      allowedContentRatings: ["General", "Mature", "Adult"], // Allow all ratings with proper verification
+      maxRequestsPerHour: 50,
+      getResourceId: (req) => req.body.panelId,
+      getMetadata: (req) => ({ 
+        prompt: req.body.prompt?.substring(0, 100),
+        projectId: req.body.projectContext?.id
+      })
+    }),
     requireCredits({
       operationType: "panel_generation",
       getResourceId: getPanelIdFromBody,
@@ -546,6 +574,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Background Generation route - enhanced for both panel and page-level generation
   app.post("/api/generate-background", 
     isAuthenticated,
+    createEnterpriseSecurityMiddleware({
+      operationType: "background_generation",
+      allowedContentRatings: ["General", "Mature", "Adult"], // Allow all ratings with proper verification
+      maxRequestsPerHour: 30,
+      getResourceId: (req) => req.body.pageId || req.body.projectId,
+      getMetadata: (req) => ({ 
+        projectId: req.body.projectId,
+        pageId: req.body.pageId,
+        layoutTemplate: req.body.layoutTemplate
+      })
+    }),
     requireCredits({
       operationType: "background_generation",
       getResourceId: getPageIdFromRequest,
@@ -654,6 +693,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/generate-full-page", 
     isAuthenticated,
+    createEnterpriseSecurityMiddleware({
+      operationType: "full_page_generation",
+      allowedContentRatings: ["General", "Mature", "Adult"], // Allow all ratings with proper verification
+      maxRequestsPerHour: 15, // Lower limit for complex generation
+      getResourceId: (req) => req.body.currentPageId,
+      getMetadata: (req) => ({ 
+        layoutId: req.body.layoutId,
+        projectContext: req.body.projectContext?.title,
+        pageScript: req.body.pageScript?.substring(0, 100)
+      })
+    }),
     requireCredits({
       operationType: "full_page_generation",
       getResourceId: (req) => req.body.currentPageId,
@@ -689,6 +739,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/generate-script", 
     isAuthenticated,
+    createEnterpriseSecurityMiddleware({
+      operationType: "script_generation",
+      allowedContentRatings: ["General", "Mature", "Adult"], // Allow all ratings with proper verification
+      maxRequestsPerHour: 20, // Lower limit for script generation
+      getResourceId: (req) => req.body.projectId,
+      getMetadata: (req) => ({ 
+        title: req.body.title,
+        genre: req.body.genre,
+        description: req.body.description?.substring(0, 100)
+      })
+    }),
     requireCredits({
       operationType: "script_generation",
       getResourceId: getProjectIdFromParams,
@@ -711,6 +772,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Generate text route for general AI text generation
   app.post("/api/generate-text", 
     isAuthenticated,
+    createEnterpriseSecurityMiddleware({
+      operationType: "text_generation",
+      allowedContentRatings: ["General", "Mature", "Adult"], // Allow all ratings with proper verification
+      maxRequestsPerHour: 40,
+      getMetadata: (req) => ({ 
+        prompt: req.body.prompt?.substring(0, 100)
+      })
+    }),
     requireCredits({
       operationType: "text_generation",
       getMetadata: (req) => createOperationMetadata(req, { 
@@ -735,9 +804,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate complete character with AI
+  // Generate complete character with AI - Enterprise Security Protected
   app.post("/api/projects/:projectId/generate-character", 
     isAuthenticated,
+    createEnterpriseSecurityMiddleware({
+      operationType: "character_generation",
+      allowedContentRatings: ["General", "Mature", "Adult"], // Allow all ratings with proper verification
+      maxRequestsPerHour: 30,
+      getResourceId: (req) => req.params.projectId,
+      getMetadata: (req) => ({ 
+        roleType: req.body.roleType,
+        projectId: req.params.projectId
+      })
+    }),
     requireCredits({
       operationType: "character_generation",
       getResourceId: getProjectIdFromParams,
@@ -912,9 +991,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate structured script with rich metadata
+  // Generate structured script with rich metadata - Enterprise Security Protected
   app.post("/api/projects/:projectId/generate-structured-script", 
     isAuthenticated,
+    createEnterpriseSecurityMiddleware({
+      operationType: "structured_script_generation",
+      allowedContentRatings: ["General", "Mature", "Adult"], // Allow all ratings with proper verification
+      maxRequestsPerHour: 10, // Very low limit for complex script generation
+      getResourceId: (req) => req.params.projectId,
+      getMetadata: (req) => ({ 
+        pageCount: req.body.pageCount,
+        tone: req.body.tone,
+        genre: req.body.genre,
+        title: req.body.title
+      })
+    }),
     requireCredits({
       operationType: "structured_script_generation",
       getResourceId: getProjectIdFromParams,
@@ -1124,7 +1215,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate complete AI story (title, description, characters, script)
+  // Generate complete AI story (title, description, characters, script) - Enterprise Security Protected
   app.post("/api/generate-complete-story", 
     (req, res, next) => {
       console.log("🔥 GENERATE-COMPLETE-STORY: Request received in timeout middleware");
@@ -1138,6 +1229,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       next();
     },
     isAuthenticated,
+    createEnterpriseSecurityMiddleware({
+      operationType: "complete_story_generation",
+      allowedContentRatings: ["General", "Mature", "Adult"], // Allow all ratings with proper verification
+      maxRequestsPerHour: 5, // Very low limit for extremely resource-intensive generation
+      getMetadata: (req) => ({ 
+        genres: req.body.genres?.join(","),
+        length: req.body.length,
+        artStyle: req.body.artStyle,
+        tones: req.body.tones?.join(",")
+      })
+    }),
     requireCredits({
       operationType: "complete_story_generation",
       getMetadata: (req) => createOperationMetadata(req, { 
@@ -1179,9 +1281,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate cover art for project
+  // Generate cover art for project - Enterprise Security Protected
   app.post("/api/projects/:projectId/generate-cover-art", 
     isAuthenticated,
+    createEnterpriseSecurityMiddleware({
+      operationType: "cover_art_generation",
+      allowedContentRatings: ["General", "Mature", "Adult"], // Allow all ratings with proper verification
+      maxRequestsPerHour: 25,
+      getResourceId: (req) => req.params.projectId,
+      getMetadata: (req) => ({ 
+        projectId: req.params.projectId,
+        operationType: "cover_art_generation"
+      })
+    }),
     requireCredits({
       operationType: "cover_art_generation",
       getResourceId: getProjectIdFromParams,
@@ -1603,19 +1715,251 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ========================================
+  // Age Verification API Routes (Authentication Required)
+  // ========================================
+
+  // Get user age verification status
+  app.get('/api/auth/user/age-verification', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Calculate age if birth data is available
+      let age = null;
+      if (user.birthMonth && user.birthYear) {
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth() + 1;
+        
+        age = currentYear - user.birthYear;
+        if (currentMonth < user.birthMonth) {
+          age--;
+        }
+      }
+
+      res.json({
+        isAgeVerified: user.isAgeVerified || false,
+        ageVerifiedAt: user.ageVerifiedAt,
+        hasBirthData: !!(user.birthMonth && user.birthYear),
+        age,
+        canAccessMature: age !== null && age >= 16,
+        canAccessAdult: user.isAgeVerified && age !== null && age >= 18
+      });
+    } catch (error) {
+      console.error("Error fetching age verification status:", error);
+      res.status(500).json({ message: "Failed to fetch age verification status" });
+    }
+  });
+
+  // Submit age verification (birth date)
+  app.post('/api/auth/user/age-verification', 
+    isAuthenticated,
+    createEnterpriseSecurityMiddleware({
+      operationType: "age_verification",
+      allowedContentRatings: ["General"], // Age verification itself is General
+      maxRequestsPerHour: 10, // Limit verification attempts
+      getMetadata: (req) => ({
+        birthYear: req.body.birthYear,
+        userAgent: req.get('User-Agent')?.substring(0, 100),
+        ipAddress: req.ip
+      })
+    }),
+    async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      
+      // Enterprise-grade validation using zod schema
+      const validationResult = ageVerificationSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        // Audit failed validation attempt
+        await storage.logSecurityEvent({
+          userId,
+          eventType: 'age_verification_validation_failed',
+          endpoint: '/api/auth/user/age-verification',
+          metadata: {
+            validationErrors: validationResult.error.errors,
+            submittedData: { birthMonth: req.body.birthMonth, birthYear: req.body.birthYear },
+            userAgent: req.get('User-Agent'),
+            ipAddress: req.ip
+          },
+          timestamp: new Date(),
+          severity: 'warning'
+        });
+        
+        return res.status(400).json({ 
+          message: "Invalid birth date format. Please provide valid month (1-12) and year (1900-current).",
+          errors: validationResult.error.errors
+        });
+      }
+      
+      const { birthMonth, birthYear } = validationResult.data;
+
+      // Calculate age using enterprise-grade logic
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth() + 1;
+      
+      let age = currentYear - birthYear;
+      
+      // Prevent unrealistic ages (enterprise security)
+      if (age < 0 || age > 150) {
+        await storage.logSecurityEvent({
+          userId,
+          eventType: 'age_verification_suspicious_age',
+          endpoint: '/api/auth/user/age-verification',
+          metadata: {
+            calculatedAge: age,
+            birthMonth,
+            birthYear,
+            userAgent: req.get('User-Agent'),
+            ipAddress: req.ip
+          },
+          timestamp: new Date(),
+          severity: 'high'
+        });
+        
+        return res.status(400).json({
+          message: "Invalid birth date. Please verify your information."
+        });
+      }
+      if (currentMonth < birthMonth) {
+        age--;
+      }
+
+      // Get current user state for audit trail
+      const currentUser = await storage.getUser(userId);
+      const wasAgeVerified = currentUser?.isAgeVerified || false;
+      
+      // Server-controlled verification flags (cannot be manipulated by client)
+      const isNowAgeVerified = age >= 18;
+      const updates: any = {
+        birthMonth,
+        birthYear,
+        isAgeVerified: isNowAgeVerified,
+        ageVerifiedAt: isNowAgeVerified ? new Date() : null
+      };
+
+      await storage.updateUser(userId, updates);
+      
+      // Enterprise audit logging for all verification changes
+      await storage.logSecurityEvent({
+        userId,
+        eventType: 'age_verification_submitted',
+        endpoint: '/api/auth/user/age-verification',
+        metadata: {
+          age,
+          birthMonth,
+          birthYear,
+          wasAgeVerified,
+          isNowAgeVerified,
+          verificationStatusChanged: wasAgeVerified !== isNowAgeVerified,
+          userAgent: req.get('User-Agent'),
+          ipAddress: req.ip,
+          accessLevel: age >= 18 ? 'Adult' : age >= 16 ? 'Mature' : 'General'
+        },
+        timestamp: new Date(),
+        severity: 'info'
+      });
+
+      res.json({
+        success: true,
+        age,
+        isAgeVerified: age >= 18,
+        canAccessMature: age >= 16,
+        canAccessAdult: age >= 18,
+        message: age >= 18 ? "Age verification successful" : 
+                 age >= 16 ? "Age recorded. Mature content access granted." :
+                 "Age recorded. Content access limited to general audiences."
+      });
+    } catch (error) {
+      console.error("Error submitting age verification:", error);
+      res.status(500).json({ message: "Failed to submit age verification" });
+    }
+  });
+
+  // Reset age verification (for testing or privacy)
+  app.delete('/api/auth/user/age-verification', 
+    isAuthenticated,
+    createEnterpriseSecurityMiddleware({
+      operationType: "age_verification_reset",
+      allowedContentRatings: ["General"], // Reset is General operation
+      maxRequestsPerHour: 5, // Very strict limit on resets
+      getMetadata: (req) => ({
+        userAgent: req.get('User-Agent')?.substring(0, 100),
+        ipAddress: req.ip
+      })
+    }),
+    async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      
+      // Get current user state for comprehensive audit trail
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      const hadVerificationData = !!(currentUser.birthMonth && currentUser.birthYear);
+      const wasAgeVerified = currentUser.isAgeVerified || false;
+      
+      // Server-controlled reset (client cannot specify what to reset)
+      await storage.updateUser(userId, {
+        birthMonth: null,
+        birthYear: null,
+        isAgeVerified: false,
+        ageVerifiedAt: null
+      });
+      
+      // Enterprise audit logging for verification resets
+      await storage.logSecurityEvent({
+        userId,
+        eventType: 'age_verification_reset',
+        endpoint: '/api/auth/user/age-verification',
+        metadata: {
+          hadVerificationData,
+          wasAgeVerified,
+          previousBirthMonth: currentUser.birthMonth,
+          previousBirthYear: currentUser.birthYear,
+          previousAgeVerifiedAt: currentUser.ageVerifiedAt,
+          userAgent: req.get('User-Agent'),
+          ipAddress: req.ip
+        },
+        timestamp: new Date(),
+        severity: 'warning' // Resets are potentially suspicious
+      });
+
+      res.json({
+        success: true,
+        message: "Age verification data cleared successfully"
+      });
+    } catch (error) {
+      console.error("Error resetting age verification:", error);
+      res.status(500).json({ message: "Failed to reset age verification" });
+    }
+  });
+
+  // ========================================
   // AI Redress API Routes (Authentication Required)
   // ========================================
 
   // Create redress job for panel
   app.post("/api/panels/:panelId/redress", 
     isAuthenticated,
+    auditContentAccess, // Audit all content access attempts
+    validateRedressContent, // Validate content rating and enforce age restrictions
     requireCredits({
-      operationType: (req) => req.body.preview ? "redress_preview" : "redress_apply",
+      operationType: "redress_apply" as const,
       getResourceId: (req) => req.params.panelId,
       getMetadata: (req) => createOperationMetadata(req, {
         characters: req.body.characters?.length,
         outfit: req.body.outfit?.type,
-        isPreview: req.body.preview
+        isPreview: req.body.preview,
+        contentRating: req.contentRating,
+        presetCategory: req.presetCategory
       })
     }),
     async (req: any, res) => {

@@ -58,11 +58,33 @@ import {
   Users,
   CheckSquare,
   Square,
+  Shield,
+  ShieldOff,
+  Lock,
+  Calendar,
+  Settings,
 } from "lucide-react";
 import type { Character, Panel } from "@shared/schema";
 
-// Outfit preset configurations
-const OUTFIT_PRESETS = [
+// Content rating types
+type ContentRating = "General" | "Mature" | "Adult";
+
+// Outfit preset with enhanced structure
+interface OutfitPreset {
+  id: string;
+  name: string;
+  type: string;
+  style: string;
+  colors: string[];
+  description: string;
+  thumbnail: string;
+  rating: ContentRating;
+  category: "Basic" | "Comedy" | "Cosplay" | "Professional" | "Seasonal" | "Adult";
+}
+
+// Comprehensive outfit preset configurations
+const OUTFIT_PRESETS: OutfitPreset[] = [
+  // Basic/Everyday (General Rating)
   {
     id: "casual-modern",
     name: "Casual Modern",
@@ -71,6 +93,8 @@ const OUTFIT_PRESETS = [
     colors: ["#2563eb", "#ffffff", "#64748b"],
     description: "Modern casual outfit with jeans and t-shirt",
     thumbnail: "👕",
+    rating: "General",
+    category: "Basic",
   },
   {
     id: "formal-business",
@@ -80,33 +104,8 @@ const OUTFIT_PRESETS = [
     colors: ["#1f2937", "#ffffff", "#374151"],
     description: "Professional business attire with suit and tie",
     thumbnail: "👔",
-  },
-  {
-    id: "fantasy-medieval",
-    name: "Medieval Fantasy",
-    type: "fantasy clothing",
-    style: "medieval fantasy",
-    colors: ["#7c2d12", "#fbbf24", "#065f46"],
-    description: "Medieval fantasy clothing with robes and leather",
-    thumbnail: "🏰",
-  },
-  {
-    id: "sci-fi-futuristic",
-    name: "Sci-Fi Future",
-    type: "futuristic clothing",
-    style: "cyberpunk futuristic",
-    colors: ["#1e1b4b", "#06b6d4", "#a855f7"],
-    description: "Futuristic sci-fi outfit with tech elements",
-    thumbnail: "🚀",
-  },
-  {
-    id: "vintage-retro",
-    name: "Vintage Retro",
-    type: "vintage clothing",
-    style: "retro vintage",
-    colors: ["#dc2626", "#fbbf24", "#0369a1"],
-    description: "Retro vintage style from past decades",
-    thumbnail: "📻",
+    rating: "General",
+    category: "Basic",
   },
   {
     id: "elegant-evening",
@@ -116,6 +115,306 @@ const OUTFIT_PRESETS = [
     colors: ["#000000", "#ffd700", "#dc2626"],
     description: "Elegant evening attire for special occasions",
     thumbnail: "✨",
+    rating: "General",
+    category: "Basic",
+  },
+  {
+    id: "athletic-sporty",
+    name: "Athletic Sporty",
+    type: "athletic wear",
+    style: "sporty active",
+    colors: ["#ef4444", "#ffffff", "#374151"],
+    description: "Athletic clothing for active characters",
+    thumbnail: "🏃",
+    rating: "General",
+    category: "Basic",
+  },
+
+  // Comedy/Funny (General Rating)
+  {
+    id: "clown-outfit",
+    name: "Clown Outfit",
+    type: "clown costume",
+    style: "colorful oversized comedic",
+    colors: ["#ef4444", "#eab308", "#3b82f6", "#ffffff"],
+    description: "Colorful clown outfit with oversized features and polka dots",
+    thumbnail: "🤡",
+    rating: "General",
+    category: "Comedy",
+  },
+  {
+    id: "banana-suit",
+    name: "Banana Suit",
+    type: "fruit costume",
+    style: "yellow quirky comedic",
+    colors: ["#eab308", "#fbbf24", "#365314"],
+    description: "Yellow banana costume for comedic effect",
+    thumbnail: "🍌",
+    rating: "General",
+    category: "Comedy",
+  },
+  {
+    id: "mismatched-silly",
+    name: "Mismatched Silly",
+    type: "mismatched clothing",
+    style: "intentionally silly chaotic",
+    colors: ["#ef4444", "#22c55e", "#8b5cf6", "#f97316"],
+    description: "Intentionally mismatched outfit for comedic chaos",
+    thumbnail: "🎭",
+    rating: "General",
+    category: "Comedy",
+  },
+  {
+    id: "superhero-spoof",
+    name: "Superhero Spoof",
+    type: "parody superhero costume",
+    style: "exaggerated comedic superhero",
+    colors: ["#dc2626", "#3b82f6", "#eab308"],
+    description: "Over-the-top superhero costume with comedic elements",
+    thumbnail: "🦸",
+    rating: "General",
+    category: "Comedy",
+  },
+  {
+    id: "chef-comedy",
+    name: "Chef Comedy",
+    type: "chef outfit",
+    style: "chef uniform comedic oversized",
+    colors: ["#ffffff", "#ef4444", "#374151"],
+    description: "Chef outfit with tall hat and comedic food stains",
+    thumbnail: "👨‍🍳",
+    rating: "General",
+    category: "Comedy",
+  },
+
+  // Fantasy/Cosplay (General Rating)
+  {
+    id: "fantasy-medieval",
+    name: "Medieval Fantasy",
+    type: "fantasy clothing",
+    style: "medieval fantasy",
+    colors: ["#7c2d12", "#fbbf24", "#065f46"],
+    description: "Medieval fantasy clothing with robes and leather",
+    thumbnail: "🏰",
+    rating: "General",
+    category: "Cosplay",
+  },
+  {
+    id: "sci-fi-futuristic",
+    name: "Sci-Fi Future",
+    type: "futuristic clothing",
+    style: "cyberpunk futuristic",
+    colors: ["#1e1b4b", "#06b6d4", "#a855f7"],
+    description: "Futuristic sci-fi outfit with tech elements",
+    thumbnail: "🚀",
+    rating: "General",
+    category: "Cosplay",
+  },
+  {
+    id: "anime-school",
+    name: "Anime School",
+    type: "school uniform",
+    style: "anime japanese school",
+    colors: ["#1e3a8a", "#ffffff", "#dc2626"],
+    description: "Japanese anime-style school uniform",
+    thumbnail: "🎌",
+    rating: "General",
+    category: "Cosplay",
+  },
+  {
+    id: "superhero-classic",
+    name: "Classic Superhero",
+    type: "superhero costume",
+    style: "classic superhero",
+    colors: ["#dc2626", "#3b82f6", "#eab308"],
+    description: "Classic superhero costume with cape and emblem",
+    thumbnail: "🦸‍♂️",
+    rating: "General",
+    category: "Cosplay",
+  },
+  {
+    id: "ninja-stealth",
+    name: "Ninja Stealth",
+    type: "ninja outfit",
+    style: "stealthy dark ninja",
+    colors: ["#000000", "#374151", "#dc2626"],
+    description: "Stealthy ninja outfit with mask and dark colors",
+    thumbnail: "🥷",
+    rating: "General",
+    category: "Cosplay",
+  },
+
+  // Professional/Uniform (General Rating)
+  {
+    id: "nurse-medical",
+    name: "Medical Nurse",
+    type: "nurse uniform",
+    style: "medical professional",
+    colors: ["#ffffff", "#3b82f6", "#dc2626"],
+    description: "Professional medical nurse uniform",
+    thumbnail: "👩‍⚕️",
+    rating: "General",
+    category: "Professional",
+  },
+  {
+    id: "firefighter-gear",
+    name: "Firefighter Gear",
+    type: "firefighter uniform",
+    style: "protective emergency",
+    colors: ["#eab308", "#000000", "#ef4444"],
+    description: "Firefighter protective gear and uniform",
+    thumbnail: "🚒",
+    rating: "General",
+    category: "Professional",
+  },
+  {
+    id: "police-uniform",
+    name: "Police Uniform",
+    type: "police outfit",
+    style: "law enforcement uniform",
+    colors: ["#1e3a8a", "#000000", "#ffffff"],
+    description: "Standard police officer uniform",
+    thumbnail: "👮",
+    rating: "General",
+    category: "Professional",
+  },
+  {
+    id: "military-dress",
+    name: "Military Dress",
+    type: "military uniform",
+    style: "formal military dress",
+    colors: ["#065f46", "#fbbf24", "#000000"],
+    description: "Formal military dress uniform with decorations",
+    thumbnail: "🪖",
+    rating: "General",
+    category: "Professional",
+  },
+
+  // Seasonal/Themed (General to Mature Rating)
+  {
+    id: "vintage-retro",
+    name: "Vintage Retro",
+    type: "vintage clothing",
+    style: "retro vintage",
+    colors: ["#dc2626", "#fbbf24", "#0369a1"],
+    description: "Retro vintage style from past decades",
+    thumbnail: "📻",
+    rating: "General",
+    category: "Seasonal",
+  },
+  {
+    id: "beach-summer",
+    name: "Beach Summer",
+    type: "beach wear",
+    style: "casual summer beach",
+    colors: ["#06b6d4", "#eab308", "#ffffff"],
+    description: "Light summer beach outfit with shorts and tank top",
+    thumbnail: "🏖️",
+    rating: "General",
+    category: "Seasonal",
+  },
+  {
+    id: "winter-cozy",
+    name: "Winter Cozy",
+    type: "winter clothing",
+    style: "warm cozy winter",
+    colors: ["#7c2d12", "#ffffff", "#065f46"],
+    description: "Warm winter clothing with coat and scarf",
+    thumbnail: "❄️",
+    rating: "General",
+    category: "Seasonal",
+  },
+  {
+    id: "halloween-spooky",
+    name: "Halloween Spooky",
+    type: "halloween costume",
+    style: "spooky halloween themed",
+    colors: ["#f97316", "#000000", "#7c3aed"],
+    description: "Spooky Halloween costume with gothic elements",
+    thumbnail: "🎃",
+    rating: "General",
+    category: "Seasonal",
+  },
+
+  // Mature Content (Mature Rating - Revealing but not explicit)
+  {
+    id: "swimwear-beach",
+    name: "Swimwear Beach",
+    type: "swimwear",
+    style: "beach swimsuit revealing",
+    colors: ["#3b82f6", "#ffffff", "#f97316"],
+    description: "Beach swimwear with revealing but tasteful coverage",
+    thumbnail: "👙",
+    rating: "Mature",
+    category: "Seasonal",
+  },
+  {
+    id: "club-party",
+    name: "Club Party",
+    type: "party outfit",
+    style: "nightclub party revealing",
+    colors: ["#000000", "#ec4899", "#ffd700"],
+    description: "Revealing party outfit for nightclub scenes",
+    thumbnail: "🍸",
+    rating: "Mature",
+    category: "Seasonal",
+  },
+  {
+    id: "maid-service",
+    name: "Maid Service",
+    type: "maid outfit",
+    style: "french maid uniform",
+    colors: ["#000000", "#ffffff", "#dc2626"],
+    description: "Classic French maid uniform with frilly details",
+    thumbnail: "🏠",
+    rating: "Mature",
+    category: "Professional",
+  },
+
+  // Adult Content (Adult Rating - Explicit/NSFW)
+  {
+    id: "lingerie-elegant",
+    name: "Elegant Lingerie",
+    type: "lingerie",
+    style: "elegant sophisticated intimate",
+    colors: ["#000000", "#dc2626", "#ffd700"],
+    description: "Elegant and sophisticated lingerie set",
+    thumbnail: "💋",
+    rating: "Adult",
+    category: "Adult",
+  },
+  {
+    id: "lingerie-lace",
+    name: "Lace Lingerie",
+    type: "lace lingerie",
+    style: "delicate lace intimate",
+    colors: ["#ffffff", "#ec4899", "#8b5cf6"],
+    description: "Delicate lace lingerie with intricate patterns",
+    thumbnail: "🌹",
+    rating: "Adult",
+    category: "Adult",
+  },
+  {
+    id: "fantasy-adult",
+    name: "Fantasy Adult",
+    type: "fantasy intimate wear",
+    style: "fantasy themed intimate",
+    colors: ["#7c3aed", "#ffd700", "#dc2626"],
+    description: "Fantasy-themed adult costume with mystical elements",
+    thumbnail: "🔮",
+    rating: "Adult",
+    category: "Adult",
+  },
+  {
+    id: "leather-fetish",
+    name: "Leather Style",
+    type: "leather outfit",
+    style: "leather fetish wear",
+    colors: ["#000000", "#dc2626", "#fbbf24"],
+    description: "Leather outfit with chains and buckles",
+    thumbnail: "⛓️",
+    rating: "Adult",
+    category: "Adult",
   },
 ];
 
@@ -189,6 +488,116 @@ export function RedressModal({
   // Character selection state
   const [searchTerm, setSearchTerm] = useState("");
   const [showPanelCharactersOnly, setShowPanelCharactersOnly] = useState(true);
+  
+  // Content gating state
+  const [safeMode, setSafeMode] = useState(() => {
+    const stored = localStorage.getItem("redress-safe-mode");
+    return stored === null ? true : stored === "true"; // Default to safe mode ON
+  });
+  const [ageVerified, setAgeVerified] = useState(() => {
+    const stored = localStorage.getItem("redress-age-verified");
+    return stored === "true";
+  });
+  const [showAgeVerification, setShowAgeVerification] = useState(false);
+  const [presetCategoryFilter, setPresetCategoryFilter] = useState<string>("All");
+  
+  // Age verification modal state
+  const [birthYear, setBirthYear] = useState("");
+  const [ageVerificationError, setAgeVerificationError] = useState("");
+  
+  // Content filtering logic
+  const filteredPresets = useMemo(() => {
+    let filtered = OUTFIT_PRESETS;
+    
+    // Apply safe mode filtering
+    if (safeMode) {
+      filtered = filtered.filter(preset => preset.rating === "General");
+    } else if (!ageVerified) {
+      // If safe mode is off but not age verified, only show General and Mature
+      filtered = filtered.filter(preset => preset.rating !== "Adult");
+    }
+    
+    // Apply category filtering
+    if (presetCategoryFilter !== "All") {
+      filtered = filtered.filter(preset => preset.category === presetCategoryFilter);
+    }
+    
+    return filtered;
+  }, [safeMode, ageVerified, presetCategoryFilter]);
+  
+  // Safe mode toggle handler
+  const handleSafeModeToggle = (enabled: boolean) => {
+    setSafeMode(enabled);
+    localStorage.setItem("redress-safe-mode", enabled.toString());
+    
+    // Clear selected preset if it's no longer available
+    if (enabled && selectedPreset) {
+      const preset = OUTFIT_PRESETS.find(p => p.id === selectedPreset);
+      if (preset && preset.rating !== "General") {
+        setSelectedPreset(null);
+        form.setValue("outfit", {
+          type: "",
+          style: "",
+          colors: [],
+          description: "",
+        });
+        setSelectedColors([]);
+      }
+    }
+  };
+  
+  // Age verification handler
+  const handleAgeVerification = () => {
+    setAgeVerificationError("");
+    
+    if (!birthYear || birthYear.length !== 4) {
+      setAgeVerificationError("Please enter a valid 4-digit birth year");
+      return;
+    }
+    
+    const year = parseInt(birthYear);
+    const currentYear = new Date().getFullYear();
+    const age = currentYear - year;
+    
+    if (isNaN(year) || year < 1900 || year > currentYear) {
+      setAgeVerificationError("Please enter a valid birth year");
+      return;
+    }
+    
+    if (age < 18) {
+      setAgeVerificationError("You must be 18 or older to access adult content");
+      return;
+    }
+    
+    // Age verification successful
+    setAgeVerified(true);
+    localStorage.setItem("redress-age-verified", "true");
+    setShowAgeVerification(false);
+    setBirthYear("");
+    toast({
+      title: "Age Verified",
+      description: "You now have access to all content categories.",
+    });
+  };
+  
+  // Handle preset access (with content gating)
+  const handlePresetAccess = (preset: OutfitPreset) => {
+    if (preset.rating === "Adult" && !ageVerified) {
+      setShowAgeVerification(true);
+      return;
+    }
+    
+    if ((preset.rating === "Mature" || preset.rating === "Adult") && safeMode) {
+      toast({
+        title: "Content Restricted",
+        description: "This preset requires safe mode to be disabled. You can change this in the content settings.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    handlePresetSelect(preset);
+  };
   
   // Panel character detection - for now we'll use a mock implementation
   // In a real app, this would come from panel generation data or face recognition
@@ -329,10 +738,19 @@ export function RedressModal({
   // Preview mutation (1 credit)
   const previewMutation = useMutation({
     mutationFn: async (data: RedressFormData) => {
-      const response = await apiRequest("POST", `/api/panels/${panelId}/redress`, {
+      // Get preset data if a preset is selected
+      const preset = selectedPreset ? OUTFIT_PRESETS.find(p => p.id === selectedPreset) : null;
+      
+      const requestData = {
         ...data,
         preview: true,
-      });
+        // Include preset metadata for server-side validation
+        presetId: preset?.id,
+        presetRating: preset?.rating,
+        presetCategory: preset?.category,
+      };
+      
+      const response = await apiRequest("POST", `/api/panels/${panelId}/redress`, requestData);
       return response.json();
     },
     onSuccess: (result: RedressJob) => {
@@ -344,23 +762,57 @@ export function RedressModal({
         description: "Generating outfit preview... This will take a moment.",
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Preview failed:", error);
-      toast({
-        title: "Preview Failed",
-        description: "Unable to generate preview. Please try again.",
-        variant: "destructive",
-      });
+      
+      // Handle age verification errors specifically
+      if (error.status === 403) {
+        const errorData = error.data || {};
+        if (errorData.code === "AGE_VERIFICATION_REQUIRED") {
+          toast({
+            title: "Age Verification Required",
+            description: `You must verify your age (${errorData.requiredAge}+) to access ${errorData.contentRating?.toLowerCase()} content.`,
+            variant: "destructive",
+          });
+        } else if (errorData.code === "AGE_RESTRICTED") {
+          toast({
+            title: "Content Restricted",
+            description: `This content requires age ${errorData.requiredAge}+ verification.`,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Access Denied",
+            description: errorData.error || "You don't have permission to access this content.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Preview Failed",
+          description: "Unable to generate preview. Please try again.",
+          variant: "destructive",
+        });
+      }
     },
   });
 
   // Apply mutation (3 credits)
   const applyMutation = useMutation({
     mutationFn: async (data: RedressFormData) => {
-      const response = await apiRequest("POST", `/api/panels/${panelId}/redress`, {
+      // Get preset data if a preset is selected
+      const preset = selectedPreset ? OUTFIT_PRESETS.find(p => p.id === selectedPreset) : null;
+      
+      const requestData = {
         ...data,
         preview: false,
-      });
+        // Include preset metadata for server-side validation
+        presetId: preset?.id,
+        presetRating: preset?.rating,
+        presetCategory: preset?.category,
+      };
+      
+      const response = await apiRequest("POST", `/api/panels/${panelId}/redress`, requestData);
       return response.json();
     },
     onSuccess: (result: RedressJob) => {
@@ -375,18 +827,43 @@ export function RedressModal({
       queryClient.invalidateQueries({ queryKey: ["/api/pages"] });
       queryClient.invalidateQueries({ queryKey: ["/api/panels"] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Apply failed:", error);
-      toast({
-        title: "Apply Failed",
-        description: "Unable to apply changes. Please try again.",
-        variant: "destructive",
-      });
+      
+      // Handle age verification errors specifically
+      if (error.status === 403) {
+        const errorData = error.data || {};
+        if (errorData.code === "AGE_VERIFICATION_REQUIRED") {
+          toast({
+            title: "Age Verification Required",
+            description: `You must verify your age (${errorData.requiredAge}+) to access ${errorData.contentRating?.toLowerCase()} content.`,
+            variant: "destructive",
+          });
+        } else if (errorData.code === "AGE_RESTRICTED") {
+          toast({
+            title: "Content Restricted",
+            description: `This content requires age ${errorData.requiredAge}+ verification.`,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Access Denied",
+            description: errorData.error || "You don't have permission to access this content.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Apply Failed",
+          description: "Unable to apply changes. Please try again.",
+          variant: "destructive",
+        });
+      }
     },
   });
 
   // Handle preset selection
-  const handlePresetSelect = (preset: typeof OUTFIT_PRESETS[0]) => {
+  const handlePresetSelect = (preset: OutfitPreset) => {
     setSelectedPreset(preset.id);
     setSelectedColors(preset.colors);
     
@@ -819,6 +1296,93 @@ export function RedressModal({
                   </p>
                 </div>
 
+                {/* Content Settings */}
+                <Card className="border-2 border-muted/50">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Settings className="h-4 w-4" />
+                        <h4 className="font-medium text-sm">Content Settings</h4>
+                      </div>
+                      <Badge variant={safeMode ? "default" : "destructive"} className="text-xs">
+                        {safeMode ? "Safe Mode" : "Unrestricted"}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Safe Mode Toggle */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {safeMode ? (
+                          <Shield className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <ShieldOff className="h-4 w-4 text-red-600" />
+                        )}
+                        <div>
+                          <Label className="text-sm font-medium">Safe Mode</Label>
+                          <p className="text-xs text-muted-foreground">Only show general audience content</p>
+                        </div>
+                      </div>
+                      <Checkbox
+                        checked={safeMode}
+                        onCheckedChange={handleSafeModeToggle}
+                        data-testid="safe-mode-toggle"
+                        aria-describedby="safe-mode-description"
+                      />
+                    </div>
+                    
+                    {/* Age Verification Status */}
+                    {!safeMode && (
+                      <div className="flex items-center justify-between pt-2 border-t">
+                        <div className="flex items-center gap-2">
+                          <Lock className="h-4 w-4 text-amber-600" />
+                          <div>
+                            <Label className="text-sm font-medium">Adult Content</Label>
+                            <p className="text-xs text-muted-foreground">
+                              {ageVerified ? "Age verified - All content available" : "Requires age verification"}
+                            </p>
+                          </div>
+                        </div>
+                        {!ageVerified && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowAgeVerification(true)}
+                            data-testid="verify-age-button"
+                          >
+                            Verify Age
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Category Filter */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Category Filter</Label>
+                      <Select value={presetCategoryFilter} onValueChange={setPresetCategoryFilter}>
+                        <SelectTrigger className="h-9" data-testid="category-filter">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="All">All Categories</SelectItem>
+                          <SelectItem value="Basic">Basic</SelectItem>
+                          <SelectItem value="Comedy">Comedy</SelectItem>
+                          <SelectItem value="Cosplay">Cosplay</SelectItem>
+                          <SelectItem value="Professional">Professional</SelectItem>
+                          <SelectItem value="Seasonal">Seasonal</SelectItem>
+                          {!safeMode && <SelectItem value="Adult">Adult</SelectItem>}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {/* Stats */}
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t">
+                      <div>Total: {OUTFIT_PRESETS.length} presets</div>
+                      <div>Showing: {filteredPresets.length} presets</div>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 <Tabs defaultValue="presets" className="w-full">
                   <TabsList className="grid w-full grid-cols-2" data-testid="outfit-tabs">
                     <TabsTrigger value="presets" data-testid="presets-tab">Outfit Presets</TabsTrigger>
@@ -826,34 +1390,98 @@ export function RedressModal({
                   </TabsList>
 
                   <TabsContent value="presets" className="space-y-4">
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4" data-testid="preset-grid">
-                      {OUTFIT_PRESETS.map((preset) => (
-                        <Card
-                          key={preset.id}
-                          className={`cursor-pointer transition-all hover:shadow-md ${
-                            selectedPreset === preset.id ? "ring-2 ring-primary bg-primary/5" : ""
-                          }`}
-                          onClick={() => handlePresetSelect(preset)}
-                          data-testid={`preset-card-${preset.id}`}
-                        >
-                          <CardContent className="p-4 text-center">
-                            <div className="text-3xl mb-2">{preset.thumbnail}</div>
-                            <h4 className="font-medium text-sm mb-1">{preset.name}</h4>
-                            <p className="text-xs text-muted-foreground mb-2">{preset.description}</p>
-                            
-                            <div className="flex gap-1 justify-center">
-                              {preset.colors.map((color, idx) => (
-                                <div
-                                  key={idx}
-                                  className="w-4 h-4 rounded-full border border-border"
-                                  style={{ backgroundColor: color }}
-                                />
-                              ))}
-                            </div>
-                          </CardContent>
-                        </Card>
+                    {filteredPresets.length > 0 ? (
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4" data-testid="preset-grid">
+                        {filteredPresets.map((preset) => (
+                          <Card
+                            key={preset.id}
+                            className={`cursor-pointer transition-all hover:shadow-md relative ${
+                              selectedPreset === preset.id ? "ring-2 ring-primary bg-primary/5" : ""
+                            }`}
+                            onClick={() => handlePresetAccess(preset)}
+                            data-testid={`preset-card-${preset.id}`}
+                          >
+                            <CardContent className="p-4 text-center">
+                              {/* Content Rating Badge */}
+                              <div className="absolute top-2 right-2">
+                                {preset.rating === "Adult" ? (
+                                  <Badge variant="destructive" className="text-xs h-5">
+                                    18+
+                                  </Badge>
+                                ) : preset.rating === "Mature" ? (
+                                  <Badge variant="secondary" className="text-xs h-5">
+                                    M
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-xs h-5 bg-green-50 text-green-700 border-green-200">
+                                    G
+                                  </Badge>
+                                )}
+                              </div>
+                              
+                              {/* Category Badge */}
+                              <div className="absolute top-2 left-2">
+                                <Badge variant="outline" className="text-xs h-5">
+                                  {preset.category}
+                                </Badge>
+                              </div>
+                              
+                              <div className="text-3xl mb-2 mt-4">{preset.thumbnail}</div>
+                              <h4 className="font-medium text-sm mb-1">{preset.name}</h4>
+                              <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{preset.description}</p>
+                              
+                              <div className="flex gap-1 justify-center">
+                                {preset.colors.map((color, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="w-4 h-4 rounded-full border border-border"
+                                    style={{ backgroundColor: color }}
+                                  />
+                                ))}
+                              </div>
+                              
+                              {/* Access Indicator */}
+                              {preset.rating === "Adult" && !ageVerified && (
+                                <div className="flex items-center justify-center gap-1 mt-2">
+                                  <Lock className="h-3 w-3 text-amber-600" />
+                                  <span className="text-xs text-amber-600">Age verification required</span>
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
                       ))}
-                    </div>
+                      </div>
+                    ) : (
+                      <Card className="p-8 text-center">
+                        <Filter className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                        <h4 className="font-medium text-muted-foreground mb-2">No Presets Available</h4>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          No presets match your current content settings and filters.
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                          {safeMode && (
+                            <Button
+                              variant="outline"
+                              onClick={() => handleSafeModeToggle(false)}
+                              data-testid="disable-safe-mode-button"
+                            >
+                              <ShieldOff className="h-4 w-4 mr-2" />
+                              Disable Safe Mode
+                            </Button>
+                          )}
+                          {presetCategoryFilter !== "All" && (
+                            <Button
+                              variant="outline"
+                              onClick={() => setPresetCategoryFilter("All")}
+                              data-testid="clear-category-filter-button"
+                            >
+                              <X className="h-4 w-4 mr-2" />
+                              Clear Category Filter
+                            </Button>
+                          )}
+                        </div>
+                      </Card>
+                    )}
                   </TabsContent>
 
                   <TabsContent value="custom" className="space-y-4">
@@ -1216,6 +1844,80 @@ export function RedressModal({
           </div>
         </ModalFooterComponent>
       </ModalContentComponent>
+      
+      {/* Age Verification Modal */}
+      <Dialog open={showAgeVerification} onOpenChange={setShowAgeVerification}>
+        <DialogContent className="max-w-md" data-testid="age-verification-modal">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-5 w-5" />
+              <DialogTitle>Age Verification Required</DialogTitle>
+            </div>
+            <DialogDescription>
+              This content is restricted to users 18 years and older. Please verify your age to continue.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <Calendar className="h-4 w-4 text-amber-600 mt-0.5" />
+                <div className="text-sm text-amber-700">
+                  <p className="font-medium mb-1">Adult Content Warning</p>
+                  <p>You are about to access mature content that may contain revealing or suggestive clothing options. This content is intended for users 18 years and older.</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="birth-year">Birth Year</Label>
+              <Input
+                id="birth-year"
+                type="number"
+                placeholder="e.g., 1990"
+                value={birthYear}
+                onChange={(e) => setBirthYear(e.target.value)}
+                min="1900"
+                max={new Date().getFullYear()}
+                data-testid="birth-year-input"
+                aria-describedby="birth-year-help"
+              />
+              <p id="birth-year-help" className="text-xs text-muted-foreground">
+                Enter your 4-digit birth year to verify you are 18 or older
+              </p>
+            </div>
+            
+            {ageVerificationError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-600" data-testid="age-verification-error">
+                  {ageVerificationError}
+                </p>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAgeVerification(false);
+                setBirthYear("");
+                setAgeVerificationError("");
+              }}
+              data-testid="cancel-age-verification-button"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAgeVerification}
+              disabled={!birthYear}
+              data-testid="confirm-age-verification-button"
+            >
+              Verify Age
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </ModalContainer>
   );
 }

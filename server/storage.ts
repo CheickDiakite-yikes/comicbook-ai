@@ -14,6 +14,8 @@ import {
   userCredits,
   creditTransactions,
   redressJobs,
+  securityAuditLogs,
+  rateLimitingLog,
   type User,
   type UpsertUser,
   type Project,
@@ -47,10 +49,14 @@ import {
   type InsertCreditTransaction,
   type RedressJob,
   type InsertRedressJob,
+  type SecurityAuditLog,
+  type InsertSecurityAuditLog,
+  type RateLimitingLog,
+  type InsertRateLimitingLog,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { eq, desc, and, sql, count } from "drizzle-orm";
+import { eq, desc, and, sql, count, gte, lte } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -147,6 +153,34 @@ export interface IStorage {
   updateRedressJob(id: string, updates: Partial<InsertRedressJob>): Promise<RedressJob | undefined>;
   getUserRedressJobs(userId: string, limit?: number): Promise<RedressJob[]>;
   deleteRedressJob(id: string): Promise<boolean>;
+
+  // Security audit operations - Enterprise security logging
+  createSecurityAuditLog(auditLog: InsertSecurityAuditLog): Promise<SecurityAuditLog>;
+  getSecurityAuditLogs(filters: {
+    userId?: string;
+    ipAddress?: string;
+    endpoint?: string;
+    accessDecision?: string;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+  }): Promise<SecurityAuditLog[]>;
+  
+  // Rate limiting operations
+  getRateLimitingStatus(userId?: string, ipAddress?: string, endpoint?: string): Promise<{
+    isLimited: boolean;
+    currentCount: number;
+    windowStart: Date;
+    windowEnd: Date;
+    limit: number;
+  }>;
+  updateRateLimitingLog(rateLimitLog: InsertRateLimitingLog): Promise<RateLimitingLog>;
+  cleanupExpiredRateLimits(): Promise<number>;
+  
+  // Additional rate limiting methods for SecurityAuditService  
+  getRateLimitCount(key: string, endpoint: string, windowStart: Date, windowEnd: Date): Promise<number>;
+  createRateLimitingLog(rateLimitLog: InsertRateLimitingLog): Promise<RateLimitingLog>;
+  deleteOldSecurityAuditLogs(cutoffDate: Date): Promise<number>;
 }
 
 export class MemStorage implements IStorage {
@@ -156,6 +190,8 @@ export class MemStorage implements IStorage {
   private pages: Map<string, Page> = new Map();
   private panels: Map<string, Panel> = new Map();
   private redressJobs: Map<string, RedressJob> = new Map();
+  private securityAuditLogs: Map<string, SecurityAuditLog> = new Map();
+  private rateLimitingLogs: Map<string, RateLimitingLog> = new Map();
 
   // User operations
   async getUser(id: string): Promise<User | undefined> {
@@ -201,6 +237,10 @@ export class MemStorage implements IStorage {
       firstName: userData.firstName || null,
       lastName: userData.lastName || null,
       profileImageUrl: userData.profileImageUrl || null,
+      isAgeVerified: null,
+      ageVerifiedAt: null,
+      birthMonth: null,
+      birthYear: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -605,6 +645,86 @@ export class MemStorage implements IStorage {
 
   async deleteRedressJob(id: string): Promise<boolean> {
     return this.redressJobs.delete(id);
+  }
+
+  // Security audit operations - In-memory implementation
+  async createSecurityAuditLog(auditLogData: InsertSecurityAuditLog): Promise<SecurityAuditLog> {
+    const auditLog: SecurityAuditLog = {
+      id: randomUUID(),
+      ...auditLogData,
+      createdAt: new Date(),
+    };
+    this.securityAuditLogs.set(auditLog.id, auditLog);
+    return auditLog;
+  }
+
+  async getSecurityAuditLogs(filters: any): Promise<SecurityAuditLog[]> {
+    let logs = Array.from(this.securityAuditLogs.values());
+    
+    if (filters.userId) {
+      logs = logs.filter(log => log.userId === filters.userId);
+    }
+    if (filters.ipAddress) {
+      logs = logs.filter(log => log.ipAddress === filters.ipAddress);
+    }
+    if (filters.endpoint) {
+      logs = logs.filter(log => log.endpoint === filters.endpoint);
+    }
+    if (filters.accessDecision) {
+      logs = logs.filter(log => log.accessDecision === filters.accessDecision);
+    }
+    
+    return logs
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, filters.limit || 100);
+  }
+
+  // Rate limiting operations - In-memory implementation
+  async getRateLimitingStatus(userId?: string, ipAddress?: string, endpoint?: string): Promise<any> {
+    // Simple in-memory rate limiting for development
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - 60 * 60 * 1000); // 1 hour window
+    
+    let currentCount = 0;
+    for (const log of this.rateLimitingLogs.values()) {
+      if (log.endpoint === endpoint && log.windowStart >= windowStart) {
+        if ((userId && log.userId === userId) || (ipAddress && log.ipAddress === ipAddress)) {
+          currentCount += log.requestCount;
+        }
+      }
+    }
+    
+    return {
+      isLimited: currentCount >= 100, // 100 requests per hour
+      currentCount,
+      windowStart,
+      windowEnd: new Date(windowStart.getTime() + 60 * 60 * 1000),
+      limit: 100,
+    };
+  }
+
+  async updateRateLimitingLog(rateLimitLogData: InsertRateLimitingLog): Promise<RateLimitingLog> {
+    const log: RateLimitingLog = {
+      id: randomUUID(),
+      ...rateLimitLogData,
+      createdAt: new Date(),
+    };
+    this.rateLimitingLogs.set(log.id, log);
+    return log;
+  }
+
+  async cleanupExpiredRateLimits(): Promise<number> {
+    const now = new Date();
+    let deletedCount = 0;
+    
+    for (const [id, log] of this.rateLimitingLogs.entries()) {
+      if (log.windowEnd < now) {
+        this.rateLimitingLogs.delete(id);
+        deletedCount++;
+      }
+    }
+    
+    return deletedCount;
   }
 }
 
@@ -1575,6 +1695,254 @@ export class DatabaseStorage implements IStorage {
       .delete(redressJobs)
       .where(eq(redressJobs.id, id));
     return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Security audit operations - Database implementation
+  async createSecurityAuditLog(auditLogData: InsertSecurityAuditLog): Promise<SecurityAuditLog> {
+    try {
+      const [auditLog] = await db
+        .insert(securityAuditLogs)
+        .values(auditLogData)
+        .returning();
+      
+      console.log(`🔐 Security Audit Log Created: ${auditLog.accessDecision} for ${auditLog.endpoint}`);
+      return auditLog;
+    } catch (error) {
+      console.error("Error creating security audit log:", error);
+      throw error;
+    }
+  }
+
+  async getSecurityAuditLogs(filters: {
+    userId?: string;
+    ipAddress?: string;
+    endpoint?: string;
+    accessDecision?: string;
+    startDate?: Date;
+    endDate?: Date;
+    limit?: number;
+  }): Promise<SecurityAuditLog[]> {
+    try {
+      let query = db.select().from(securityAuditLogs);
+      
+      const conditions: any[] = [];
+      
+      if (filters.userId) {
+        conditions.push(eq(securityAuditLogs.userId, filters.userId));
+      }
+      if (filters.ipAddress) {
+        conditions.push(eq(securityAuditLogs.ipAddress, filters.ipAddress));
+      }
+      if (filters.endpoint) {
+        conditions.push(eq(securityAuditLogs.endpoint, filters.endpoint));
+      }
+      if (filters.accessDecision) {
+        conditions.push(eq(securityAuditLogs.accessDecision, filters.accessDecision));
+      }
+      if (filters.startDate) {
+        conditions.push(gte(securityAuditLogs.createdAt, filters.startDate));
+      }
+      if (filters.endDate) {
+        conditions.push(lte(securityAuditLogs.createdAt, filters.endDate));
+      }
+      
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+      
+      const logs = await query
+        .orderBy(desc(securityAuditLogs.createdAt))
+        .limit(filters.limit || 100);
+      
+      return logs;
+    } catch (error) {
+      console.error("Error fetching security audit logs:", error);
+      throw error;
+    }
+  }
+
+  // Rate limiting operations - Database implementation
+  async getRateLimitingStatus(userId?: string, ipAddress?: string, endpoint?: string): Promise<{
+    isLimited: boolean;
+    currentCount: number;
+    windowStart: Date;
+    windowEnd: Date;
+    limit: number;
+  }> {
+    try {
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000); // 1 hour window
+      
+      let query = db.select({
+        totalCount: sql<number>`COALESCE(SUM(${rateLimitingLog.requestCount}), 0)`
+      }).from(rateLimitingLog);
+      
+      const conditions: any[] = [
+        gte(rateLimitingLog.windowStart, oneHourAgo),
+        lte(rateLimitingLog.windowEnd, now)
+      ];
+      
+      if (endpoint) {
+        conditions.push(eq(rateLimitingLog.endpoint, endpoint));
+      }
+      
+      if (userId) {
+        conditions.push(eq(rateLimitingLog.userId, userId));
+      } else if (ipAddress) {
+        conditions.push(eq(rateLimitingLog.ipAddress, ipAddress));
+      }
+      
+      query = query.where(and(...conditions));
+      
+      const result = await query;
+      const currentCount = result[0]?.totalCount || 0;
+      
+      // Different limits based on endpoint sensitivity
+      let hourlyLimit = 100; // Default
+      if (endpoint?.includes('generate')) {
+        hourlyLimit = 50; // Stricter for generation endpoints
+      }
+      if (endpoint?.includes('redress') || endpoint?.includes('adult')) {
+        hourlyLimit = 20; // Very strict for NSFW endpoints
+      }
+      
+      return {
+        isLimited: currentCount >= hourlyLimit,
+        currentCount,
+        windowStart: oneHourAgo,
+        windowEnd: now,
+        limit: hourlyLimit,
+      };
+    } catch (error) {
+      console.error("Error checking rate limiting status:", error);
+      // On error, allow request but log it
+      const now = new Date();
+      return {
+        isLimited: false,
+        currentCount: 0,
+        windowStart: new Date(now.getTime() - 60 * 60 * 1000),
+        windowEnd: now,
+        limit: 100,
+      };
+    }
+  }
+
+  async updateRateLimitingLog(rateLimitLogData: InsertRateLimitingLog): Promise<RateLimitingLog> {
+    try {
+      // First try to find existing log for the same window
+      const existingLog = await db
+        .select()
+        .from(rateLimitingLog)
+        .where(
+          and(
+            eq(rateLimitingLog.userId, rateLimitLogData.userId || ''),
+            eq(rateLimitingLog.ipAddress, rateLimitLogData.ipAddress),
+            eq(rateLimitingLog.endpoint, rateLimitLogData.endpoint),
+            gte(rateLimitingLog.windowStart, rateLimitLogData.windowStart),
+            lte(rateLimitingLog.windowEnd, rateLimitLogData.windowEnd)
+          )
+        )
+        .limit(1);
+      
+      if (existingLog.length > 0) {
+        // Update existing log
+        const [updatedLog] = await db
+          .update(rateLimitingLog)
+          .set({
+            requestCount: sql`${rateLimitingLog.requestCount} + ${rateLimitLogData.requestCount || 1}`,
+            limitExceeded: rateLimitLogData.limitExceeded,
+          })
+          .where(eq(rateLimitingLog.id, existingLog[0].id))
+          .returning();
+        
+        return updatedLog;
+      } else {
+        // Create new log
+        const [newLog] = await db
+          .insert(rateLimitingLog)
+          .values(rateLimitLogData)
+          .returning();
+        
+        return newLog;
+      }
+    } catch (error) {
+      console.error("Error updating rate limiting log:", error);
+      throw error;
+    }
+  }
+
+  async cleanupExpiredRateLimits(): Promise<number> {
+    try {
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000); // Clean up logs older than 1 day
+      
+      const result = await db
+        .delete(rateLimitingLog)
+        .where(lte(rateLimitingLog.createdAt, oneDayAgo));
+      
+      const deletedCount = result.rowCount || 0;
+      if (deletedCount > 0) {
+        console.log(`🧹 Cleaned up ${deletedCount} expired rate limit logs`);
+      }
+      
+      return deletedCount;
+    } catch (error) {
+      console.error("Error cleaning up expired rate limits:", error);
+      return 0;
+    }
+  }
+
+  // Additional methods for SecurityAuditService
+  async getRateLimitCount(key: string, endpoint: string, windowStart: Date, windowEnd: Date): Promise<number> {
+    try {
+      const result = await db
+        .select({ count: sql<number>`sum(${rateLimitingLog.requestCount})` })
+        .from(rateLimitingLog)
+        .where(
+          and(
+            eq(rateLimitingLog.endpoint, endpoint),
+            gte(rateLimitingLog.windowStart, windowStart),
+            lte(rateLimitingLog.windowEnd, windowEnd),
+            sql`(${rateLimitingLog.userId} = ${key} OR ${rateLimitingLog.ipAddress} = ${key})`
+          )
+        );
+      
+      return result[0]?.count || 0;
+    } catch (error) {
+      console.error("Error getting rate limit count:", error);
+      return 0;
+    }
+  }
+
+  async createRateLimitingLog(rateLimitLogData: InsertRateLimitingLog): Promise<RateLimitingLog> {
+    try {
+      const [newLog] = await db
+        .insert(rateLimitingLog)
+        .values(rateLimitLogData)
+        .returning();
+      
+      return newLog;
+    } catch (error) {
+      console.error("Error creating rate limiting log:", error);
+      throw error;
+    }
+  }
+
+  async deleteOldSecurityAuditLogs(cutoffDate: Date): Promise<number> {
+    try {
+      const result = await db
+        .delete(securityAuditLogs)
+        .where(lte(securityAuditLogs.timestamp, cutoffDate));
+      
+      const deletedCount = result.rowCount || 0;
+      if (deletedCount > 0) {
+        console.log(`🧹 Security Audit Cleanup: Removed ${deletedCount} logs older than 90 days`);
+      }
+      
+      return deletedCount;
+    } catch (error) {
+      console.error("Error cleaning up security audit logs:", error);
+      return 0;
+    }
   }
 }
 
