@@ -19,7 +19,6 @@ import { redressService } from "./services/RedressService";
 import { redressRequestSchema, redressResponseSchema } from "@shared/schema";
 import { validateRedressContent, auditContentAccess, requireAgeVerification } from "./ageVerificationMiddleware";
 import { createEnterpriseSecurityMiddleware, cleanupSecurityLogs } from "./enterpriseSecurityMiddleware";
-import { rateLimitingMiddleware } from "./middleware/RateLimitingMiddleware";
 import type { ContentRating } from "@shared/schema";
 import { z } from "zod";
 
@@ -45,9 +44,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Start security log cleanup job (run every hour)
   setInterval(cleanupSecurityLogs, 60 * 60 * 1000);
   
-  // Wire up secure age verification endpoints
-  const { setupSecureAgeVerification } = await import("./routes/secureAgeVerification");
-  setupSecureAgeVerification(app);
 
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
