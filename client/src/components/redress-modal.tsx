@@ -688,9 +688,9 @@ export function RedressModal({
   const { data: jobStatus, error: jobError, refetch: refetchJobStatus } = useQuery<RedressJob>({
     queryKey: ["redress-job", pollingJobId],
     enabled: !!pollingJobId && open, // Only poll when modal is open
-    refetchInterval: (data) => {
+    refetchInterval: (query) => {
       // Stop polling on completion or failure
-      if (data?.status === "completed" || data?.status === "failed") {
+      if (query.state.data?.status === "completed" || query.state.data?.status === "failed") {
         return false;
       }
       
@@ -1276,7 +1276,7 @@ export function RedressModal({
                                 )}
                                 
                                 {/* Current Outfit Info */}
-                                {character.currentOutfit && (
+                                {character.currentOutfit != null && (
                                   <div className="flex items-center gap-1.5">
                                     <Shirt className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                                     <span className="text-xs text-muted-foreground truncate">
@@ -1345,8 +1345,8 @@ export function RedressModal({
                   const selectedCharacterData = form.getValues("characters") || [];
                   const selectedWithNames = selectedCharacterData.map(sc => {
                     const char = characters.find(c => c.id === sc.characterId);
-                    return char ? { ...sc, name: char.name, id: char.id } : null;
-                  }).filter(Boolean);
+                    return char ? { ...sc, name: char.name, id: char.id, referenceImageUrl: char.referenceImageUrl } : null;
+                  }).filter((item): item is NonNullable<typeof item> => item !== null);
                   
                   return selectedWithNames.length > 0 ? (
                     <Card className="bg-primary/5 border-primary/20">
@@ -1360,7 +1360,7 @@ export function RedressModal({
                             <Badge key={char.id} variant="secondary" className="flex items-center gap-1.5">
                               <Avatar className="h-4 w-4">
                                 <AvatarImage src={char.referenceImageUrl || undefined} />
-                                <AvatarFallback className="text-xs">{char.name.charAt(0)}</AvatarFallback>
+                                <AvatarFallback className="text-xs">{char.name?.charAt(0) || '?'}</AvatarFallback>
                               </Avatar>
                               <span>{char.name}</span>
                             </Badge>
