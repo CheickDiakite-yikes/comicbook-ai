@@ -587,7 +587,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const targetPanel = pagePanels.find(p => p.id === panelId);
           if (targetPanel) {
             targetPanelId = targetPanel.id;
-            currentPanelImage = targetPanel.imageUrl;
+            currentPanelImage = targetPanel.imageUrl || undefined;
             break;
           }
         }

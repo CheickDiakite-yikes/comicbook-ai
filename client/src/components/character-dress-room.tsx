@@ -159,8 +159,19 @@ export default function CharacterDressRoom({
         });
         
         // Invalidate relevant queries to refresh the UI
+        // 1. Invalidate panels cache for the current page
         queryClient.invalidateQueries({ 
           queryKey: ["/api/pages", currentPanel?.pageId, "panels"] 
+        });
+        
+        // 2. Invalidate structured script cache which contains dialogue and speech bubbles
+        queryClient.invalidateQueries({ 
+          queryKey: ["/api/projects", project.id, "structured-script"] 
+        });
+        
+        // 3. Invalidate any other project-level queries that might cache panel data
+        queryClient.invalidateQueries({ 
+          queryKey: ["/api/projects", project.id, "pages"] 
         });
 
         // Call the callback if provided
