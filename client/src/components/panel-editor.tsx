@@ -184,7 +184,7 @@ export default function PanelEditor({
           description: project.description,
           artStyle: project.artStyle,
         },
-        characterContext: [], // Would be populated from project characters
+        characterContext: projectCharacters || [], // Include current project characters
         styleOptions: {
           artStyle: artStyle,
         },
@@ -306,6 +306,15 @@ export default function PanelEditor({
     mutationFn: async () => {
       if (!selectedPanel) throw new Error("No panel selected");
       
+      // Get enhanced panel context for consistent regeneration
+      const layout = comicLayouts.find(l => l.id === currentLayout);
+      let panelContext = undefined;
+      
+      if (layout && selectedPanel <= layout.panels.length) {
+        const panel = layout.panels[selectedPanel - 1];
+        panelContext = generateEnhancedPanelContext(panel, currentLayout, selectedPanel);
+      }
+      
       const response = await apiRequest("POST", "/api/generate-image", {
         prompt: prompt + " (regeneration)",
         panelId: selectedPanel,
@@ -315,13 +324,14 @@ export default function PanelEditor({
           description: project.description,
           artStyle: project.artStyle,
         },
-        characterContext: [],
+        characterContext: projectCharacters || [], // Include current project characters
         styleOptions: {
           artStyle: artStyle,
         },
+        panelContext,
       });
       
-      return response.json();
+      return response as any; // FIX: Don't call .json() - apiRequest already returns parsed data
     },
     onSuccess: async (result) => {
       if (result.status === "completed" && result.imageUrl && selectedPanel && currentPage) {
@@ -731,7 +741,15 @@ export default function PanelEditor({
           selectedPanelId={currentPanelData?.id || null}
           isOpen={!!selectedCharacterForDressing}
           onClose={() => setSelectedCharacterForDressing(null)}
-          onCharacterRedressed={onImageGenerated}
+          onCharacterRedressed={(panelNumber, newImageUrl) => {
+          // Invalidate panel queries to refresh the panel editor data
+          queryClient.invalidateQueries({ queryKey: ["/api/pages", currentPage?.id, "panels"] });
+          
+          // Call the original callback
+          if (onImageGenerated) {
+            onImageGenerated(panelNumber, newImageUrl);
+          }
+        }}
         />
       )}
     </>
