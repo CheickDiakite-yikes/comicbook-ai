@@ -139,7 +139,7 @@ export default function Login() {
                     whileTap={{ scale: 0.98 }}
                   >
                     <Button 
-                      onClick={() => window.location.href = '/api/auth/google'}
+                      onClick={() => window.location.href = '/api/login'}
                       size="lg"
                       variant="outline"
                       className="w-full border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground text-lg py-6 bg-gradient-to-r from-transparent to-transparent hover:from-primary hover:to-primary transition-all duration-300 relative overflow-hidden"

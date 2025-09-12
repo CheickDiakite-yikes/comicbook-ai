@@ -138,7 +138,7 @@ export default function CharacterDressRoom({
     },
     onSuccess: (data) => {
       // Check if the operation actually succeeded
-      if (data && typeof data === 'object' && 'status' in data && data.status === 'completed' && 'imageUrl' in data && data.imageUrl) {
+      if (data && typeof data === 'object' && 'status' in data && (data as any).status === 'completed' && 'imageUrl' in data && (data as any).imageUrl) {
         toast({
           title: "Character redressed successfully!",
           description: `${character.name} has been given a new outfit in the panel.`,
