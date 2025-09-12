@@ -138,7 +138,7 @@ class AIService {
         layoutId,
       });
 
-      // CRITICAL FIX: Parse the JSON response properly
+      // CRITICAL FIX: Parse the JSON response properly and handle partial success
       const jsonData = await response.json();
       console.log("Full page response:", jsonData); // Debug logging
       
@@ -147,10 +147,23 @@ class AIService {
         throw new Error("Invalid response format from server");
       }
 
+      // ✅ PARTIAL SUCCESS HANDLING: Accept mixed results (some success, some failure)
+      // Count successful vs failed panels
+      const successCount = jsonData.filter(panel => panel && panel.status === "completed").length;
+      const failCount = jsonData.filter(panel => panel && panel.status === "failed").length;
+      
+      console.log(`Full page generation result: ${successCount} succeeded, ${failCount} failed out of ${jsonData.length} total panels`);
+      
+      // Only throw error if ALL panels failed (complete failure)
+      if (successCount === 0 && failCount > 0) {
+        throw new Error(`All ${failCount} panels failed to generate. Please try again.`);
+      }
+      
       return jsonData as Array<GenerateImageResponse>;
     } catch (error) {
       console.error("Failed to generate full page:", error);
-      throw new Error("Failed to generate full page. Please try again.");
+      // Re-throw the original error to preserve the specific error message
+      throw error;
     }
   }
 

@@ -249,7 +249,10 @@ export default function Editor() {
       return result;
     },
     onSuccess: (result: any) => {
-      if (result.status === "completed" && result.imageUrl) {
+      console.log("Background generation result:", result); // Debug logging
+      
+      // ✅ IMPROVED ERROR HANDLING: Be more flexible with response format
+      if (result && result.status === "completed" && result.imageUrl) {
         // Set the page background for the canvas
         setPageBackground(result.imageUrl);
         
@@ -257,8 +260,24 @@ export default function Editor() {
           title: "Page Background Generated!",
           description: "Beautiful story-themed background created for this page.",
         });
+      } else if (result && result.imageUrl) {
+        // Background was generated but status might be missing - still try to use it
+        setPageBackground(result.imageUrl);
+        
+        toast({
+          title: "Page Background Generated!",
+          description: "Background created for this page.",
+        });
       } else {
-        throw new Error(result.error || `Failed to generate page background - Status: ${result.status}, URL: ${result.imageUrl}`);
+        // Use more descriptive error message
+        const errorMsg = result?.error || 
+          (result?.status ? `Generation status: ${result.status}` : "Unknown error occurred");
+        
+        toast({
+          title: "Background Generation Issue",
+          description: `Background may not have generated correctly: ${errorMsg}. Please try again if no background appears.`,
+          variant: "destructive",
+        });
       }
     },
     onError: (error) => {
@@ -518,10 +537,33 @@ export default function Editor() {
       try {
         const successCount = Array.isArray(result) ? 
           result.filter(r => r && r.status === "completed").length : 0;
-        toast({
-          title: "Page Generated!",
-          description: `Successfully generated ${successCount} of ${Array.isArray(result) ? result.length : 0} panels.`,
-        });
+        const failCount = Array.isArray(result) ? 
+          result.filter(r => r && r.status === "failed").length : 0;
+        const totalCount = Array.isArray(result) ? result.length : 0;
+        
+        // ✅ IMPROVED SUCCESS MESSAGING: Handle partial success properly
+        if (successCount === totalCount) {
+          // Complete success
+          toast({
+            title: "Page Generated!",
+            description: `Successfully generated all ${successCount} panels.`,
+          });
+        } else if (successCount > 0) {
+          // Partial success
+          toast({
+            title: "Page Partially Generated",
+            description: `Generated ${successCount} of ${totalCount} panels successfully. ${failCount} panels failed - you can try regenerating them individually.`,
+            variant: "default", // Use default instead of destructive for partial success
+          });
+        } else {
+          // This should not happen due to ai-service error handling, but just in case
+          toast({
+            title: "Generation Failed",
+            description: "No panels were generated successfully. Please try again.",
+            variant: "destructive",
+          });
+        }
+        
         setIsGeneratingFullPage(false);
         
         // Invalidate panels query to refresh the UI with new images
