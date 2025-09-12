@@ -57,7 +57,13 @@ export default function CharacterDressRoom({
     { value: "vintage", label: "Vintage Style", description: "Classic retro fashion" },
     { value: "fantasy", label: "Fantasy Costume", description: "Imaginative or themed outfits" },
     { value: "lingerie", label: "Intimate Wear", description: "Elegant and sensual attire" },
+    { value: "erotic", label: "Erotic Wear", description: "Provocative and seductive attire" },
+    { value: "nsfw", label: "NSFW Content", description: "Adult-oriented explicit attire" },
     { value: "swimwear", label: "Swimwear", description: "Beach and pool attire" },
+    { value: "designer", label: "Designer Fashion", description: "High-end luxury clothing" },
+    { value: "genz", label: "Gen-Z Style", description: "Modern trendy youth fashion" },
+    { value: "hippy", label: "Hippy Style", description: "Bohemian and free-spirited fashion" },
+    { value: "hiphop", label: "Hip Hop Style", description: "Urban streetwear and rap culture fashion" },
     { value: "custom", label: "Custom Design", description: "Describe your own vision" }
   ];
 
@@ -70,7 +76,11 @@ export default function CharacterDressRoom({
     { value: "bohemian", label: "Bohemian" },
     { value: "gothic", label: "Gothic" },
     { value: "punk", label: "Punk" },
-    { value: "elegant", label: "Elegant" }
+    { value: "elegant", label: "Elegant" },
+    { value: "streetwear", label: "Streetwear" },
+    { value: "grunge", label: "Grunge" },
+    { value: "preppy", label: "Preppy" },
+    { value: "chic", label: "Chic" }
   ];
 
   const colorSchemes = [
@@ -194,7 +204,7 @@ export default function CharacterDressRoom({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Shirt className="h-5 w-5 text-chart-1" />
@@ -270,7 +280,7 @@ export default function CharacterDressRoom({
           )}
 
           {/* Style and Aesthetic Options */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-3">
               <label className="text-sm font-medium">Clothing Style</label>
               <Select value={clothingStyle} onValueChange={setClothingStyle}>
