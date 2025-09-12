@@ -621,42 +621,126 @@ Redress this character in the specified outfit while maintaining their core visu
         artStyle: project.artStyle || 'Comic Book (Classic)'
       };
 
-      // Generate the redressed character image (edit existing panel if available)
-      const result = await geminiService.generatePanelImage({
-        prompt: characterPrompt,
-        panelId: panelId,
-        sourceImageUrl: currentPanelImage, // Pass current panel image for editing
-        projectContext: projectContext,
-        characterContext: [{
-          name: character.name,
-          role: character.role || '',
-          visualDescriptors: character.visualDescriptors || ''
-        }],
-        styleOptions: {
-          artStyle: project.artStyle || 'Comic Book (Classic)'
-        },
-        panelContext: undefined,
-      });
+      // Generate the redressed character image with retry logic
+      let result: any;
+      let lastError: Error | null = null;
+      const maxRetries = 2;
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`🎨 Character redressing attempt ${attempt}/${maxRetries} for panel ${panelId}${currentPanelImage ? ' (edit mode)' : ' (generation mode)'}`);
+          
+          result = await geminiService.generatePanelImage({
+            prompt: characterPrompt,
+            panelId: panelId,
+            sourceImageUrl: currentPanelImage, // Pass current panel image for editing
+            projectContext: projectContext,
+            characterContext: [{
+              name: character.name,
+              role: character.role || '',
+              visualDescriptors: character.visualDescriptors || ''
+            }],
+            styleOptions: {
+              artStyle: project.artStyle || 'Comic Book (Classic)'
+            },
+            panelContext: undefined,
+          });
+          
+          // If we get here, the request succeeded
+          break;
+        } catch (error) {
+          lastError = error instanceof Error ? error : new Error(String(error));
+          console.error(`🚨 Character redressing attempt ${attempt} failed:`, lastError.message);
+          
+          // Don't retry for client errors or specific server errors
+          if (lastError.message.includes('not found') || 
+              lastError.message.includes('unauthorized') ||
+              lastError.message.includes('invalid') ||
+              attempt === maxRetries) {
+            break;
+          }
+          
+          // Wait before retrying (exponential backoff)
+          if (attempt < maxRetries) {
+            const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, etc.
+            console.log(`⏳ Retrying in ${waitTime}ms...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+          }
+        }
+      }
+
+      // Check if we have a result after all retries
+      if (!result) {
+        const errorMessage = lastError?.message || "Failed to redress character after multiple attempts";
+        console.error("🚨 All character redressing attempts failed:", errorMessage);
+        
+        // Return failed status with proper error information
+        return res.status(200).json({
+          status: "failed",
+          imageUrl: "",
+          panelId: panelId,
+          message: errorMessage,
+          characterName: character.name,
+          outfitDescription: outfitDescription
+        });
+      }
 
       // Update the panel with the new character image if generation succeeded
       if (result.status === "completed" && result.imageUrl) {
-        await storage.updatePanel(panelId, {
-          imageUrl: result.imageUrl,
-          isGenerated: true,
-          generationStatus: "completed"
-        });
+        try {
+          await storage.updatePanel(panelId, {
+            imageUrl: result.imageUrl,
+            isGenerated: true,
+            generationStatus: "completed"
+          });
+          console.log(`✅ Panel ${panelId} updated with new character image: ${result.imageUrl}`);
+        } catch (updateError) {
+          console.error("⚠️ Failed to update panel with new image:", updateError);
+          // Continue - the image was generated successfully even if database update failed
+        }
       }
       
-      res.json({
-        ...result,
-        message: "Character redressed successfully",
+      // Return consistent response structure
+      res.status(200).json({
+        status: result.status || "completed",
+        imageUrl: result.imageUrl || "",
+        panelId: panelId,
+        message: result.status === "completed" ? "Character redressed successfully" : (result.error || "Character redressing failed"),
         characterName: character.name,
-        outfitDescription: outfitDescription
+        outfitDescription: outfitDescription,
+        mode: currentPanelImage ? "edit" : "generation"
       });
     } catch (error) {
-      console.error("Error redressing character:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to redress character";
-      res.status(500).json({ message: errorMessage });
+      console.error("🚨 Unexpected error in character redressing:", error);
+      
+      // Determine appropriate error status code
+      let statusCode = 500;
+      let errorMessage = "Internal server error";
+      
+      if (error instanceof Error) {
+        const message = error.message.toLowerCase();
+        if (message.includes('not found')) {
+          statusCode = 404;
+          errorMessage = error.message;
+        } else if (message.includes('unauthorized') || message.includes('forbidden')) {
+          statusCode = 403;
+          errorMessage = error.message;
+        } else if (message.includes('invalid') || message.includes('required')) {
+          statusCode = 400;
+          errorMessage = error.message;
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      res.status(statusCode).json({
+        status: "failed",
+        imageUrl: "",
+        panelId: req.body.panelId || null,
+        message: errorMessage,
+        characterName: req.body.characterId ? "Unknown" : undefined,
+        outfitDescription: req.body.outfitDescription || undefined
+      });
     }
   });
 

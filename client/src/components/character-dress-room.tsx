@@ -137,22 +137,36 @@ export default function CharacterDressRoom({
       return response;
     },
     onSuccess: (data) => {
-      toast({
-        title: "Character redressed successfully!",
-        description: `${character.name} has been given a new outfit in the panel.`,
-      });
-      
-      // Invalidate relevant queries to refresh the UI
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/pages", currentPanel?.pageId, "panels"] 
-      });
+      // Check if the operation actually succeeded
+      if (data && typeof data === 'object' && 'status' in data && data.status === 'completed' && 'imageUrl' in data && data.imageUrl) {
+        toast({
+          title: "Character redressed successfully!",
+          description: `${character.name} has been given a new outfit in the panel.`,
+        });
+        
+        // Invalidate relevant queries to refresh the UI
+        queryClient.invalidateQueries({ 
+          queryKey: ["/api/pages", currentPanel?.pageId, "panels"] 
+        });
 
-      // Call the callback if provided
-      if (onCharacterRedressed && selectedPanelNumber && data && typeof data === 'object' && 'imageUrl' in data) {
-        onCharacterRedressed(selectedPanelNumber, (data as any).imageUrl);
+        // Call the callback if provided
+        if (onCharacterRedressed && selectedPanelNumber && typeof selectedPanelNumber === 'number') {
+          onCharacterRedressed(selectedPanelNumber, (data as any).imageUrl);
+        }
+
+        onClose();
+      } else {
+        // Operation failed - show error
+        const errorMessage = data && typeof data === 'object' && 'message' in data 
+          ? (data as any).message 
+          : 'The character redressing operation failed. Please try again.';
+        
+        toast({
+          title: "Redressing failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
       }
-
-      onClose();
     },
     onError: (error) => {
       console.error("Character redressing failed:", error);

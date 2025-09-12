@@ -212,22 +212,48 @@ export class GeminiService {
    */
   private async downloadImageAsBase64(imageUrl: string): Promise<{ data: string; mimeType: string }> {
     try {
-      const response = await fetch(imageUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to download image: ${response.statusText}`);
+      // Check if this is a relative object storage path
+      if (imageUrl.startsWith('/objects/')) {
+        console.log('Using ObjectStorageService for relative path:', imageUrl);
+        
+        // Use ObjectStorageService to get the file directly
+        const objectFile = await this.objectStorageService.getObjectEntityFile(imageUrl);
+        
+        // Get file metadata for content type
+        const [metadata] = await objectFile.getMetadata();
+        const contentType = metadata.contentType || 'image/png';
+        
+        // Download the file data
+        const [buffer] = await objectFile.download();
+        const base64Data = buffer.toString('base64');
+        
+        console.log(`Successfully downloaded object storage file: ${imageUrl} (${buffer.length} bytes)`);
+        
+        return {
+          data: base64Data,
+          mimeType: contentType
+        };
+      } else {
+        // Handle external URLs via fetch
+        console.log('Using fetch for external URL:', imageUrl);
+        
+        const response = await fetch(imageUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to download image: ${response.statusText}`);
+        }
+        
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const base64Data = buffer.toString('base64');
+        
+        // Determine MIME type from content type or file extension
+        const contentType = response.headers.get('content-type') || 'image/png';
+        
+        return {
+          data: base64Data,
+          mimeType: contentType
+        };
       }
-      
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      const base64Data = buffer.toString('base64');
-      
-      // Determine MIME type from content type or file extension
-      const contentType = response.headers.get('content-type') || 'image/png';
-      
-      return {
-        data: base64Data,
-        mimeType: contentType
-      };
     } catch (error) {
       console.error('Error downloading image:', error);
       throw new Error('Failed to download source image for editing');
@@ -238,11 +264,24 @@ export class GeminiService {
    * Generate an image for a comic panel using Gemini's image generation or editing
    */
   async generatePanelImage(request: GenerateImageRequest): Promise<GenerateImageResponse> {
+    const startTime = Date.now();
+    const isEditMode = !!request.sourceImageUrl;
+    
     try {
+      // Enhanced logging for debugging
+      console.log(`🎨 === GEMINI IMAGE ${isEditMode ? 'EDITING' : 'GENERATION'} START ===`);
+      console.log(`📋 Panel: ${request.panelId}`);
+      console.log(`🖼️ Mode: ${isEditMode ? 'EDIT (using existing image)' : 'GENERATE (text-to-image)'}`);
+      if (isEditMode) {
+        console.log(`📸 Source Image: ${request.sourceImageUrl}`);
+      }
+      console.log(`🎬 Project: ${request.projectContext?.title || 'Unknown'}`);
+      console.log(`🎨 Art Style: ${request.styleOptions?.artStyle || request.projectContext?.artStyle || 'Default'}`);
+      
       // Build context-aware prompt
       const contextualPrompt = this.buildContextualPrompt(request);
-      
-      console.log(`${request.sourceImageUrl ? 'Editing' : 'Generating'} image for panel ${request.panelId} with prompt: ${contextualPrompt}`);
+      console.log(`📝 Generated Prompt (${contextualPrompt.length} chars):`);
+      console.log(`"${contextualPrompt.substring(0, 200)}${contextualPrompt.length > 200 ? '...' : ''}"`);
 
       let contentParts: any[];
       
@@ -347,6 +386,12 @@ export class GeminiService {
             }
           }
           
+          const duration = Date.now() - startTime;
+          console.log(`✅ === GEMINI IMAGE ${isEditMode ? 'EDITING' : 'GENERATION'} SUCCESS ===`);
+          console.log(`⏱️ Duration: ${duration}ms`);
+          console.log(`🖼️ Result URL: ${finalImageUrl}`);
+          console.log(`📋 Panel ${request.panelId} completed successfully`);
+          
           return {
             imageUrl: finalImageUrl,
             status: "completed",
@@ -358,7 +403,12 @@ export class GeminiService {
 
       throw new Error("No image data received from Gemini");
     } catch (error) {
-      console.error("Error generating panel image:", error);
+      const duration = Date.now() - startTime;
+      console.error(`❌ === GEMINI IMAGE ${isEditMode ? 'EDITING' : 'GENERATION'} FAILED ===`);
+      console.error(`⏱️ Duration: ${duration}ms`);
+      console.error(`📋 Panel: ${request.panelId}`);
+      console.error(`🚨 Error:`, error);
+      
       const errorMessage = error instanceof Error ? error.message : "Failed to generate image";
       return {
         imageUrl: "",
