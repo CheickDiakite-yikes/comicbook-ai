@@ -304,15 +304,13 @@ export default function Editor() {
         try {
           // Create a new page automatically if none exists
           const newPageNumber = pages.length + 1;
-          const newPageResponse = await apiRequest("POST", `/api/projects/${projectId}/pages`, {
+          pageToUse = await apiRequest("POST", `/api/projects/${projectId}/pages`, {
             projectId: projectId!,
             pageNumber: newPageNumber,
             layoutTemplate: currentLayout,
             panels: null,
             scriptSnippet: null,
-          });
-          
-          pageToUse = await newPageResponse.json() as Page;
+          }) as Page;
           console.log("New page created:", pageToUse.id);
           
           // Update the pages data and wait for it to complete
@@ -342,8 +340,7 @@ export default function Editor() {
       let structuredScript = null;
       try {
         console.log("Fetching structured script...");
-        const response = await apiRequest("GET", `/api/projects/${projectId}/structured-script`);
-        structuredScript = await response.json();
+        structuredScript = await apiRequest("GET", `/api/projects/${projectId}/structured-script`);
         console.log("Structured script loaded with", structuredScript?.pages?.length || 0, "pages");
       } catch (error) {
         console.log("No structured script found, using fallback descriptions:", error);
