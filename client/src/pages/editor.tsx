@@ -298,7 +298,8 @@ export default function Editor() {
       if (!layout) throw new Error("Layout not found");
       
       // Ensure we have a page to work with - with robust error handling
-      let pageToUse = currentPage;
+      // SAFETY FIX: Always use the page that matches current UI state
+      let pageToUse = pages[currentPageIndex] || currentPage;
       if (!pageToUse) {
         console.log("No current page found, creating new page...");
         try {
@@ -330,7 +331,14 @@ export default function Editor() {
         throw new Error("No valid page available for generation");
       }
       
-      console.log("Using page for generation:", pageToUse.id, "Page number:", pageToUse.pageNumber);
+      // DEBUG: Log current state to identify page mismatch issue
+      console.log("🔍 GENERATION DEBUG:", {
+        currentPageIndex,
+        currentPageId: pageToUse.id,
+        currentPageNumber: pageToUse.pageNumber,
+        totalPages: pages.length,
+        pagesArray: pages.map(p => ({ id: p.id, pageNumber: p.pageNumber }))
+      });
       
       // Fetch detailed character information for consistency
       const charactersResponse = await fetch(`/api/projects/${project.id}/characters`);

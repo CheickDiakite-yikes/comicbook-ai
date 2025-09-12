@@ -28,8 +28,7 @@ export default function Templates() {
       const allPages = [];
       for (const project of projects) {
         try {
-          const response = await apiRequest("GET", `/api/projects/${project.id}/pages`, undefined);
-          const pages = await response.json();
+          const pages = await apiRequest("GET", `/api/projects/${project.id}/pages`, undefined);
           allPages.push(...pages.map((page: any) => ({ ...page, projectId: project.id })));
         } catch (error) {
           console.error(`Failed to fetch pages for project ${project.id}:`, error);
