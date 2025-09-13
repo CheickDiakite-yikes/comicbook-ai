@@ -42,6 +42,13 @@ export default function Editor() {
   const [panelEditorOpen, setPanelEditorOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   
+  // Per-panel generation status tracking
+  const [panelStatus, setPanelStatus] = useState<Record<number, {
+    status: 'idle' | 'pending' | 'success' | 'error';
+    error?: string;
+  }>>({});
+  const [panelErrors, setPanelErrors] = useState<Record<number, string>>({});
+  
   const toggleSidebarCollapse = () => {
     setSidebarCollapsed(!sidebarCollapsed);
   };
@@ -121,6 +128,9 @@ export default function Editor() {
       setPageBackground(null);
       // Reset to default layout when no page
       setCurrentLayout("classic-grid");
+      // Clear panel status when page changes
+      setPanelStatus({});
+      setPanelErrors({});
     }
   }, [currentPage?.id]);
   
@@ -296,6 +306,14 @@ export default function Editor() {
       setIsGeneratingFullPage(true);
       const layout = comicLayouts.find(l => l.id === currentLayout);
       if (!layout) throw new Error("Layout not found");
+      
+      // Initialize panel status for all panels
+      const initialStatus: Record<number, { status: 'idle' | 'pending' | 'success' | 'error'; error?: string }> = {};
+      for (let i = 1; i <= layout.panelCount; i++) {
+        initialStatus[i] = { status: 'pending' };
+      }
+      setPanelStatus(initialStatus);
+      setPanelErrors({});
       
       // Ensure we have a page to work with - with robust error handling
       // SAFETY FIX: Always use the page that matches current UI state
@@ -506,37 +524,162 @@ export default function Editor() {
         styleConsistencyRules: `CRITICAL: Maintain EXACT character appearances throughout all panels. Characters MUST have consistent facial features, hair color, hair style, body type, and clothing style across all panels.`
       };
       
-      const result = await aiService.generateFullPage(
-        enhancedProjectContext,
-        pageToUse?.scriptSnippet || project.description || "",
-        panelsWithContext,
-        pageToUse.id,
-        currentLayout
-      );
+      // First, ensure all panel records exist in the database
+      const existingPanels = await fetch(`/api/pages/${pageToUse.id}/panels`)
+        .then(res => res.json())
+        .catch(() => []);
       
-      // Update local state with generated images - with safer error handling
-      const imageMap: {[key: number]: string} = {};
+      const panelRecords: {[panelNumber: number]: string} = {}; // panelNumber -> panelId mapping
       
-      if (Array.isArray(result)) {
-        result.forEach((panelResult, index) => {
+      for (const panelData of panelsWithContext) {
+        const panelNumber = panelData.panelNumber;
+        let existingPanel = existingPanels.find((p: any) => p.panelNumber === panelNumber);
+        
+        if (!existingPanel) {
+          // Create new panel record
           try {
-            if (panelResult && 
-                typeof panelResult === 'object' && 
-                panelResult.status === "completed" && 
-                panelResult.imageUrl) {
-              imageMap[index + 1] = panelResult.imageUrl;
-            }
-          } catch (err) {
-            console.warn(`Error processing panel ${index + 1}:`, err, panelResult);
+            existingPanel = await apiRequest("POST", `/api/pages/${pageToUse.id}/panels`, {
+              panelNumber: panelNumber,
+              prompt: panelData.description,
+              speechBubbles: [],
+              isGenerated: false,
+              generationStatus: "pending"
+            });
+            console.log(`📝 Created panel record for Panel ${panelNumber}: ${existingPanel.id}`);
+          } catch (error) {
+            console.error(`Failed to create panel record for Panel ${panelNumber}:`, error);
+            continue;
           }
-        });
-      } else {
-        console.warn("Unexpected result format:", result);
+        }
+        
+        panelRecords[panelNumber] = existingPanel.id;
       }
       
-      setGeneratedImages(prev => ({ ...prev, ...imageMap }));
+      // Generate panels individually with concurrency control and proper error handling
+      const panelPromises = panelsWithContext.map(async (panelData, index) => {
+        const panelNumber = panelData.panelNumber;
+        const panelId = panelRecords[panelNumber];
+        
+        if (!panelId) {
+          const errorMessage = 'Failed to create panel record';
+          setPanelStatus(prev => ({
+            ...prev,
+            [panelNumber]: { status: 'error', error: errorMessage }
+          }));
+          return {
+            status: "failed" as const,
+            panelId: panelNumber,
+            imageUrl: "",
+            error: errorMessage
+          };
+        }
+        
+        try {
+          console.log(`🎨 Starting generation for Panel ${panelNumber} (ID: ${panelId})`);
+          
+          const result = await aiService.generatePanelImage({
+            prompt: panelData.description,
+            panelId: panelId, // Use database ID for the AI service
+            projectContext: enhancedProjectContext,
+            characterContext: enhancedProjectContext.characters?.map((char: any) => ({
+              name: char.name,
+              role: char.role,
+              visualDescriptors: char.visualDescriptors || ''
+            })),
+            styleOptions: {
+              artStyle: enhancedProjectContext.artStyle
+            },
+            panelContext: panelData.panelContext
+          });
+          
+          console.log(`✅ Panel ${panelNumber} generation result:`, result);
+          
+          // Update status immediately on success
+          setPanelStatus(prev => ({
+            ...prev,
+            [panelNumber]: { status: 'success' }
+          }));
+          
+          // Update images immediately
+          if (result.status === "completed" && result.imageUrl) {
+            setGeneratedImages(prev => ({
+              ...prev,
+              [panelNumber]: result.imageUrl
+            }));
+            
+            // Persist to database immediately using the correct panel ID
+            try {
+              await apiRequest("PUT", `/api/panels/${panelId}`, {
+                imageUrl: result.imageUrl,
+                isGenerated: true,
+                generationStatus: "completed"
+              });
+              console.log(`💾 Panel ${panelNumber} saved to database`);
+            } catch (dbError) {
+              console.warn(`Failed to save Panel ${panelNumber} to database:`, dbError);
+            }
+          }
+          
+          return result;
+        } catch (error) {
+          console.error(`❌ Panel ${panelNumber} generation failed:`, error);
+          
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+          
+          // Update status immediately on error
+          setPanelStatus(prev => ({
+            ...prev,
+            [panelNumber]: { 
+              status: 'error',
+              error: errorMessage
+            }
+          }));
+          
+          setPanelErrors(prev => ({
+            ...prev,
+            [panelNumber]: errorMessage
+          }));
+          
+          // Update panel status in database
+          try {
+            await apiRequest("PUT", `/api/panels/${panelId}`, {
+              generationStatus: "failed",
+              lastError: errorMessage
+            });
+          } catch (dbError) {
+            console.warn(`Failed to update panel status for Panel ${panelNumber}:`, dbError);
+          }
+          
+          return {
+            status: "failed" as const,
+            panelId: panelNumber,
+            imageUrl: "",
+            error: errorMessage
+          };
+        }
+      });
       
-      return result;
+      // Use Promise.allSettled to capture all results (success and failure)
+      const results = await Promise.allSettled(panelPromises);
+      
+      // Process results to match expected format
+      const processedResults = results.map((result, index) => {
+        const panelNumber = index + 1;
+        
+        if (result.status === 'fulfilled') {
+          return result.value;
+        } else {
+          console.error(`Panel ${panelNumber} promise rejected:`, result.reason);
+          return {
+            status: "failed" as const,
+            panelId: panelNumber,
+            imageUrl: "",
+            error: result.reason?.message || 'Generation failed'
+          };
+        }
+      });
+      
+      return processedResults;
     },
     onSuccess: (result) => {
       try {
@@ -605,6 +748,157 @@ export default function Editor() {
         variant: "destructive",
       });
       setIsGeneratingFullPage(false);
+    },
+  });
+
+  // Retry individual panel generation
+  const retryPanelMutation = useMutation({
+    mutationFn: async (panelNumber: number) => {
+      if (!project || !currentPage) throw new Error("No project or page available");
+      
+      const layout = comicLayouts.find(l => l.id === currentLayout);
+      if (!layout) throw new Error("Layout not found");
+      
+      console.log(`🔄 Retrying Panel ${panelNumber}`);
+      
+      // Set panel to pending status immediately
+      setPanelStatus(prev => ({
+        ...prev,
+        [panelNumber]: { status: 'pending' }
+      }));
+      
+      // Get or create panel record
+      const existingPanels = await fetch(`/api/pages/${currentPage.id}/panels`)
+        .then(res => res.json())
+        .catch(() => []);
+      
+      let panelRecord = existingPanels.find((p: any) => p.panelNumber === panelNumber);
+      
+      if (!panelRecord) {
+        // Create new panel record if it doesn't exist
+        panelRecord = await apiRequest("POST", `/api/pages/${currentPage.id}/panels`, {
+          panelNumber: panelNumber,
+          prompt: `Scene ${panelNumber} of ${project.title}`,
+          speechBubbles: [],
+          isGenerated: false,
+          generationStatus: "pending"
+        });
+      }
+      
+      // Get panel context
+      const panel = layout.panels[panelNumber - 1];
+      const panelContext = generateEnhancedPanelContext(
+        panel,
+        layout.id,
+        panelNumber,
+        850,
+        1100
+      );
+      
+      // Get characters for context
+      const charactersResponse = await fetch(`/api/projects/${project.id}/characters`);
+      const characters = await charactersResponse.json();
+      
+      const projectContext = {
+        title: project.title,
+        genre: project.genre || undefined,
+        description: project.description || undefined,
+        artStyle: project.artStyle || undefined,
+        characters: characters.map((char: any) => ({
+          name: char.name,
+          role: char.role,
+          bio: char.bio,
+          visualDescriptors: char.visualDescriptors || "",
+          alwaysTraits: char.alwaysTraits || "",
+          neverTraits: char.neverTraits || "",
+          colorScheme: char.colorScheme || ""
+        }))
+      };
+      
+      // Generate the panel
+      const result = await aiService.generatePanelImage({
+        prompt: panelRecord.prompt || `Scene ${panelNumber} of ${project.title}`,
+        panelId: panelRecord.id,
+        projectContext: projectContext,
+        characterContext: projectContext.characters?.map((char: any) => ({
+          name: char.name,
+          role: char.role,
+          visualDescriptors: char.visualDescriptors || ''
+        })),
+        styleOptions: {
+          artStyle: projectContext.artStyle
+        },
+        panelContext: panelContext
+      });
+      
+      if (result.status === "completed" && result.imageUrl) {
+        // Update local state immediately
+        setGeneratedImages(prev => ({
+          ...prev,
+          [panelNumber]: result.imageUrl
+        }));
+        
+        // Persist to database
+        await apiRequest("PUT", `/api/panels/${panelRecord.id}`, {
+          imageUrl: result.imageUrl,
+          isGenerated: true,
+          generationStatus: "completed"
+        });
+        
+        // Update status to success
+        setPanelStatus(prev => ({
+          ...prev,
+          [panelNumber]: { status: 'success' }
+        }));
+        
+        // Clear any existing error
+        setPanelErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors[panelNumber];
+          return newErrors;
+        });
+        
+        return result;
+      } else {
+        throw new Error(result.error || "Panel generation failed");
+      }
+    },
+    onSuccess: (result) => {
+      const panelNumber = result.panelId;
+      toast({
+        title: "Panel Retried Successfully!",
+        description: `Panel ${panelNumber} has been regenerated.`,
+      });
+      
+      // Invalidate panels query to refresh
+      queryClient.invalidateQueries({
+        queryKey: ["/api/pages", currentPage?.id, "panels"]
+      });
+    },
+    onError: (error, panelNumber) => {
+      console.error(`Panel ${panelNumber} retry failed:`, error);
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
+      // Update status to error
+      setPanelStatus(prev => ({
+        ...prev,
+        [panelNumber]: { 
+          status: 'error',
+          error: errorMessage
+        }
+      }));
+      
+      setPanelErrors(prev => ({
+        ...prev,
+        [panelNumber]: errorMessage
+      }));
+      
+      toast({
+        title: "Panel Retry Failed",
+        description: `Panel ${panelNumber} failed to regenerate: ${errorMessage}`,
+        variant: "destructive",
+      });
     },
   });
   
@@ -1098,6 +1392,7 @@ export default function Editor() {
                           generatedImages={generatedImages}
                           generatedBackgrounds={generatedBackgrounds}
                           selectedPanel={selectedPanel}
+                          panelStatus={panelStatus}
                           onPanelClick={(panelId) => {
                             setSelectedPanel(panelId);
                             if (isMobile) {
@@ -1109,6 +1404,9 @@ export default function Editor() {
                           }}
                           onBackgroundUpdate={(panelId, backgroundUrl) => {
                             setGeneratedBackgrounds(prev => ({ ...prev, [panelId]: backgroundUrl }));
+                          }}
+                          onRetryPanel={(panelNumber) => {
+                            retryPanelMutation.mutate(panelNumber);
                           }}
                         />
                       </div>
