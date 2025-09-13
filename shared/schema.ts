@@ -322,6 +322,11 @@ export const insertCreditTransactionSchema = createInsertSchema(creditTransactio
   createdAt: true,
 });
 
+// Schema for creating characters from script
+export const insertCharacterFromScriptSchema = z.object({
+  names: z.array(z.string().min(1)).min(1),
+});
+
 // Types
 export type UpsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;

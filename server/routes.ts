@@ -10,7 +10,8 @@ import {
   insertPanelSchema,
   insertUserProfileSchema,
   insertProjectLikeSchema,
-  insertProjectCommentSchema
+  insertProjectCommentSchema,
+  insertCharacterFromScriptSchema
 } from "@shared/schema";
 import { geminiService } from "./gemini";
 import { z } from "zod";
@@ -353,6 +354,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting character:", error);
       res.status(500).json({ message: "Failed to delete character" });
+    }
+  });
+
+  // Script Characters Routes - Extract characters from script and suggest unmatched ones
+  app.get("/api/projects/:projectId/script-characters", isAuthenticated, async (req: any, res) => {
+    try {
+      const project = await storage.getProject(req.params.projectId);
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      const scriptCharacters = await storage.getProjectScriptCharacters(req.params.projectId);
+      res.json(scriptCharacters);
+    } catch (error) {
+      console.error("Error fetching script characters:", error);
+      res.status(500).json({ message: "Failed to fetch script characters" });
+    }
+  });
+
+  app.post("/api/projects/:projectId/characters/from-script", isAuthenticated, async (req: any, res) => {
+    try {
+      const project = await storage.getProject(req.params.projectId);
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Validate request body
+      const { names } = insertCharacterFromScriptSchema.parse(req.body);
+      
+      // Create characters from script names with minimal data
+      const createdCharacters = [];
+      for (const name of names) {
+        try {
+          const characterData = insertCharacterSchema.parse({
+            projectId: req.params.projectId,
+            name: name.trim(),
+            role: "Character", // Default role
+            bio: `Character extracted from script. Appears in project story.`,
+            visualDescriptors: "", // Empty initially - user can fill in later
+            alwaysTraits: "",
+            neverTraits: "",
+            colorScheme: "",
+            referenceImageUrl: null,
+            isLibraryCharacter: false,
+          });
+          
+          const character = await storage.createCharacter(characterData);
+          createdCharacters.push(character);
+        } catch (charError) {
+          console.warn(`Failed to create character "${name}":`, charError);
+          // Continue with other characters even if one fails
+        }
+      }
+
+      res.json({ 
+        success: true, 
+        message: `Successfully created ${createdCharacters.length} character(s)`,
+        characters: createdCharacters,
+        created: createdCharacters.length,
+        attempted: names.length
+      });
+    } catch (error) {
+      console.error("Error creating characters from script:", error);
+      res.status(400).json({ message: "Failed to create characters from script" });
     }
   });
 

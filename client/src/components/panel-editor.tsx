@@ -60,6 +60,12 @@ export default function PanelEditor({
     enabled: !!project?.id,
   });
 
+  // Fetch script characters for suggestions
+  const { data: scriptCharacters = [], isLoading: scriptCharactersLoading } = useQuery<Array<{ name: string; count: number; pageNumbers: number[] }>>({
+    queryKey: ["/api/projects", project?.id, "script-characters"],
+    enabled: !!project?.id,
+  });
+
   // Find the current panel data
   const currentPanelData = selectedPanel ? existingPanels.find(p => p.panelNumber === selectedPanel) : null;
 
@@ -413,6 +419,37 @@ export default function PanelEditor({
     },
   });
 
+  // Create characters from script suggestions mutation
+  const createCharactersFromScriptMutation = useMutation({
+    mutationFn: async (names: string[]) => {
+      if (!project?.id) throw new Error("No project selected");
+      
+      const response = await apiRequest("POST", `/api/projects/${project.id}/characters/from-script`, {
+        names: names
+      });
+      
+      return response;
+    },
+    onSuccess: (result: any) => {
+      toast({
+        title: "Characters created",
+        description: result.message || `Successfully created ${result.created} character(s)`,
+      });
+      
+      // Invalidate both characters and script characters queries
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project?.id, "characters"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project?.id, "script-characters"] });
+    },
+    onError: (error) => {
+      console.error("Failed to create characters from script:", error);
+      toast({
+        title: "Failed to create characters",
+        description: "There was an error creating characters from the script.",
+        variant: "destructive",
+      });
+    },
+  });
+
   return (
     <>
       {/* Mobile Overlay */}
@@ -696,6 +733,73 @@ export default function PanelEditor({
                 )}
               </CardContent>
             </Card>
+
+            {/* Script Characters Suggestions */}
+            {scriptCharacters.length > 0 && (
+              <Card className="border-border border-orange-200 dark:border-orange-800">
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="font-medium text-orange-700 dark:text-orange-300">Script Characters</p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 px-2 text-xs border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-950"
+                      onClick={() => {
+                        const allNames = scriptCharacters.map(char => char.name);
+                        createCharactersFromScriptMutation.mutate(allNames);
+                      }}
+                      disabled={createCharactersFromScriptMutation.isPending}
+                      data-testid="button-add-all-script-characters"
+                    >
+                      {createCharactersFromScriptMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                          Adding...
+                        </>
+                      ) : (
+                        'Add All'
+                      )}
+                    </Button>
+                  </div>
+                  
+                  <p className="text-xs text-orange-600 dark:text-orange-400 mb-3">
+                    Characters found in script but not yet added to project:
+                  </p>
+                  
+                  <div className="space-y-2">
+                    {scriptCharacters.slice(0, 3).map((char, index) => (
+                      <div key={index} className="flex items-center justify-between bg-orange-50 dark:bg-orange-950/30 p-2 rounded text-xs border border-orange-100 dark:border-orange-900">
+                        <div className="flex-1">
+                          <span className="font-medium text-orange-800 dark:text-orange-200">{char.name}</span>
+                          <div className="text-orange-600 dark:text-orange-400 text-[10px] mt-0.5">
+                            {char.count} mention{char.count !== 1 ? 's' : ''} 
+                            {char.pageNumbers.length > 0 && (
+                              <span> on page{char.pageNumbers.length !== 1 ? 's' : ''} {char.pageNumbers.join(', ')}</span>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-5 px-2 text-[10px] ml-2 border-orange-200 text-orange-700 hover:bg-orange-100 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-900"
+                          onClick={() => createCharactersFromScriptMutation.mutate([char.name])}
+                          disabled={createCharactersFromScriptMutation.isPending}
+                          data-testid={`button-add-script-character-${char.name.toLowerCase().replace(/\s+/g, '-')}`}
+                        >
+                          Add
+                        </Button>
+                      </div>
+                    ))}
+                    
+                    {scriptCharacters.length > 3 && (
+                      <div className="text-xs text-orange-600 dark:text-orange-400 text-center py-1">
+                        +{scriptCharacters.length - 3} more character{scriptCharacters.length - 3 !== 1 ? 's' : ''} in script
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
         </div>

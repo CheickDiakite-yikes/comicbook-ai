@@ -137,6 +137,9 @@ export interface IStorage {
   updateLibraryCharacter(id: string, userId: string, updates: Partial<InsertCharacter>): Promise<Character | undefined>;
   deleteLibraryCharacter(id: string, userId: string): Promise<boolean>;
   copyCharacterToProject(characterId: string, projectId: string, userId: string): Promise<Character>;
+
+  // Script character extraction operations
+  getProjectScriptCharacters(projectId: string): Promise<Array<{ name: string; count: number; pageNumbers: number[] }>>;
 }
 
 export class MemStorage implements IStorage {
@@ -542,6 +545,11 @@ export class MemStorage implements IStorage {
 
   async copyCharacterToProject(characterId: string, projectId: string, userId: string): Promise<Character> {
     throw new Error("Character library not implemented for in-memory storage");
+  }
+
+  // Script character extraction - Not implemented for in-memory storage
+  async getProjectScriptCharacters(projectId: string): Promise<Array<{ name: string; count: number; pageNumbers: number[] }>> {
+    throw new Error("Script character extraction not implemented for in-memory storage");
   }
 }
 
@@ -1545,6 +1553,144 @@ export class DatabaseStorage implements IStorage {
       .values(commentData)
       .returning();
     return comment;
+  }
+
+  // Extract script characters and aggregate with metadata
+  async getProjectScriptCharacters(projectId: string): Promise<Array<{ name: string; count: number; pageNumbers: number[] }>> {
+    // Get existing project characters for exclusion
+    const existingCharacters = await db
+      .select({ name: characters.name })
+      .from(characters)
+      .where(eq(characters.projectId, projectId));
+    
+    const existingCharacterNames = new Set(
+      existingCharacters.map(char => char.name.toLowerCase())
+    );
+
+    // Get structured script for this project
+    const [structuredScript] = await db
+      .select({ id: structuredScripts.id })
+      .from(structuredScripts)
+      .where(and(eq(structuredScripts.projectId, projectId), eq(structuredScripts.isActive, true)));
+
+    if (!structuredScript) {
+      return []; // No script exists yet
+    }
+
+    // Query script panels for characters arrays and page numbers
+    const scriptPanelCharacters = await db
+      .select({
+        characters: scriptPanels.characters,
+        pageNumber: scriptPages.pageNumber,
+      })
+      .from(scriptPanels)
+      .innerJoin(scriptPages, eq(scriptPanels.scriptPageId, scriptPages.id))
+      .where(eq(scriptPages.structuredScriptId, structuredScript.id));
+
+    // Query script dialogue for individual character names
+    const scriptDialogueCharacters = await db
+      .select({
+        character: scriptDialogue.character,
+        pageNumber: scriptPages.pageNumber,
+      })
+      .from(scriptDialogue)
+      .innerJoin(scriptPanels, eq(scriptDialogue.scriptPanelId, scriptPanels.id))
+      .innerJoin(scriptPages, eq(scriptPanels.scriptPageId, scriptPages.id))
+      .where(eq(scriptPages.structuredScriptId, structuredScript.id));
+
+    // Aggregate characters with metadata
+    const characterMap = new Map<string, { count: number; pageNumbers: Set<number> }>();
+
+    // Process script panel characters (arrays)
+    scriptPanelCharacters.forEach(({ characters: charArray, pageNumber }) => {
+      if (charArray && Array.isArray(charArray)) {
+        charArray.forEach((charName: string) => {
+          if (charName && typeof charName === 'string') {
+            const normalizedName = charName.trim();
+            const lowerCaseName = normalizedName.toLowerCase();
+            
+            // Skip if already exists as project character
+            if (existingCharacterNames.has(lowerCaseName)) return;
+            
+            if (!characterMap.has(lowerCaseName)) {
+              characterMap.set(lowerCaseName, { 
+                count: 0, 
+                pageNumbers: new Set() 
+              });
+            }
+            
+            const entry = characterMap.get(lowerCaseName)!;
+            entry.count++;
+            entry.pageNumbers.add(pageNumber);
+          }
+        });
+      }
+    });
+
+    // Process script dialogue characters (individual names)
+    scriptDialogueCharacters.forEach(({ character: charName, pageNumber }) => {
+      if (charName && typeof charName === 'string') {
+        const normalizedName = charName.trim();
+        const lowerCaseName = normalizedName.toLowerCase();
+        
+        // Skip if already exists as project character
+        if (existingCharacterNames.has(lowerCaseName)) return;
+        
+        if (!characterMap.has(lowerCaseName)) {
+          characterMap.set(lowerCaseName, { 
+            count: 0, 
+            pageNumbers: new Set() 
+          });
+        }
+        
+        const entry = characterMap.get(lowerCaseName)!;
+        entry.count++;
+        entry.pageNumbers.add(pageNumber);
+      }
+    });
+
+    // Convert to final format, preserving original case from first occurrence
+    const result: Array<{ name: string; count: number; pageNumbers: number[] }> = [];
+    
+    characterMap.forEach(({ count, pageNumbers }, lowerCaseName) => {
+      // Find the original case version from our data sources
+      let originalName = lowerCaseName;
+      
+      // Search in panel characters
+      for (const { characters: charArray } of scriptPanelCharacters) {
+        if (charArray && Array.isArray(charArray)) {
+          const found = charArray.find((name: string) => 
+            name && typeof name === 'string' && name.trim().toLowerCase() === lowerCaseName
+          );
+          if (found) {
+            originalName = found.trim();
+            break;
+          }
+        }
+      }
+      
+      // Search in dialogue characters if not found in panels
+      if (originalName === lowerCaseName) {
+        const found = scriptDialogueCharacters.find(({ character }) => 
+          character && character.trim().toLowerCase() === lowerCaseName
+        );
+        if (found) {
+          originalName = found.character.trim();
+        }
+      }
+      
+      result.push({
+        name: originalName,
+        count,
+        pageNumbers: Array.from(pageNumbers).sort((a, b) => a - b),
+      });
+    });
+
+    // Sort by count (descending) then by name (ascending)
+    return result.sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return a.name.localeCompare(b.name);
+    });
   }
 }
 
