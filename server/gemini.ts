@@ -1389,6 +1389,16 @@ export class GeminiService {
       prompt += `. Color palette: ${request.styleOptions.colorPalette.join(", ")}`;
     }
 
+    // Add current-page previous panels context for immediate continuity
+    if (request.previousPanelsContext && request.previousPanelsContext.length > 0) {
+      const previousPanelSummaries = request.previousPanelsContext
+        .map(panel => `Panel ${panel.panelNumber}: ${panel.prompt.replace(/^Panel \d+:\s*/i, '')}`)
+        .join(". ");
+      
+      prompt += `. Previous panels on this page: ${previousPanelSummaries}`;
+      prompt += `. IMMEDIATE CONTINUITY: This panel must visually flow from the previous panels. Maintain character positions, clothing, and environmental details from the earlier panels on this page.`;
+    }
+
     // Add cross-page narrative and visual context for continuity
     if (request.crossPageContext && request.crossPageContext.length > 0) {
       const narrativeContext = request.crossPageContext

@@ -189,6 +189,10 @@ export default function PanelEditor({
           artStyle: artStyle,
         },
         panelContext,
+        // Enhanced context for better visual continuity
+        projectId: project.id,
+        currentPageId: currentPage?.id,
+        selectedPanelNumber: selectedPanel,
       });
       
       return response as any;

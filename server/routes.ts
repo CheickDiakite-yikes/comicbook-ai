@@ -522,7 +522,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }),
     async (req: any, res) => {
     try {
-      const { prompt, panelId, projectContext, characterContext, styleOptions, panelContext } = req.body;
+      const { 
+        prompt, 
+        panelId, 
+        projectContext, 
+        characterContext, 
+        styleOptions, 
+        panelContext,
+        // New optional fields for enhanced context
+        projectId,
+        currentPageId,
+        selectedPanelNumber
+      } = req.body;
+      
+      // Build enhanced context if IDs are provided
+      let previousPanelsContext: Array<{panelNumber: number; prompt: string; imageUrl?: string}> = [];
+      let crossPageContext: Array<{pageNumber: number; panels: Array<{panelNumber: number; prompt: string; imageUrl?: string}>}> = [];
+      
+      if (currentPageId && selectedPanelNumber) {
+        console.log(`🎯 ENHANCED CONTEXT: Building rich context for panel ${selectedPanelNumber} on page ${currentPageId}`);
+        
+        try {
+          // Build previousPanelsContext: panels from current page with lower numbers
+          const currentPagePanels = await storage.getPagePanels(currentPageId);
+          previousPanelsContext = currentPagePanels
+            .filter((panel: any) => panel.panelNumber < selectedPanelNumber)
+            .sort((a: any, b: any) => a.panelNumber - b.panelNumber)
+            .slice(-3) // Take last 3 previous panels for context
+            .map((panel: any) => ({
+              panelNumber: panel.panelNumber,
+              prompt: panel.prompt || `Panel ${panel.panelNumber}`,
+              imageUrl: panel.imageUrl,
+            }));
+          
+          console.log(`📋 Previous panels context: ${previousPanelsContext.length} panels from current page`);
+          
+          // Build crossPageContext: panels from previous pages using existing method
+          if (projectId) {
+            crossPageContext = await geminiService.buildCrossPageContext(currentPageId, storage);
+            console.log(`📚 Cross-page context: ${crossPageContext.length} previous pages`);
+          }
+        } catch (error) {
+          console.error("Error building enhanced context:", error);
+          // Continue without enhanced context - graceful fallback
+        }
+      }
       
       const result = await geminiService.generatePanelImage({
         prompt,
@@ -531,6 +575,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         characterContext,
         styleOptions,
         panelContext,
+        previousPanelsContext,
+        crossPageContext,
       });
       
       res.json(result);
