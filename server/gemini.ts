@@ -303,14 +303,47 @@ export class GeminiService {
         contentParts = [{ text: contextualPrompt }];
       }
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-image-preview",
-        contents: contentParts,
-      });
+      // 🔄 ENHANCED RELIABILITY: Automatic retry logic for transient API failures
+      let response: any = null;
+      let lastError: any = null;
+      const maxRetries = 3;
+      const retryDelay = 1000; // 1 second
 
-      // Process the response to extract image data
-      if (!response.candidates || !response.candidates[0]?.content?.parts) {
-        throw new Error("No valid response received from Gemini");
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`🎯 Generation attempt ${attempt}/${maxRetries} for panel ${request.panelId}`);
+          
+          response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-image-preview",
+            contents: contentParts,
+          });
+
+          // Process the response to extract image data
+          if (!response.candidates || !response.candidates[0]?.content?.parts) {
+            throw new Error("No valid response received from Gemini");
+          }
+
+          // Success! Break the retry loop
+          console.log(`✅ Generation succeeded on attempt ${attempt} for panel ${request.panelId}`);
+          break;
+
+        } catch (error) {
+          lastError = error;
+          console.log(`⚠️ Generation attempt ${attempt} failed for panel ${request.panelId}:`, (error as Error).message);
+          
+          if (attempt < maxRetries) {
+            console.log(`🔄 Retrying in ${retryDelay}ms... (${maxRetries - attempt} attempts remaining)`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+          } else {
+            console.log(`❌ All ${maxRetries} attempts failed for panel ${request.panelId}`);
+            throw lastError;
+          }
+        }
+      }
+      
+      // Ensure we have a valid response after retry attempts
+      if (!response || !response.candidates || !response.candidates[0]?.content?.parts) {
+        throw new Error("Failed to get valid response from Gemini after all retry attempts");
       }
       
       for (const part of response.candidates[0].content.parts) {
