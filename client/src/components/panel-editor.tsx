@@ -175,21 +175,36 @@ export default function PanelEditor({
         panelContext = generateEnhancedPanelContext(panel, currentLayout, selectedPanel);
       }
       
+      // Build enhanced project context with full character details (same as full-page generation)
+      const enhancedProjectContext = {
+        title: project.title,
+        genre: project.genre || undefined,
+        description: project.description || undefined,
+        artStyle: project.artStyle || undefined,
+        characters: projectCharacters.map((char: any) => ({
+          name: char.name,
+          role: char.role,
+          bio: char.bio,
+          visualDescriptors: char.visualDescriptors || "",
+          alwaysTraits: char.alwaysTraits || "",
+          neverTraits: char.neverTraits || "",
+          colorScheme: char.colorScheme || "",
+          referenceImageUrl: char.referenceImageUrl || undefined
+        })),
+        // Add style consistency instructions for character consistency
+        styleConsistencyRules: `CRITICAL: Maintain EXACT character appearances throughout all panels. Characters MUST have consistent facial features, hair color, hair style, body type, and clothing style across all panels.`
+      };
+
       const response = await apiRequest("POST", "/api/generate-image", {
         prompt,
         panelId: selectedPanel,
-        projectContext: {
-          title: project.title,
-          genre: project.genre,
-          description: project.description,
-          artStyle: project.artStyle,
-        },
+        projectContext: enhancedProjectContext,
         characterContext: projectCharacters || [], // Include current project characters
         styleOptions: {
           artStyle: artStyle,
         },
         panelContext,
-        // Enhanced context for better visual continuity
+        // Enhanced context for script enhancement and visual continuity
         projectId: project.id,
         currentPageId: currentPage?.id,
         selectedPanelNumber: selectedPanel,

@@ -538,9 +538,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Build enhanced context if IDs are provided
       let previousPanelsContext: Array<{panelNumber: number; prompt: string; imageUrl?: string}> = [];
       let crossPageContext: Array<{pageNumber: number; panels: Array<{panelNumber: number; prompt: string; imageUrl?: string}>}> = [];
+      let enhancedPrompt = prompt; // Default to original prompt
       
-      if (currentPageId && selectedPanelNumber) {
-        console.log(`🎯 ENHANCED CONTEXT: Building rich context for panel ${selectedPanelNumber} on page ${currentPageId}`);
+      if (currentPageId && selectedPanelNumber && projectId) {
+        console.log(`🎯 ENHANCED CONTEXT: Building rich script-enhanced context for panel ${selectedPanelNumber} on page ${currentPageId}`);
         
         try {
           // Build previousPanelsContext: panels from current page with lower numbers
@@ -548,7 +549,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           previousPanelsContext = currentPagePanels
             .filter((panel: any) => panel.panelNumber < selectedPanelNumber)
             .sort((a: any, b: any) => a.panelNumber - b.panelNumber)
-            .slice(-3) // Take last 3 previous panels for context
+            .slice(-4) // Take last 4 previous panels for context (increased from 3)
             .map((panel: any) => ({
               panelNumber: panel.panelNumber,
               prompt: panel.prompt || `Panel ${panel.panelNumber}`,
@@ -558,10 +559,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`📋 Previous panels context: ${previousPanelsContext.length} panels from current page`);
           
           // Build crossPageContext: panels from previous pages using existing method
-          if (projectId) {
-            crossPageContext = await geminiService.buildCrossPageContext(currentPageId, storage);
-            console.log(`📚 Cross-page context: ${crossPageContext.length} previous pages`);
+          crossPageContext = await geminiService.buildCrossPageContext(currentPageId, storage);
+          console.log(`📚 Cross-page context: ${crossPageContext.length} previous pages`);
+          
+          // SCRIPT ENHANCEMENT: Add the same script enhancement logic from full-page generation
+          try {
+            const project = await storage.getProject(projectId);
+            const currentPage = await storage.getPage(currentPageId);
+            const characters = await storage.getProjectCharacters(projectId);
+            
+            if (project?.script && currentPage) {
+              const structuredScript = JSON.parse(project.script);
+              console.log(`🎬 SCRIPT ENHANCEMENT: Found structured script with ${structuredScript.pages?.length || 0} pages`);
+              
+              // Find the script page matching current page
+              let scriptPage = structuredScript.pages?.find((p: any) => p.pageNumber === currentPage.pageNumber);
+              
+              if (!scriptPage && typeof currentPage.pageNumber === 'number') {
+                scriptPage = structuredScript.pages?.[currentPage.pageNumber - 1];
+              }
+              
+              console.log("Found script page:", scriptPage ? {
+                pageNumber: scriptPage.pageNumber,
+                title: scriptPage.title,
+                panelCount: scriptPage.panels?.length || 0
+              } : "NOT FOUND");
+              
+              if (scriptPage?.panels && Array.isArray(scriptPage.panels)) {
+                // Find script panel using same logic as full-page generation
+                let scriptPanel = scriptPage.panels.find((p: any) => p.panelNumber === selectedPanelNumber);
+                
+                // Fallback for existing scripts with wrong numbering: use array index
+                if (!scriptPanel && scriptPage.panels[selectedPanelNumber - 1]) {
+                  scriptPanel = scriptPage.panels[selectedPanelNumber - 1];
+                  console.log(`Panel ${selectedPanelNumber}: Using fallback array index [${selectedPanelNumber-1}] for panel labeled as ${scriptPanel.panelNumber}`);
+                }
+                
+                console.log(`Panel ${selectedPanelNumber} script match:`, scriptPanel ? {
+                  foundPanelNumber: scriptPanel.panelNumber,
+                  sceneDescription: scriptPanel.sceneDescription?.substring(0, 50) + "...",
+                  hasDialogue: scriptPanel.dialogue?.length > 0,
+                  hasCharacters: scriptPanel.characters?.length > 0
+                } : "NOT FOUND");
+                
+                if (scriptPanel) {
+                  // 🌟 BUILD ENHANCED DESCRIPTION using script data (same logic as full-page generation)
+                  let richDescription = scriptPanel.sceneDescription || scriptPanel.visualDescription || scriptPanel.action;
+                  if (richDescription) {
+                    enhancedPrompt = richDescription;
+                    
+                    // Add specific character descriptions for this panel
+                    if (scriptPanel.characters?.length > 0 && characters.length > 0) {
+                      const panelCharacters = scriptPanel.characters.map((charName: string) => {
+                        const charData = characters.find((c: any) => c.name === charName);
+                        if (charData && charData.visualDescriptors) {
+                          return `${charName} (APPEARANCE: ${charData.visualDescriptors})`;
+                        }
+                        return charName;
+                      }).join(", ");
+                      enhancedPrompt += `. Characters in panel: ${panelCharacters}`;
+                    } else if (scriptPanel.characters?.length > 0) {
+                      enhancedPrompt += `. Characters: ${scriptPanel.characters.join(", ")}`;
+                    }
+                    
+                    // Add character emotions and dialogue context
+                    if (scriptPanel.dialogue?.length > 0) {
+                      const emotions = scriptPanel.dialogue
+                        .filter((d: any) => d.emotionalState)
+                        .map((d: any) => `${d.character} is ${d.emotionalState}`)
+                        .join(", ");
+                      if (emotions) {
+                        enhancedPrompt += `. Character emotions: ${emotions}`;
+                      }
+                    }
+                    
+                    // Add camera and shot information
+                    if (scriptPanel.cameraAngle) {
+                      enhancedPrompt += `. Camera: ${scriptPanel.cameraAngle}`;
+                    }
+                    if (scriptPanel.shotType) {
+                      enhancedPrompt += `. Shot: ${scriptPanel.shotType}`;
+                    }
+                    if (scriptPanel.mood) {
+                      enhancedPrompt += `. Mood: ${scriptPanel.mood}`;
+                    }
+                    
+                    // Add visual notes
+                    if (scriptPanel.visualNotes) {
+                      enhancedPrompt += `. Visual notes: ${scriptPanel.visualNotes}`;
+                    }
+                    
+                    // Add action details
+                    if (scriptPanel.action) {
+                      enhancedPrompt += `. Action: ${scriptPanel.action}`;
+                    }
+                    
+                    console.log(`🎨 SCRIPT ENHANCED PROMPT: Panel ${selectedPanelNumber} enhanced from "${prompt.substring(0, 50)}..." to "${enhancedPrompt.substring(0, 100)}..."`);
+                  } else {
+                    console.log(`Panel ${selectedPanelNumber}: Script panel found but no rich description available`);
+                  }
+                } else {
+                  console.log(`Panel ${selectedPanelNumber}: No script panel found, using original prompt`);
+                }
+              } else {
+                console.log(`No panels found in script page ${currentPage.pageNumber}`);
+              }
+            } else {
+              console.log("No structured script available for enhancement");
+            }
+          } catch (scriptError) {
+            console.error("Error during script enhancement:", scriptError);
+            // Continue with original prompt - graceful fallback
           }
+          
         } catch (error) {
           console.error("Error building enhanced context:", error);
           // Continue without enhanced context - graceful fallback
@@ -569,7 +679,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const result = await geminiService.generatePanelImage({
-        prompt,
+        prompt: enhancedPrompt, // Use enhanced prompt with script data
         panelId,
         projectContext,
         characterContext,
