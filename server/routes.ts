@@ -16,6 +16,8 @@ import {
 import { geminiService } from "./gemini";
 import { z } from "zod";
 import { requireCredits, getProjectIdFromParams, getPanelIdFromBody, getPageIdFromRequest, createOperationMetadata } from "./creditMiddleware";
+import { isSocialCrawler, isLinkPreviewRequest } from "./utils/socialCrawlers";
+import { generateSSRHTML, generateFallbackHTML } from "./utils/htmlGenerator";
 
 // Helper function to get user ID from different auth providers
 function getUserId(user: any): string {
@@ -2121,6 +2123,66 @@ Redress this character in the specified outfit while maintaining their core visu
         success: false, 
         message: "Failed to verify credits" 
       });
+    }
+  });
+
+  // Social Media Sharing Route - Server-Side Rendering for Open Graph/Twitter Cards
+  // This route must be placed BEFORE Vite setup to ensure it intercepts crawler requests
+  app.get('/share/:projectId', async (req: any, res, next) => {
+    try {
+      const projectId = req.params.projectId;
+      const userAgent = req.headers['user-agent'] || '';
+      
+      // Check if this is a social media crawler or link preview request
+      const shouldRenderSSR = isSocialCrawler(userAgent) || isLinkPreviewRequest(req);
+      
+      console.log(`🔗 Request for /share/${projectId} from: ${userAgent.substring(0, 50)}... shouldRenderSSR: ${shouldRenderSSR}`);
+      
+      if (shouldRenderSSR) {
+        // Get the public project data for crawlers
+        const project = await storage.getPublicProject(projectId);
+        
+        if (!project) {
+          console.log(`⚠️ Project ${projectId} not found or not public`);
+          // Generate fallback HTML for non-existent or private projects
+          const fallbackHtml = generateFallbackHTML(req, 'Project not found or not publicly available');
+          res.set('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
+          res.set('Content-Type', 'text/html; charset=utf-8');
+          return res.send(fallbackHtml);
+        }
+        
+        console.log(`✅ Found public project: ${project.title} by ${project.user?.firstName || 'Unknown'}`);
+        
+        // Generate SSR HTML with proper meta tags
+        const html = generateSSRHTML(project, req);
+        
+        // Set appropriate headers for crawlers
+        res.set('Cache-Control', 'public, max-age=600'); // Cache for 10 minutes
+        res.set('Content-Type', 'text/html; charset=utf-8');
+        res.set('X-Robots-Tag', 'index, follow');
+        
+        return res.send(html);
+      }
+      
+      // For non-crawler requests in development, we need to redirect to the SPA route
+      // since Vite's catch-all will interfere. In production, just let it fall through.
+      if (process.env.NODE_ENV === 'development') {
+        // Redirect to the main app, letting the SPA handle the route client-side
+        const redirectUrl = `${req.protocol}://${req.get('host')}/#/share/${projectId}`;
+        return res.redirect(302, redirectUrl);
+      } else {
+        // In production, let it fall through to the static file handler
+        return next();
+      }
+      
+    } catch (error) {
+      console.error('Error in /share/:projectId route:', error);
+      
+      // Generate fallback HTML on error
+      const fallbackHtml = generateFallbackHTML(req, 'An error occurred while loading the comic');
+      res.set('Cache-Control', 'public, max-age=300');
+      res.set('Content-Type', 'text/html; charset=utf-8');
+      return res.send(fallbackHtml);
     }
   });
 

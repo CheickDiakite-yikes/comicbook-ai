@@ -121,6 +121,7 @@ export interface IStorage {
   
   // Public projects
   getPublicProjects(genre?: string): Promise<any[]>;
+  getPublicProject(projectId: string): Promise<any | undefined>;
   getUserProjectsWithStats(userId: string): Promise<any[]>;
   
   // Likes
@@ -504,6 +505,10 @@ export class MemStorage implements IStorage {
 
   async getPublicProjects(genre?: string): Promise<any[]> {
     return []; // Not implemented for in-memory storage
+  }
+
+  async getPublicProject(projectId: string): Promise<any | undefined> {
+    return undefined; // Not implemented for in-memory storage
   }
 
   async getUserProjectsWithStats(userId: string): Promise<any[]> {
@@ -1449,6 +1454,77 @@ export class DatabaseStorage implements IStorage {
     );
 
     return enrichedProjects;
+  }
+
+  // Get single public project with enriched data for social sharing
+  async getPublicProject(projectId: string): Promise<any | undefined> {
+    try {
+      const [projectResult] = await db
+        .select({
+          id: projects.id,
+          userId: projects.userId,
+          title: projects.title,
+          description: projects.description,
+          publicDescription: projects.publicDescription,
+          genre: projects.genre,
+          userSelectedGenres: projects.userSelectedGenres,
+          artStyle: projects.artStyle,
+          coverArt: projects.coverArt,
+          isPublic: projects.isPublic,
+          createdAt: projects.createdAt,
+          updatedAt: projects.updatedAt,
+          userEmail: users.email,
+          userFirstName: users.firstName,
+          userLastName: users.lastName,
+          userProfileImageUrl: users.profileImageUrl,
+        })
+        .from(projects)
+        .innerJoin(users, eq(projects.userId, users.id))
+        .where(and(eq(projects.id, projectId), eq(projects.isPublic, true)));
+
+      if (!projectResult) {
+        return undefined;
+      }
+
+      // Get likes count
+      const [likesResult] = await db
+        .select({ count: count() })
+        .from(projectLikes)
+        .where(eq(projectLikes.projectId, projectId));
+      const likesCount = likesResult?.count || 0;
+
+      // Get comments count
+      const [commentsResult] = await db
+        .select({ count: count() })
+        .from(projectComments)
+        .where(eq(projectComments.projectId, projectId));
+      const commentsCount = commentsResult?.count || 0;
+
+      // Get pages count
+      const [pagesResult] = await db
+        .select({ count: count() })
+        .from(pages)
+        .where(eq(pages.projectId, projectId));
+      const pagesCount = pagesResult?.count || 0;
+
+      return {
+        ...projectResult,
+        previewImageUrl: projectResult.coverArt, // Map coverArt to previewImageUrl for frontend
+        user: {
+          id: projectResult.userId,
+          email: projectResult.userEmail,
+          firstName: projectResult.userFirstName,
+          lastName: projectResult.userLastName,
+          profileImageUrl: projectResult.userProfileImageUrl,
+        },
+        likesCount,
+        commentsCount,
+        pagesCount,
+      };
+    } catch (error) {
+      console.error('Error getting public project:', error);
+      return undefined;
+    }
   }
 
   // User projects with stats for profile page
