@@ -245,6 +245,7 @@ export default function PanelEditor({
       return prompt || `Scene ${panelNumber} of ${project.title}`;
     }
     
+    // Start with the main scene description
     let description = scriptPanel.sceneDescription || scriptPanel.visualDescription || scriptPanel.action || prompt;
     
     // Add character descriptions for this panel
@@ -260,32 +261,55 @@ export default function PanelEditor({
     } else if (scriptPanel.characters?.length > 0) {
       description += `. Characters: ${scriptPanel.characters.join(', ')}`;
     }
-    
-    // Add character emotions and dialogue context
+
+    // ✨ ENHANCED: Add full dialogue with character emotions and speech text
     if (scriptPanel.dialogue?.length > 0) {
-      const emotions = scriptPanel.dialogue
-        .filter((d: any) => d.emotionalState)
-        .map((d: any) => `${d.character} is ${d.emotionalState}`)
-        .join(', ');
-      if (emotions) {
-        description += `. Character emotions: ${emotions}`;
-      }
+      description += `\n\nDialogue:`;
+      scriptPanel.dialogue.forEach((d: any) => {
+        if (d.character && d.text) {
+          const emotionPart = d.emotionalState || d.emotion ? ` (${d.emotionalState || d.emotion})` : '';
+          description += `\n- ${d.character}${emotionPart}: "${d.text}"`;
+        }
+      });
     }
-    
-    // Add camera and shot information
+
+    // ✨ ENHANCED: Add sound effects
+    if (scriptPanel.soundEffects?.length > 0) {
+      const soundEffectsText = scriptPanel.soundEffects.map((effect: string) => 
+        effect.startsWith('*') && effect.endsWith('*') ? effect : `*${effect}*`
+      ).join(', ');
+      description += `\n\nSound Effects: ${soundEffectsText}`;
+    }
+
+    // ✨ ENHANCED: Add action details when present
+    if (scriptPanel.action && scriptPanel.action.trim() !== '') {
+      description += `\n\nAction: ${scriptPanel.action}`;
+    }
+
+    // ✨ ENHANCED: Add timing information when present
+    if (scriptPanel.timing && scriptPanel.timing.trim() !== '') {
+      description += `\n\nTiming: ${scriptPanel.timing}`;
+    }
+
+    // ✨ ENHANCED: Add visual notes as a dedicated section
+    if (scriptPanel.visualNotes && scriptPanel.visualNotes.trim() !== '') {
+      description += `\n\nVisual Notes: ${scriptPanel.visualNotes}`;
+    }
+
+    // Add technical direction (camera, shot, mood)
+    const technicalDirection = [];
     if (scriptPanel.cameraAngle) {
-      description += `. Camera: ${scriptPanel.cameraAngle}`;
+      technicalDirection.push(`Camera: ${scriptPanel.cameraAngle}`);
     }
     if (scriptPanel.shotType) {
-      description += `. Shot: ${scriptPanel.shotType}`;
+      technicalDirection.push(`Shot: ${scriptPanel.shotType}`);
     }
     if (scriptPanel.mood) {
-      description += `. Mood: ${scriptPanel.mood}`;
+      technicalDirection.push(`Mood: ${scriptPanel.mood}`);
     }
     
-    // Add visual notes
-    if (scriptPanel.visualNotes) {
-      description += `. Visual notes: ${scriptPanel.visualNotes}`;
+    if (technicalDirection.length > 0) {
+      description += `\n\nTechnical Direction: ${technicalDirection.join('. ')}`;
     }
     
     return description;
