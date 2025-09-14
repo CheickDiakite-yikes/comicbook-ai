@@ -3,6 +3,7 @@ import { apiRequest } from "./queryClient";
 export interface GenerateImageRequest {
   prompt: string;
   panelId: string | number;
+  sourceImageUrl?: string; // For image editing - the existing panel image
   projectContext: {
     title: string;
     genre?: string;
@@ -13,11 +14,16 @@ export interface GenerateImageRequest {
       role: string;
       bio: string;
       visualDescriptors?: string;
+      alwaysTraits?: string;
+      neverTraits?: string;
+      colorScheme?: string;
+      referenceImageUrl?: string;
     }>;
     settings?: Array<{
       name: string;
       description: string;
     }>;
+    styleConsistencyRules?: string;
   };
   characterContext?: Array<{
     name: string;

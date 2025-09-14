@@ -12,6 +12,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { comicLayouts } from "@/lib/comic-layouts";
 import { generateEnhancedPanelContext, getPanelAspectRatioInfo, calculateOptimalDimensions } from "@/lib/aspect-ratio-utils";
 import CharacterDressRoom from "@/components/character-dress-room";
+import { aiService } from "@/lib/ai-service";
 import type { Project, Page, Panel, Character } from "@shared/schema";
 
 interface PanelEditorProps {
@@ -97,6 +98,119 @@ export default function PanelEditor({
     const panelPosition = panelNum === 1 ? "opening" : panelNum === 6 ? "closing" : "middle";
     
     return `Panel ${panelNum}: ${sceneContext}. Drawn in ${artStyleContext}. This is the ${panelPosition} panel of the page.`;
+  };
+
+  // Helper function to extract script context for individual panel generation
+  const getPanelScriptContext = async (panelNumber: number) => {
+    if (!project?.id || !currentPage) return null;
+    
+    try {
+      // Get structured script data
+      const structuredScript = await apiRequest("GET", `/api/projects/${project.id}/structured-script`);
+      
+      if (!structuredScript?.pages || !Array.isArray(structuredScript.pages)) {
+        return null;
+      }
+      
+      // Find the script page that matches the current page
+      let scriptPage = structuredScript.pages.find((p: any) => p.pageNumber === currentPage.pageNumber);
+      
+      // Fallback matching strategies
+      if (!scriptPage) {
+        scriptPage = structuredScript.pages.find((p: any) => 
+          String(p.pageNumber) === String(currentPage.pageNumber)
+        );
+      }
+      
+      if (!scriptPage && typeof currentPage.pageNumber === 'number') {
+        scriptPage = structuredScript.pages[currentPage.pageNumber - 1];
+      }
+      
+      if (!scriptPage?.panels || !Array.isArray(scriptPage.panels)) {
+        return null;
+      }
+      
+      // Find the panel in the script
+      let scriptPanel = scriptPage.panels.find((p: any) => p.panelNumber === panelNumber);
+      
+      // Fallback for array index-based matching
+      if (!scriptPanel && scriptPage.panels[panelNumber - 1]) {
+        scriptPanel = scriptPage.panels[panelNumber - 1];
+      }
+      
+      return scriptPanel;
+    } catch (error) {
+      console.log("No structured script available for context:", error);
+      return null;
+    }
+  };
+
+  // Helper function to get previous panels context for visual continuity
+  const getPreviousPanelsContext = (panelNumber: number, maxPrevious: number = 3) => {
+    if (!existingPanels || existingPanels.length === 0) return [];
+    
+    return existingPanels
+      .filter(panel => panel.panelNumber < panelNumber && panel.imageUrl)
+      .sort((a, b) => b.panelNumber - a.panelNumber) // Most recent first
+      .slice(0, maxPrevious) // Limit to avoid prompt bloat
+      .reverse() // Restore chronological order
+      .map(panel => ({
+        panelNumber: panel.panelNumber,
+        prompt: panel.prompt || `Panel ${panel.panelNumber}`,
+        imageUrl: panel.imageUrl
+      }));
+  };
+
+  // Helper function to build enhanced description from script context
+  const buildEnhancedDescription = (scriptPanel: any, panelNumber: number) => {
+    if (!scriptPanel) {
+      return prompt || `Scene ${panelNumber} of ${project.title}`;
+    }
+    
+    let description = scriptPanel.sceneDescription || scriptPanel.visualDescription || scriptPanel.action || prompt;
+    
+    // Add character descriptions for this panel
+    if (scriptPanel.characters?.length > 0 && projectCharacters.length > 0) {
+      const panelCharacters = scriptPanel.characters.map((charName: string) => {
+        const charData = projectCharacters.find((c: any) => c.name === charName);
+        if (charData && charData.visualDescriptors) {
+          return `${charName} (APPEARANCE: ${charData.visualDescriptors})`;
+        }
+        return charName;
+      }).join(', ');
+      description += `. Characters in panel: ${panelCharacters}`;
+    } else if (scriptPanel.characters?.length > 0) {
+      description += `. Characters: ${scriptPanel.characters.join(', ')}`;
+    }
+    
+    // Add character emotions and dialogue context
+    if (scriptPanel.dialogue?.length > 0) {
+      const emotions = scriptPanel.dialogue
+        .filter((d: any) => d.emotionalState)
+        .map((d: any) => `${d.character} is ${d.emotionalState}`)
+        .join(', ');
+      if (emotions) {
+        description += `. Character emotions: ${emotions}`;
+      }
+    }
+    
+    // Add camera and shot information
+    if (scriptPanel.cameraAngle) {
+      description += `. Camera: ${scriptPanel.cameraAngle}`;
+    }
+    if (scriptPanel.shotType) {
+      description += `. Shot: ${scriptPanel.shotType}`;
+    }
+    if (scriptPanel.mood) {
+      description += `. Mood: ${scriptPanel.mood}`;
+    }
+    
+    // Add visual notes
+    if (scriptPanel.visualNotes) {
+      description += `. Visual notes: ${scriptPanel.visualNotes}`;
+    }
+    
+    return description;
   };
 
   // Auto-save panel data when prompt or dialogue changes
@@ -201,22 +315,50 @@ export default function PanelEditor({
         styleConsistencyRules: `CRITICAL: Maintain EXACT character appearances throughout all panels. Characters MUST have consistent facial features, hair color, hair style, body type, and clothing style across all panels.`
       };
 
-      const response = await apiRequest("POST", "/api/generate-image", {
-        prompt,
-        panelId: selectedPanel,
+      // Get script context for this specific panel
+      const scriptContext = await getPanelScriptContext(selectedPanel);
+      
+      // Build enhanced description using script context
+      const enhancedPrompt = buildEnhancedDescription(scriptContext, selectedPanel);
+      
+      // Get previous panels context for visual continuity
+      const previousPanelsContext = getPreviousPanelsContext(selectedPanel);
+      
+      // Ensure panel exists in database and get its ID
+      let panelId = currentPanelData?.id;
+      if (!panelId) {
+        // Create panel record if it doesn't exist
+        const newPanel = await apiRequest("POST", `/api/pages/${currentPage!.id}/panels`, {
+          panelNumber: selectedPanel,
+          prompt: enhancedPrompt,
+          speechBubbles: dialogueText ? [{ text: dialogueText, type: 'speech' }] : [],
+          isGenerated: false,
+          generationStatus: "pending"
+        });
+        panelId = newPanel.id;
+      }
+
+      // Use AIService.generatePanelImage for proper context building
+      const response = await aiService.generatePanelImage({
+        prompt: enhancedPrompt,
+        panelId: panelId!,
         projectContext: enhancedProjectContext,
-        characterContext: projectCharacters || [], // Include current project characters
+        characterContext: (projectCharacters || []).map(char => ({
+          name: char.name || '',
+          visualDescriptors: char.visualDescriptors || '',
+          role: char.role || ''
+        })),
         styleOptions: {
           artStyle: artStyle,
         },
         panelContext,
-        // Enhanced context for script enhancement and visual continuity
-        projectId: project.id,
-        currentPageId: currentPage?.id,
-        selectedPanelNumber: selectedPanel,
+        previousPanelsContext: previousPanelsContext.map(panel => ({
+          ...panel,
+          imageUrl: panel.imageUrl || undefined
+        }))
       });
       
-      return response as any;
+      return response;
     },
     onSuccess: async (result: any) => {
       if (result.status === "completed" && result.imageUrl && selectedPanel && currentPage) {
@@ -296,10 +438,57 @@ export default function PanelEditor({
       // Calculate enhanced panel context with precise dimensions
       const enhancedContext = generateEnhancedPanelContext(panelData, currentLayout, selectedPanel);
       
+      // Get script context for environmental details
+      const scriptContext = await getPanelScriptContext(selectedPanel);
+      
+      // Build enhanced environmental prompt from script context
+      let environmentalPrompt = `Background environment for ${project.title}, panel ${selectedPanel}`;
+      
+      if (scriptContext) {
+        // Use scene setting/location from script
+        if (scriptContext.setting || scriptContext.location) {
+          environmentalPrompt = `${scriptContext.setting || scriptContext.location} background scene`;
+        }
+        
+        // Add time of day and lighting context
+        if (scriptContext.timeOfDay) {
+          environmentalPrompt += ` during ${scriptContext.timeOfDay}`;
+        }
+        
+        // Add weather/environmental conditions
+        if (scriptContext.weather) {
+          environmentalPrompt += `, ${scriptContext.weather} weather`;
+        }
+        
+        // Add mood/atmosphere to background
+        if (scriptContext.mood) {
+          environmentalPrompt += `, ${scriptContext.mood} atmosphere`;
+        }
+        
+        // Add visual notes that pertain to environment
+        if (scriptContext.visualNotes && scriptContext.visualNotes.toLowerCase().includes('background')) {
+          environmentalPrompt += `. ${scriptContext.visualNotes}`;
+        }
+      } else {
+        // Fallback using project context for environment
+        if (project.description) {
+          environmentalPrompt += `. Setting: ${project.description}`;
+        }
+      }
+      
+      // Add art style consistency
+      if (project.artStyle) {
+        environmentalPrompt += `. Art style: ${project.artStyle}`;
+      }
+      
+      console.log('🎨 Background generation prompt:', environmentalPrompt);
+      
       const result = await apiRequest("POST", "/api/generate-background", {
         panelId: selectedPanel,
         projectId: project.id,
-        panelContext: enhancedContext
+        panelContext: enhancedContext,
+        environmentalPrompt: environmentalPrompt, // Include enhanced environmental context
+        scriptContext: scriptContext // Pass script context for server-side processing
       });
       
       return result;
@@ -340,23 +529,59 @@ export default function PanelEditor({
         panelContext = generateEnhancedPanelContext(panel, currentLayout, selectedPanel);
       }
       
-      const response = await apiRequest("POST", "/api/generate-image", {
-        prompt: prompt + " (regeneration)",
-        panelId: selectedPanel,
-        projectContext: {
-          title: project.title,
-          genre: project.genre,
-          description: project.description,
-          artStyle: project.artStyle,
-        },
-        characterContext: projectCharacters || [], // Include current project characters
+      // Build full enhanced project context (same as generatePanelMutation)
+      const enhancedProjectContext = {
+        title: project.title,
+        genre: project.genre || undefined,
+        description: project.description || undefined,
+        artStyle: project.artStyle || undefined,
+        characters: projectCharacters.map((char: any) => ({
+          name: char.name,
+          role: char.role,
+          bio: char.bio,
+          visualDescriptors: char.visualDescriptors || "",
+          alwaysTraits: char.alwaysTraits || "",
+          neverTraits: char.neverTraits || "",
+          colorScheme: char.colorScheme || "",
+          referenceImageUrl: char.referenceImageUrl || undefined
+        })),
+        styleConsistencyRules: `CRITICAL: Maintain EXACT character appearances throughout all panels. Characters MUST have consistent facial features, hair color, hair style, body type, and clothing style across all panels.`
+      };
+      
+      // Get script context for this specific panel
+      const scriptContext = await getPanelScriptContext(selectedPanel);
+      
+      // Build enhanced description using script context
+      const enhancedPrompt = buildEnhancedDescription(scriptContext, selectedPanel);
+      
+      // Get previous panels context for visual continuity
+      const previousPanelsContext = getPreviousPanelsContext(selectedPanel);
+      
+      // Get panel ID (should exist for regeneration)
+      const panelId = currentPanelData?.id || String(selectedPanel);
+      
+      // Use AIService.generatePanelImage with edit mode (sourceImageUrl) for proper context building
+      const response = await aiService.generatePanelImage({
+        prompt: enhancedPrompt + " (regeneration for enhanced consistency)",
+        panelId: panelId,
+        sourceImageUrl: currentPanelData?.imageUrl || undefined, // Enable edit mode if image exists
+        projectContext: enhancedProjectContext,
+        characterContext: (projectCharacters || []).map(char => ({
+          name: char.name || '',
+          visualDescriptors: char.visualDescriptors || '',
+          role: char.role || ''
+        })),
         styleOptions: {
           artStyle: artStyle,
         },
         panelContext,
+        previousPanelsContext: previousPanelsContext.map(panel => ({
+          ...panel,
+          imageUrl: panel.imageUrl || undefined
+        }))
       });
       
-      return response as any; // FIX: Don't call .json() - apiRequest already returns parsed data
+      return response;
     },
     onSuccess: async (result) => {
       if (result.status === "completed" && result.imageUrl && selectedPanel && currentPage) {
