@@ -48,6 +48,9 @@ export default function PanelEditor({
   const [isGeneratingBackground, setIsGeneratingBackground] = useState(false);
   const [selectedCharacterForDressing, setSelectedCharacterForDressing] = useState<Character | null>(null);
   const [showAllCharacters, setShowAllCharacters] = useState(false);
+  const [isLoadingScriptContent, setIsLoadingScriptContent] = useState(false);
+  const [isPromptFromScript, setIsPromptFromScript] = useState(false);
+  const [hasUserEditedPrompt, setHasUserEditedPrompt] = useState(false);
 
   // Fetch existing panels for the current page
   const { data: existingPanels = [], isLoading: panelsLoading } = useQuery<Panel[]>({
@@ -75,6 +78,8 @@ export default function PanelEditor({
     if (selectedPanel && currentPanelData) {
       // Load existing panel data
       setPrompt(currentPanelData.prompt || "");
+      setIsPromptFromScript(false);
+      setHasUserEditedPrompt(true); // Assume user has edited existing panels
       
       // Parse speech bubbles if they exist
       if (currentPanelData.speechBubbles && Array.isArray(currentPanelData.speechBubbles)) {
@@ -84,12 +89,56 @@ export default function PanelEditor({
         }
       }
     } else if (selectedPanel && !currentPanelData && !panelsLoading) {
-      // New panel - set smart defaults
-      const defaultPrompt = generateDefaultPrompt(selectedPanel, project, currentPage);
-      setPrompt(defaultPrompt);
+      // New panel - populate with script content
+      populatePromptFromScript(selectedPanel);
       setDialogueText("");
     }
   }, [selectedPanel, currentPanelData, panelsLoading, project, currentPage]);
+
+  // Populate prompt with script content for the selected panel
+  const populatePromptFromScript = async (panelNumber: number) => {
+    if (!panelNumber || !project?.id || !currentPage) return;
+    
+    setIsLoadingScriptContent(true);
+    setHasUserEditedPrompt(false);
+    
+    try {
+      // Get script context for this panel
+      const scriptContext = await getPanelScriptContext(panelNumber);
+      
+      if (scriptContext) {
+        // Build enhanced description from script content
+        const scriptBasedPrompt = buildEnhancedDescription(scriptContext, panelNumber);
+        setPrompt(scriptBasedPrompt);
+        setIsPromptFromScript(true);
+        
+        // Auto-populate dialogue if it exists in script
+        if (scriptContext.dialogue && Array.isArray(scriptContext.dialogue) && scriptContext.dialogue.length > 0) {
+          // Get first dialogue line for this panel
+          const firstDialogue = scriptContext.dialogue[0];
+          if (firstDialogue && firstDialogue.text) {
+            setDialogueText(firstDialogue.text);
+          }
+        }
+        
+        console.log(`📜 Auto-populated panel ${panelNumber} with script content`);
+      } else {
+        // Fallback to generic prompt if no script content
+        const fallbackPrompt = generateDefaultPrompt(panelNumber, project, currentPage);
+        setPrompt(fallbackPrompt);
+        setIsPromptFromScript(false);
+        console.log(`📜 No script content found for panel ${panelNumber}, using fallback`);
+      }
+    } catch (error) {
+      console.error("Failed to load script content:", error);
+      // Fallback on error
+      const fallbackPrompt = generateDefaultPrompt(panelNumber, project, currentPage);
+      setPrompt(fallbackPrompt);
+      setIsPromptFromScript(false);
+    } finally {
+      setIsLoadingScriptContent(false);
+    }
+  };
 
   // Generate intelligent default prompt based on context
   const generateDefaultPrompt = (panelNum: number, proj: Project, page?: Page) => {
@@ -244,6 +293,27 @@ export default function PanelEditor({
       console.error("Auto-save failed:", error);
     },
   });
+
+  // Handle prompt changes and track user edits
+  const handlePromptChange = (value: string) => {
+    setPrompt(value);
+    // Only mark as user edited if content is different from script-generated content
+    if (isPromptFromScript && !hasUserEditedPrompt) {
+      setHasUserEditedPrompt(true);
+      setIsPromptFromScript(false); // No longer showing pure script content
+    }
+  };
+
+  // Reset prompt to script content
+  const resetToScriptContent = async () => {
+    if (selectedPanel) {
+      await populatePromptFromScript(selectedPanel);
+      toast({
+        title: "Prompt reset",
+        description: "Prompt has been reset to script content.",
+      });
+    }
+  };
 
   // Debounced auto-save effect
   useEffect(() => {
@@ -729,23 +799,62 @@ export default function PanelEditor({
           <div className="space-y-3">
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium">Panel Prompt</label>
-                {(prompt !== (currentPanelData?.prompt || "")) && (
-                  <span className="text-xs text-muted-foreground flex items-center">
-                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                    Auto-saving...
-                  </span>
-                )}
+                <label className="text-sm font-medium flex items-center">
+                  Panel Prompt
+                  {isLoadingScriptContent && (
+                    <Loader2 className="h-3 w-3 animate-spin ml-2 text-muted-foreground" />
+                  )}
+                  {isPromptFromScript && !hasUserEditedPrompt && (
+                    <span className="ml-2 text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-medium">
+                      📜 From Script
+                    </span>
+                  )}
+                  {hasUserEditedPrompt && (
+                    <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-medium">
+                      ✏️ Edited
+                    </span>
+                  )}
+                </label>
+                <div className="flex items-center space-x-2">
+                  {hasUserEditedPrompt && selectedPanel && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={resetToScriptContent}
+                      className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                      data-testid="button-reset-to-script"
+                    >
+                      Reset to Script
+                    </Button>
+                  )}
+                  {(prompt !== (currentPanelData?.prompt || "")) && !isLoadingScriptContent && (
+                    <span className="text-xs text-muted-foreground flex items-center">
+                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                      Auto-saving...
+                    </span>
+                  )}
+                </div>
               </div>
               <Textarea 
                 value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                className="resize-none" 
-                rows={3} 
-                placeholder={selectedPanel ? "Describe what happens in this panel..." : "Select a panel to start editing"}
-                disabled={!selectedPanel}
+                onChange={(e) => handlePromptChange(e.target.value)}
+                className={`resize-none ${isPromptFromScript && !hasUserEditedPrompt ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50/30 dark:bg-emerald-900/10' : ''} ${isLoadingScriptContent ? 'opacity-50' : ''}`}
+                rows={4} 
+                placeholder={selectedPanel 
+                  ? isLoadingScriptContent 
+                    ? "Loading script content..." 
+                    : "Describe what happens in this panel..."
+                  : "Select a panel to start editing"
+                }
+                disabled={!selectedPanel || isLoadingScriptContent}
                 data-testid="textarea-panel-prompt"
               />
+              {isPromptFromScript && !hasUserEditedPrompt && (
+                <p className="text-xs text-muted-foreground mt-1 flex items-center">
+                  <BookOpen className="h-3 w-3 mr-1" />
+                  This content was automatically loaded from your script. Feel free to edit it as needed.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               {/* Primary Actions Row */}
