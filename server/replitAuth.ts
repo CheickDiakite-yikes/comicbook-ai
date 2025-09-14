@@ -8,6 +8,8 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
+import { ObjectStorageService } from "./objectStorage";
+import { randomUUID } from "crypto";
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
@@ -57,6 +59,79 @@ function updateUserSession(
   user.expires_at = user.claims?.exp;
 }
 
+/**
+ * Downloads a Google profile picture and stores it in object storage
+ * @param googleProfileUrl The Google profile picture URL
+ * @param userId The user ID for file naming and permissions
+ * @returns The object storage path or null if download fails
+ */
+async function downloadAndStoreGoogleProfilePicture(
+  googleProfileUrl: string,
+  userId: string
+): Promise<string | null> {
+  try {
+    console.log(`🔥 Profile Download: Starting download from Google URL: ${googleProfileUrl}`);
+    
+    // Download image from Google
+    const response = await fetch(googleProfileUrl);
+    if (!response.ok) {
+      console.error(`🔥 Profile Download: Failed to fetch image, status: ${response.status}`);
+      return null;
+    }
+    
+    const imageBuffer = await response.arrayBuffer();
+    console.log(`🔥 Profile Download: Downloaded image, size: ${imageBuffer.byteLength} bytes`);
+    
+    // Generate unique filename
+    const fileExtension = googleProfileUrl.includes('.jpg') ? 'jpg' : 'png';
+    const filename = `profile-${userId}-${Date.now()}.${fileExtension}`;
+    
+    // Get upload URL from object storage
+    const objectStorageService = new ObjectStorageService();
+    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+    console.log(`🔥 Profile Download: Got upload URL: ${uploadURL}`);
+    
+    // Upload image to object storage
+    const uploadResponse = await fetch(uploadURL, {
+      method: 'PUT',
+      body: imageBuffer,
+      headers: {
+        'Content-Type': `image/${fileExtension}`,
+        'Content-Length': imageBuffer.byteLength.toString(),
+      },
+    });
+    
+    if (!uploadResponse.ok) {
+      console.error(`🔥 Profile Download: Failed to upload to object storage, status: ${uploadResponse.status}`);
+      return null;
+    }
+    
+    // Extract object path from upload URL
+    const uploadUrl = new URL(uploadURL);
+    const pathParts = uploadUrl.pathname.split('/');
+    const objectPath = `/objects/uploads/${pathParts[pathParts.length - 1]}`;
+    
+    console.log(`🔥 Profile Download: Successfully uploaded to object storage: ${objectPath}`);
+    
+    // Set ACL policy to make the image public
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+      await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
+        owner: userId,
+        visibility: "public",
+      });
+      console.log(`🔥 Profile Download: Set ACL policy for public access`);
+    } catch (aclError) {
+      console.warn(`🔥 Profile Download: Failed to set ACL policy, but upload succeeded:`, aclError);
+    }
+    
+    return objectPath;
+  } catch (error) {
+    console.error(`🔥 Profile Download: Error downloading/storing profile picture:`, error);
+    return null;
+  }
+}
+
 async function upsertUser(
   claims: any,
 ) {
@@ -73,26 +148,62 @@ async function upsertGoogleUser(
   profile: any
 ) {
   const googleUserId = `google-${profile.id}`;
+  
+  console.log(`🔥 Google OAuth: Starting upsertGoogleUser for profile ID: ${profile.id}`);
+  console.log(`🔥 Google OAuth: Generated user ID: ${googleUserId}`);
+  
+  // Handle profile picture - download and store in object storage if available
+  let profileImageUrl = null;
+  const googleProfileUrl = profile.photos?.[0]?.value;
+  
+  if (googleProfileUrl) {
+    console.log(`🔥 Google OAuth: Google profile picture URL found: ${googleProfileUrl}`);
+    
+    // Attempt to download and store the profile picture
+    const storedProfileUrl = await downloadAndStoreGoogleProfilePicture(googleProfileUrl, googleUserId);
+    
+    if (storedProfileUrl) {
+      profileImageUrl = storedProfileUrl;
+      console.log(`🔥 Google OAuth: Profile picture successfully stored in object storage: ${profileImageUrl}`);
+    } else {
+      // Fallback to Google URL if download/upload fails
+      profileImageUrl = googleProfileUrl;
+      console.warn(`🔥 Google OAuth: Failed to store profile picture, falling back to Google URL: ${profileImageUrl}`);
+    }
+  } else {
+    console.log(`🔥 Google OAuth: No profile picture URL found in Google profile`);
+  }
+  
   const userData = {
     id: googleUserId,
     email: profile.emails?.[0]?.value || null,
     firstName: profile.name?.givenName || null,
     lastName: profile.name?.familyName || null,
-    profileImageUrl: profile.photos?.[0]?.value || null,
+    profileImageUrl: profileImageUrl,
   };
   
-  console.log(`🔥 Google OAuth: Starting upsertGoogleUser for profile ID: ${profile.id}`);
-  console.log(`🔥 Google OAuth: Generated user ID: ${googleUserId}`);
-  console.log(`🔥 Google OAuth: User data:`, userData);
+  console.log(`🔥 Google OAuth: User data prepared:`, {
+    ...userData,
+    profileImageUrl: userData.profileImageUrl ? `${userData.profileImageUrl.substring(0, 50)}...` : null
+  });
   
   try {
     const user = await storage.upsertUser(userData);
-    console.log(`🔥 Google OAuth: Successfully upserted user:`, user);
+    console.log(`🔥 Google OAuth: Successfully upserted user:`, {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      profileImageUrl: user.profileImageUrl ? `${user.profileImageUrl.substring(0, 50)}...` : null
+    });
     
     // Verify the user was created by immediately fetching it
     const verifyUser = await storage.getUser(googleUserId);
     if (verifyUser) {
-      console.log(`🔥 Google OAuth: Verified user exists in database:`, verifyUser);
+      console.log(`🔥 Google OAuth: Verified user exists in database:`, {
+        id: verifyUser.id,
+        email: verifyUser.email,
+        profileImageUrl: verifyUser.profileImageUrl ? `${verifyUser.profileImageUrl.substring(0, 50)}...` : null
+      });
     } else {
       console.error(`🔥 Google OAuth: ERROR - User not found after creation! Expected ID: ${googleUserId}`);
     }
