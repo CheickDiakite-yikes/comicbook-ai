@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ArrowLeft, Save, Download, ChevronLeft, ChevronRight, Wand2, Loader2, Plus, Edit, Trash2, Cloud, FileText, Layout, Play, Zap, Share, Globe, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useMetaTags } from "@/hooks/useMetaTags";
 import { apiRequest } from "@/lib/queryClient";
 import { aiService } from "@/lib/ai-service";
 import { comicLayouts } from "@/lib/comic-layouts";
@@ -72,6 +73,16 @@ export default function Editor() {
   const { data: project, isLoading: isProjectLoading } = useQuery<Project>({
     queryKey: ["/api/projects", projectId],
     enabled: !!projectId,
+  });
+
+  // Dynamic meta tags for editor page
+  useMetaTags({
+    title: project ? `Editing ${project.title} | Comic Editor | Kumayiri` : "Comic Editor | Create AI Comics | Kumayiri",
+    description: project ? `Create and edit comic pages for "${project.title}". Generate panels, manage characters, and build your ${project.genre || 'comic'} story with AI assistance.` : "Create and edit comic pages with AI assistance. Generate panels, manage characters, and build your story with Kumayiri's advanced comic editor.",
+    keywords: project ? `comic editor, AI comic creation, ${project.genre || 'comic'} editing, ${project.title}, panel generation, story bible` : "comic editor, AI comic creation, panel generation, comic maker, story bible, digital comics",
+    ogTitle: project ? `Editing ${project.title} | Kumayiri Comic Editor` : "AI Comic Editor | Kumayiri",
+    ogDescription: project ? `Currently editing "${project.title}" - Create amazing comics with AI on Kumayiri` : "Professional comic editing tools powered by AI",
+    canonicalUrl: `${window.location.origin}/editor/${projectId}`
   });
 
   const { data: pages = [], isLoading: isPagesLoading } = useQuery<Page[]>({

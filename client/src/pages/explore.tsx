@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useMetaTags } from "@/hooks/useMetaTags";
 import Navigation from "@/components/navigation";
 import Sidebar from "@/components/sidebar";
 import { 
@@ -47,6 +48,16 @@ export default function Explore() {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Dynamic meta tags for explore page
+  useMetaTags({
+    title: "Discover AI-Created Comics | Comic Gallery | Kumayiri",
+    description: "Explore amazing AI-generated comics created by our community. Discover new stories, characters, and art styles in our public comic gallery.",
+    keywords: "AI comics gallery, digital comics explore, comic discovery, AI-generated art, comic book collection, webcomics, manga, graphic novels",
+    ogTitle: "Discover Amazing AI Comics | Kumayiri Gallery",
+    ogDescription: "Browse hundreds of AI-generated comics from talented creators. Find your next favorite story in our community gallery.",
+    canonicalUrl: `${window.location.origin}/explore`
+  });
 
   // Fetch user's projects for sidebar
   const { data: projects = [] } = useQuery<Project[]>({

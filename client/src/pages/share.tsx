@@ -12,6 +12,7 @@ import { ArrowLeft, Play, Heart, Eye, Calendar, Palette, BookOpen, ExternalLink,
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useMetaTags } from "@/hooks/useMetaTags";
 
 interface PublicProject extends Project {
   user: User;
@@ -91,6 +92,20 @@ export default function SharePage() {
   const { data: projectComments = [] } = useQuery<CommentWithUser[]>({
     queryKey: [`/api/projects/${projectId}/comments`],
     enabled: !!project,
+  });
+
+  // Dynamic meta tags for individual comic page
+  useMetaTags({
+    title: project ? `${project.title} by ${project.user.firstName || 'Creator'} | Kumayiri AI Comics` : "Comic | Kumayiri AI Comics",
+    description: project ? `${project.description || `A ${project.genre || 'comic'} story created with AI on Kumayiri.`} Read and explore this amazing AI-generated comic.` : "Discover amazing AI-generated comics on Kumayiri.",
+    keywords: project ? `AI comic, ${project.genre || 'comic'} comic, AI-generated art, digital comics, ${project.title}, webcomics, manga` : "AI comics, digital comics, AI-generated art",
+    ogTitle: project ? `${project.title} | AI Comic by ${project.user.firstName || 'Creator'}` : "AI Comic | Kumayiri",
+    ogDescription: project ? `${project.description || `A ${project.genre || 'comic'} story`} - Created with AI on Kumayiri` : "Amazing AI-generated comics",
+    ogImage: project?.coverArt || `${window.location.origin}/kumayiri-social-preview.png`,
+    twitterTitle: project ? `${project.title} | AI Comic` : "AI Comic | Kumayiri",
+    twitterDescription: project ? `Check out this ${project.genre || 'amazing'} comic created with AI!` : "Discover amazing AI comics",
+    twitterImage: project?.coverArt || `${window.location.origin}/kumayiri-social-preview.png`,
+    canonicalUrl: `${window.location.origin}/share/${projectId}`
   });
 
   // Like/unlike mutation

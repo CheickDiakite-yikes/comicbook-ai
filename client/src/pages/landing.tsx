@@ -17,12 +17,26 @@ import { MobileAwareComponent, TouchFriendlyButton, MobileOptimizedAnimation, Mo
 import { PerformanceAnimation, LazyLoadWrapper, OptimizedParticleSystem } from "@/components/PerformanceOptimizations";
 import { SkipLinks, AccessibleButton, ScreenReaderAnnouncement } from "@/components/AccessibilityEnhancements";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
+import { useMetaTags } from "@/hooks/useMetaTags";
 import { animationVariants } from "@/lib/animations";
 
 export default function Landing() {
   const heroSection = useIntersectionObserver({ threshold: 0.3 });
   const featuresSection = useIntersectionObserver({ threshold: 0.2 });
   const demoSection = useIntersectionObserver({ threshold: 0.3 });
+
+  // Enhanced meta tags for landing page with keyword strategy
+  useMetaTags({
+    title: "Kumayiri - Create Epic Comics with AI | Story Bible Powered Comic Studio",
+    description: "The ultimate AI-powered comic creation platform. Build your story bible once, then generate stunning comic pages while maintaining perfect character and style consistency. Create, edit, and share your comics with ease.",
+    keywords: "AI comics, comic creator, digital comics, story bible, comic book maker, AI art generation, comic panels, visual storytelling, comic studio, comic book creation, webcomics, manga creator, graphic novel maker, AI-powered comics, comic design software",
+    ogTitle: "Kumayiri - Create Epic Comics with AI | Story Bible Powered Comic Studio",
+    ogDescription: "The ultimate AI-powered comic creation platform. Build your story bible once, then generate stunning comic pages while maintaining perfect character and style consistency.",
+    ogImage: `${window.location.origin}/kumayiri-social-preview.png`,
+    twitterTitle: "Kumayiri - Create Epic Comics with AI",
+    twitterDescription: "Build your story bible once, then generate stunning comic pages with AI. Perfect character consistency guaranteed!",
+    canonicalUrl: `${window.location.origin}/`
+  });
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden" style={{ paddingTop: 'var(--safe-top)' }}>

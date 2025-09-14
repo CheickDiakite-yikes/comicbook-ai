@@ -44,7 +44,9 @@ function Router() {
         <>
           <Route path="/" component={Dashboard} />
           <Route path="/editor/:projectId" component={Editor} />
-          <Route path="/profile" component={Profile} />
+          <Route path="/profile">
+            <Profile />
+          </Route>
         </>
       ) : (
         <Route path="/" component={Landing} />

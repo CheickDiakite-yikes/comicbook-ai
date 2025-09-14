@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Plus, Clock, Users, Settings, Trash2, Filter, Image, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useMetaTags } from "@/hooks/useMetaTags";
 import type { Project, Character } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -24,6 +25,16 @@ export default function Dashboard() {
   const [generatingCoverArt, setGeneratingCoverArt] = useState<string | null>(null);
   
   const queryClient = useQueryClient();
+
+  // Dynamic meta tags for dashboard page
+  useMetaTags({
+    title: "My Comics Dashboard | Create & Manage AI Comics | Kumayiri",
+    description: "Manage your AI comic projects, create new stories, and organize your comic library with Kumayiri's Story Bible system.",
+    keywords: "comic dashboard, AI comic creator, comic project management, digital comic studio, story bible, comic maker",
+    ogTitle: "My Comics Dashboard | Kumayiri AI Comic Studio",
+    ogDescription: "Create and manage your AI-powered comic projects with Kumayiri's advanced Story Bible system.",
+    canonicalUrl: `${window.location.origin}/dashboard`
+  });
   
   // Handle responsive behavior
   useEffect(() => {
