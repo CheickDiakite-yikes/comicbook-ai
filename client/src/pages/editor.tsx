@@ -452,37 +452,49 @@ export default function Editor() {
                 } else if (scriptPanel.characters?.length > 0) {
                   description += `. Characters: ${scriptPanel.characters.join(", ")}`;
                 }
-                
-                // Add character emotions and dialogue context
+
+                // ✨ ENHANCED: Add full dialogue with character emotions and speech text
                 if (scriptPanel.dialogue?.length > 0) {
-                  const emotions = scriptPanel.dialogue
-                    .filter((d: any) => d.emotionalState)
-                    .map((d: any) => `${d.character} is ${d.emotionalState}`)
-                    .join(", ");
-                  if (emotions) {
-                    description += `. Character emotions: ${emotions}`;
-                  }
+                  description += `\n\nDialogue:`;
+                  scriptPanel.dialogue.forEach((d: any) => {
+                    if (d.character && d.text) {
+                      const emotionPart = d.emotionalState || d.emotion ? ` (${d.emotionalState || d.emotion})` : '';
+                      description += `\n- ${d.character}${emotionPart}: "${d.text}"`;
+                    }
+                  });
                 }
-                
-                // Add camera and shot information
-                if (scriptPanel.cameraAngle) {
-                  description += `. Camera: ${scriptPanel.cameraAngle}`;
+
+                // ✨ ENHANCED: Add sound effects
+                if (scriptPanel.soundEffects?.length > 0) {
+                  const soundEffectsText = scriptPanel.soundEffects.map((effect: string) => 
+                    effect.startsWith('*') && effect.endsWith('*') ? effect : `*${effect}*`
+                  ).join(', ');
+                  description += `\n\nSound Effects: ${soundEffectsText}`;
                 }
-                if (scriptPanel.shotType) {
-                  description += `. Shot: ${scriptPanel.shotType}`;
+
+                // ✨ ENHANCED: Add action details when present
+                if (scriptPanel.action && scriptPanel.action.trim() !== '') {
+                  description += `\n\nAction: ${scriptPanel.action}`;
                 }
-                if (scriptPanel.mood) {
-                  description += `. Mood: ${scriptPanel.mood}`;
+
+                // ✨ ENHANCED: Add timing information when present
+                if (scriptPanel.timing && scriptPanel.timing.trim() !== '') {
+                  description += `\n\nTiming: ${scriptPanel.timing}`;
                 }
-                
-                // Add visual notes
-                if (scriptPanel.visualNotes) {
-                  description += `. Visual notes: ${scriptPanel.visualNotes}`;
+
+                // ✨ ENHANCED: Add visual notes as a dedicated section
+                if (scriptPanel.visualNotes && scriptPanel.visualNotes.trim() !== '') {
+                  description += `\n\nVisual Notes: ${scriptPanel.visualNotes}`;
                 }
-                
-                // Add action details
-                if (scriptPanel.action) {
-                  description += `. Action: ${scriptPanel.action}`;
+
+                // ✨ ENHANCED: Combine technical direction into organized section
+                const technicalParts = [];
+                if (scriptPanel.cameraAngle) technicalParts.push(`Camera: ${scriptPanel.cameraAngle}`);
+                if (scriptPanel.shotType) technicalParts.push(`Shot: ${scriptPanel.shotType}`);
+                if (scriptPanel.mood) technicalParts.push(`Mood: ${scriptPanel.mood}`);
+
+                if (technicalParts.length > 0) {
+                  description += `\n\nTechnical Direction: ${technicalParts.join('. ')}`;
                 }
                 
                 console.log(`Panel ${i} enhanced description:`, description);
