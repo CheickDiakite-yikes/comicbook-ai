@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useMetaTags } from "@/hooks/useMetaTags";
+import { SocialShareButtons } from "@/components/social-share-buttons";
 
 interface PublicProject extends Project {
   user: User;
@@ -336,35 +337,54 @@ export default function SharePage() {
                 </div>
               </div>
 
-              {/* Like and Comment Actions */}
+              {/* Like, Comment and Share Actions */}
               {project && (
-                <div className="flex items-center space-x-4 pt-4">
-                  {/* Like Button */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleLike(project)}
-                    disabled={likeMutation.isPending}
-                    className={`flex items-center space-x-2 ${
-                      project.isLikedByCurrentUser ? 'text-red-500' : 'text-muted-foreground'
-                    }`}
-                    data-testid={`like-button-${project.id}`}
-                  >
-                    <Heart className={`w-4 h-4 ${project.isLikedByCurrentUser ? 'fill-current' : ''}`} />
-                    <span>{project.likesCount}</span>
-                  </Button>
+                <div className="flex items-center justify-between pt-4">
+                  <div className="flex items-center space-x-4">
+                    {/* Like Button */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleLike(project)}
+                      disabled={likeMutation.isPending}
+                      className={`flex items-center space-x-2 ${
+                        project.isLikedByCurrentUser ? 'text-red-500' : 'text-muted-foreground'
+                      }`}
+                      data-testid={`like-button-${project.id}`}
+                    >
+                      <Heart className={`w-4 h-4 ${project.isLikedByCurrentUser ? 'fill-current' : ''}`} />
+                      <span>{project.likesCount}</span>
+                    </Button>
 
-                  {/* Comment Button */}
-                  <Button
-                    variant="ghost"
+                    {/* Comment Button */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowComments(!showComments)}
+                      className="flex items-center space-x-2 text-muted-foreground"
+                      data-testid={`comment-button-${project.id}`}
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span>{project.commentsCount}</span>
+                    </Button>
+                  </div>
+
+                  {/* Share Button */}
+                  <SocialShareButtons
+                    url={`${window.location.origin}/share/${project.id}`}
+                    title={`${project.title} by ${project.user.firstName || 'Creator'} | Kumayiri AI Comics`}
+                    description={`${project.publicDescription || project.description || `A ${project.genre || 'amazing'} story created with AI on Kumayiri.`} Explore more AI-created comics at Kumayiri!`}
+                    image={project.coverArt || `${window.location.origin}/kumayiri-social-preview.png`}
+                    hashtags={[
+                      'AIComics', 
+                      'DigitalComics', 
+                      'ComicCreation',
+                      ...(project.genre ? [project.genre.replace(/\s+/g, '')] : [])
+                    ]}
                     size="sm"
-                    onClick={() => setShowComments(!showComments)}
-                    className="flex items-center space-x-2 text-muted-foreground"
-                    data-testid={`comment-button-${project.id}`}
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    <span>{project.commentsCount}</span>
-                  </Button>
+                    variant="outline"
+                    data-testid={`share-button-${project.id}`}
+                  />
                 </div>
               )}
             </div>

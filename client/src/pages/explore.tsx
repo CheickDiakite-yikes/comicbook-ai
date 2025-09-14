@@ -21,6 +21,7 @@ import {
   Compass
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { SocialShareButtons } from "@/components/social-share-buttons";
 import type { Project, User as UserType, ProjectComment, ProjectLike } from "@shared/schema";
 
 interface PublicProject extends Project {
@@ -376,6 +377,21 @@ export default function Explore() {
                             <MessageCircle className="w-4 h-4" />
                             <span>{project.commentsCount}</span>
                           </Button>
+
+                          {/* Share Button */}
+                          <SocialShareButtons
+                            url={`${window.location.origin}/share/${project.id}`}
+                            title={`${project.title} by ${project.user.firstName || 'Creator'} | Kumayiri AI Comics`}
+                            description={`${project.publicDescription || project.description || `A ${project.genre || 'amazing'} story created with AI on Kumayiri.`} Explore more AI-created comics at Kumayiri!`}
+                            image={project.previewImageUrl || project.coverArt || undefined}
+                            hashtags={[
+                              'AIComics', 
+                              'DigitalComics', 
+                              'ComicCreation',
+                              ...(project.genre ? [project.genre.replace(/\s+/g, '')] : [])
+                            ]}
+                            data-testid={`share-button-${project.id}`}
+                          />
                         </div>
 
                         {/* View Comic Button */}
