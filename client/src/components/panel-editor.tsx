@@ -76,10 +76,18 @@ export default function PanelEditor({
   // Auto-populate fields when panel changes or data loads
   useEffect(() => {
     if (selectedPanel && currentPanelData) {
-      // Load existing panel data
-      setPrompt(currentPanelData.prompt || "");
-      setIsPromptFromScript(false);
-      setHasUserEditedPrompt(true); // Assume user has edited existing panels
+      // Check if existing panel has generic/empty content that should be replaced with script content
+      if (isGenericOrEmptyPrompt(currentPanelData.prompt)) {
+        // Auto-populate with script content instead of showing generic content
+        console.log(`📜 Existing panel ${selectedPanel} has generic content, populating with script content`);
+        populatePromptFromScript(selectedPanel);
+      } else {
+        // Keep user's custom content as-is
+        console.log(`📝 Existing panel ${selectedPanel} has custom content, preserving it`);
+        setPrompt(currentPanelData.prompt || "");
+        setIsPromptFromScript(false);
+        setHasUserEditedPrompt(true); // User has custom content
+      }
       
       // Parse speech bubbles if they exist
       if (currentPanelData.speechBubbles && Array.isArray(currentPanelData.speechBubbles)) {
@@ -87,9 +95,12 @@ export default function PanelEditor({
         if (bubbles.length > 0) {
           setDialogueText(bubbles[0].text || "");
         }
+      } else {
+        setDialogueText("");
       }
     } else if (selectedPanel && !currentPanelData && !panelsLoading) {
       // New panel - populate with script content
+      console.log(`📄 New panel ${selectedPanel}, populating with script content`);
       populatePromptFromScript(selectedPanel);
       setDialogueText("");
     }
@@ -147,6 +158,24 @@ export default function PanelEditor({
     const panelPosition = panelNum === 1 ? "opening" : panelNum === 6 ? "closing" : "middle";
     
     return `Panel ${panelNum}: ${sceneContext}. Drawn in ${artStyleContext}. This is the ${panelPosition} panel of the page.`;
+  };
+
+  // Helper function to detect generic or empty prompts that should be replaced with script content
+  const isGenericOrEmptyPrompt = (prompt: string | null | undefined): boolean => {
+    if (!prompt || prompt.trim() === "") return true;
+    
+    // Check for generic patterns that indicate auto-generated content
+    const genericPatterns = [
+      /^Panel \d+: .+\. Drawn in .+ style\. This is the .+ panel of the page\.$/,
+      /^Scene \d+ of .+$/,
+      /^Panel \d+: A dramatic scene unfolds/,
+      // Check if it starts with project title/description (common generic pattern)
+      project?.title && new RegExp(`^Panel \\d+: ${project.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
+      project?.description && new RegExp(`^Panel \\d+: ${project.description.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
+    ].filter(Boolean);
+    
+    // Check if prompt matches any generic pattern
+    return genericPatterns.some(pattern => pattern && pattern.test(prompt.trim()));
   };
 
   // Helper function to extract script context for individual panel generation
