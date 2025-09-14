@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -14,6 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import { ObjectUploader } from "@/components/ObjectUploader";
 // Removed Uppy import as we're now using native file picker
 import { useAuth } from "@/hooks/useAuth";
+import { useMetaTags } from "@/hooks/useMetaTags";
+import { useStructuredData, createCreatorStructuredData } from "@/hooks/useStructuredData";
 import Navigation from "@/components/navigation";
 import Sidebar from "@/components/sidebar";
 import { 
@@ -68,6 +70,58 @@ export default function Profile({ userId }: ProfileProps = {}) {
   const isOwnProfile = !userId || (currentUser && currentUser.id === userId);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Fetch user's projects for sidebar
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
+  });
+
+  // Fetch user profile
+  const { data: userProfile, isLoading: profileLoading } = useQuery<UserProfile>({
+    queryKey: ["/api/profile"],
+    enabled: !!currentUser,
+  });
+
+  // Fetch user's public projects
+  const { data: userProjects = [], isLoading: projectsLoading } = useQuery<ProjectWithStats[]>({
+    queryKey: ["/api/profile/projects"],
+    enabled: !!currentUser,
+  });
+
+  // Dynamic meta tags for profile page
+  useMetaTags({
+    title: currentUser ? `${currentUser.firstName ? `${currentUser.firstName}${currentUser.lastName ? ` ${currentUser.lastName}` : ''}` : currentUser.email?.split('@')[0] || 'Creator'} | Profile | Kumayiri` : "Profile | Kumayiri",
+    description: userProfile?.bio || `Discover the creative works and comic portfolio of ${currentUser?.firstName || 'this creator'} on Kumayiri AI Comics platform.`,
+    keywords: "comic creator, AI comics, digital artist, comic portfolio, creative profile, Kumayiri creator",
+    ogTitle: currentUser ? `${currentUser.firstName || 'Creator'}'s Profile | Kumayiri Comics` : "Creator Profile | Kumayiri",
+    ogDescription: userProfile?.bio || `Comic creator profile on Kumayiri AI platform with ${userProjects.length} published comics.`,
+    ogImage: currentUser?.profileImageUrl || `${window.location.origin}/kumayiri-social-preview.png`,
+    canonicalUrl: `${window.location.origin}/profile${userId ? `/${userId}` : ''}`
+  });
+
+  // Generate structured data for creator profile SEO
+  const creatorStructuredData = useMemo(() => {
+    if (!currentUser || !userProfile) return null;
+    
+    const profileUrl = `${window.location.origin}/profile${userId ? `/${userId}` : ''}`;
+    const creatorName = currentUser.firstName ? 
+      `${currentUser.firstName}${currentUser.lastName ? ` ${currentUser.lastName}` : ''}` : 
+      currentUser.email?.split('@')[0] || 'Creator';
+    
+    return createCreatorStructuredData({
+      name: creatorName,
+      bio: userProfile.bio || undefined,
+      location: userProfile.location || undefined,
+      website: userProfile.website || undefined,
+      profileUrl,
+      profileImageUrl: currentUser.profileImageUrl || undefined,
+      joinDate: currentUser.createdAt ? new Date(currentUser.createdAt).toISOString() : undefined,
+      comicsCount: userProjects.length
+    });
+  }, [currentUser, userProfile, userProjects, userId]);
+
+  // Inject structured data for SEO
+  useStructuredData(creatorStructuredData, 'creator-structured-data');
 
   // Image upload mutations
   const updateProfileImageMutation = useMutation({
@@ -132,23 +186,6 @@ export default function Profile({ userId }: ProfileProps = {}) {
       updateBannerImageMutation.mutate(uploadURL);
     }
   };
-
-  // Fetch user profile
-  const { data: userProfile, isLoading: profileLoading } = useQuery<UserProfile>({
-    queryKey: ["/api/profile"],
-    enabled: !!currentUser,
-  });
-
-  // Fetch user's public projects
-  const { data: userProjects = [], isLoading: projectsLoading } = useQuery<ProjectWithStats[]>({
-    queryKey: ["/api/profile/projects"],
-    enabled: !!currentUser,
-  });
-
-  // Fetch user's projects for sidebar
-  const { data: projects = [] } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
-  });
 
   // Fetch all pages data for the sidebar stats  
   const { data: allPagesData = [] } = useQuery({

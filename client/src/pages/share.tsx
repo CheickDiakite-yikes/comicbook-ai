@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 import type { Project, Page, Panel, User, ProjectComment } from "@shared/schema";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useMetaTags } from "@/hooks/useMetaTags";
+import { useStructuredData, createComicStructuredData } from "@/hooks/useStructuredData";
 import { SocialShareButtons } from "@/components/social-share-buttons";
 
 interface PublicProject extends Project {
@@ -108,6 +109,31 @@ export default function SharePage() {
     twitterImage: project?.coverArt || `${window.location.origin}/kumayiri-social-preview.png`,
     canonicalUrl: `${window.location.origin}/share/${projectId}`
   });
+
+  // Generate structured data for comic SEO
+  const comicStructuredData = useMemo(() => {
+    if (!project) return null;
+    
+    return createComicStructuredData({
+      title: project.title,
+      description: project.description || `A ${project.genre || 'comic'} story created with AI on Kumayiri. Experience this amazing AI-generated comic with rich visuals and storytelling.`,
+      creator: {
+        name: project.user.firstName ? 
+          `${project.user.firstName}${project.user.lastName ? ` ${project.user.lastName}` : ''}` : 
+          project.user.email?.split('@')[0] || 'Creator',
+        url: `${window.location.origin}/profile/${project.user.id}`
+      },
+      genre: project.genre || undefined,
+      coverImageUrl: project.coverArt || undefined,
+      url: `${window.location.origin}/share/${projectId}`,
+      dateCreated: project.createdAt ? new Date(project.createdAt).toISOString() : undefined,
+      likesCount: project.likesCount,
+      commentsCount: project.commentsCount
+    });
+  }, [project, projectId]);
+
+  // Inject structured data for SEO
+  useStructuredData(comicStructuredData, 'comic-structured-data');
 
   // Like/unlike mutation
   const likeMutation = useMutation({

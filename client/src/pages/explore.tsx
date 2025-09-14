@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useMetaTags } from "@/hooks/useMetaTags";
+import { useStructuredData, createGalleryStructuredData } from "@/hooks/useStructuredData";
 import Navigation from "@/components/navigation";
 import Sidebar from "@/components/sidebar";
 import { 
@@ -50,6 +51,26 @@ export default function Explore() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Fetch user's projects for sidebar
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
+  });
+
+  // Fetch public projects
+  const { data: publicProjects = [], isLoading } = useQuery<PublicProject[]>({
+    queryKey: ["/api/explore/projects", genreFilter],
+    queryFn: async () => {
+      const url = genreFilter === "all" 
+        ? "/api/explore/projects" 
+        : `/api/explore/projects?genre=${encodeURIComponent(genreFilter)}`;
+      const response = await fetch(url, { credentials: "include" });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch projects: ${response.status}`);
+      }
+      return response.json();
+    },
+  });
+
   // Dynamic meta tags for explore page
   useMetaTags({
     title: "Discover AI-Created Comics | Comic Gallery | Kumayiri",
@@ -60,10 +81,33 @@ export default function Explore() {
     canonicalUrl: `${window.location.origin}/explore`
   });
 
-  // Fetch user's projects for sidebar
-  const { data: projects = [] } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
-  });
+  // Generate structured data for comic gallery SEO
+  const galleryStructuredData = useMemo(() => {
+    const baseUrl = window.location.origin;
+    const displayTitle = genreFilter === "all" 
+      ? "AI-Generated Comics Gallery | Kumayiri" 
+      : `${genreFilter} Comics Gallery | Kumayiri`;
+    const displayDescription = genreFilter === "all"
+      ? "Discover amazing AI-generated comics from our creative community. Browse hundreds of unique stories, characters, and art styles."
+      : `Explore ${genreFilter} comics created with AI. Find your next favorite ${genreFilter.toLowerCase()} story in our curated collection.`;
+    
+    return createGalleryStructuredData({
+      title: displayTitle,
+      description: displayDescription,
+      url: `${baseUrl}/explore${genreFilter !== "all" ? `?genre=${encodeURIComponent(genreFilter)}` : ""}`,
+      comics: (publicProjects || []).slice(0, 20).map((project) => ({ // Limit to first 20 for structured data
+        title: project.title,
+        url: `${baseUrl}/share/${project.id}`,
+        creator: project.user.firstName ? 
+          `${project.user.firstName}${project.user.lastName ? ` ${project.user.lastName}` : ''}` : 
+          project.user.email?.split('@')[0] || 'Creator',
+        genre: project.genre || undefined
+      }))
+    });
+  }, [publicProjects, genreFilter]);
+
+  // Inject structured data for SEO
+  useStructuredData(galleryStructuredData, 'gallery-structured-data');
 
   // Fetch all pages data for the sidebar stats  
   const { data: allPagesData = [] } = useQuery({
@@ -81,21 +125,6 @@ export default function Explore() {
       return allPages;
     },
     enabled: projects.length > 0,
-  });
-
-  // Fetch public projects
-  const { data: publicProjects = [], isLoading } = useQuery<PublicProject[]>({
-    queryKey: ["/api/explore/projects", genreFilter],
-    queryFn: async () => {
-      const url = genreFilter === "all" 
-        ? "/api/explore/projects" 
-        : `/api/explore/projects?genre=${encodeURIComponent(genreFilter)}`;
-      const response = await fetch(url, { credentials: "include" });
-      if (!response.ok) {
-        throw new Error(`Failed to fetch projects: ${response.status}`);
-      }
-      return response.json();
-    },
   });
 
   // Fetch comments for selected project
