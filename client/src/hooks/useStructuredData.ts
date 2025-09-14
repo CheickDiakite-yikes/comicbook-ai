@@ -77,7 +77,7 @@ export const createComicStructuredData = (props: ComicStructuredDataProps): Stru
   
   return {
     "@context": "https://schema.org",
-    "@type": "CreativeWork",
+    "@type": "ComicStory",
     "@id": props.url,
     "name": props.title,
     "description": props.description || `A ${props.genre || 'comic'} story created with AI on Kumayiri.`,
@@ -99,9 +99,9 @@ export const createComicStructuredData = (props: ComicStructuredDataProps): Stru
     "isAccessibleForFree": true,
     "inLanguage": "en",
     "creativeWorkStatus": "Published",
+    "about": props.genre ? `${props.genre} comic story` : "Comic story",
     "artform": "Comic",
     "artMedium": "Digital",
-    "artworkSurface": "Digital Canvas",
     ...(props.genre && { "genre": props.genre }),
     ...(props.coverImageUrl && {
       "image": {
@@ -115,6 +115,11 @@ export const createComicStructuredData = (props: ComicStructuredDataProps): Stru
     "audience": {
       "@type": "Audience",
       "audienceType": "Comic Readers"
+    },
+    "workExample": {
+      "@type": "DigitalDocument",
+      "name": `${props.title} - Digital Comic`,
+      "encodingFormat": "image/png"
     },
     "mainEntityOfPage": {
       "@type": "WebPage",
@@ -174,7 +179,7 @@ export const createGalleryStructuredData = (props: GalleryStructuredDataProps): 
       "@type": "ListItem",
       "position": index + 1,
       "item": {
-        "@type": "CreativeWork",
+        "@type": "ComicStory",
         "@id": comic.url,
         "name": comic.title,
         "url": comic.url,
@@ -223,11 +228,6 @@ export const createCreatorStructuredData = (props: CreatorStructuredDataProps): 
         "url": props.profileImageUrl
       }
     }),
-    "worksFor": {
-      "@type": "Organization",
-      "name": "Kumayiri",
-      "url": baseUrl
-    },
     "mainEntityOfPage": {
       "@type": "ProfilePage",
       "@id": props.profileUrl
@@ -246,16 +246,24 @@ export const createCreatorStructuredData = (props: CreatorStructuredDataProps): 
         "name": "Kumayiri Platform"
       }
     },
-    ...(props.joinDate && { "memberOf": {
-      "@type": "Organization",
-      "name": "Kumayiri Community",
-      "foundingDate": props.joinDate
-    }}),
+    ...(props.joinDate && { 
+      "affiliation": {
+        "@type": "OrganizationRole",
+        "roleName": "Creator",
+        "organization": {
+          "@type": "Organization",
+          "name": "Kumayiri",
+          "url": baseUrl
+        },
+        "startDate": props.joinDate
+      }
+    }),
     ...(props.comicsCount !== undefined && {
-      "hasCreativeWork": {
-        "@type": "CreativeWork",
-        "name": `${props.comicsCount} Comics Created`,
-        "description": `Portfolio of ${props.comicsCount} AI-generated comics`
+      "interactionStatistic": {
+        "@type": "InteractionCounter",
+        "interactionType": "https://schema.org/CreateAction",
+        "userInteractionCount": props.comicsCount,
+        "description": `Created ${props.comicsCount} comics on Kumayiri`
       }
     })
   };

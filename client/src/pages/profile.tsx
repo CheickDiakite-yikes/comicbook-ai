@@ -76,37 +76,47 @@ export default function Profile({ userId }: ProfileProps = {}) {
     queryKey: ["/api/projects"],
   });
 
-  // Fetch user profile
+  // Fetch the profile user (either current user or viewed user)
+  const { data: profileUser, isLoading: profileUserLoading } = useQuery<UserType>({
+    queryKey: ["/api/users", userId || currentUser?.id],
+    enabled: !!currentUser,
+  });
+
+  // Fetch user profile (bio, settings, etc)
   const { data: userProfile, isLoading: profileLoading } = useQuery<UserProfile>({
-    queryKey: ["/api/profile"],
+    queryKey: ["/api/profile", userId || currentUser?.id],
     enabled: !!currentUser,
   });
 
-  // Fetch user's public projects
+  // Fetch user's public projects (for the viewed profile)
   const { data: userProjects = [], isLoading: projectsLoading } = useQuery<ProjectWithStats[]>({
-    queryKey: ["/api/profile/projects"],
+    queryKey: ["/api/profile/projects", userId || currentUser?.id],
     enabled: !!currentUser,
   });
 
+  // Use the actual profile user for meta tags (viewed user, not current user)
+  const displayUser = profileUser || currentUser;
+  
   // Dynamic meta tags for profile page
   useMetaTags({
-    title: currentUser ? `${currentUser.firstName ? `${currentUser.firstName}${currentUser.lastName ? ` ${currentUser.lastName}` : ''}` : currentUser.email?.split('@')[0] || 'Creator'} | Profile | Kumayiri` : "Profile | Kumayiri",
-    description: userProfile?.bio || `Discover the creative works and comic portfolio of ${currentUser?.firstName || 'this creator'} on Kumayiri AI Comics platform.`,
+    title: displayUser ? `${displayUser.firstName ? `${displayUser.firstName}${displayUser.lastName ? ` ${displayUser.lastName}` : ''}` : displayUser.email?.split('@')[0] || 'Creator'} | Profile | Kumayiri` : "Profile | Kumayiri",
+    description: userProfile?.bio || `Discover the creative works and comic portfolio of ${displayUser?.firstName || 'this creator'} on Kumayiri AI Comics platform.`,
     keywords: "comic creator, AI comics, digital artist, comic portfolio, creative profile, Kumayiri creator",
-    ogTitle: currentUser ? `${currentUser.firstName || 'Creator'}'s Profile | Kumayiri Comics` : "Creator Profile | Kumayiri",
+    ogTitle: displayUser ? `${displayUser.firstName || 'Creator'}'s Profile | Kumayiri Comics` : "Creator Profile | Kumayiri",
     ogDescription: userProfile?.bio || `Comic creator profile on Kumayiri AI platform with ${userProjects.length} published comics.`,
-    ogImage: currentUser?.profileImageUrl || `${window.location.origin}/kumayiri-social-preview.png`,
+    ogImage: displayUser?.profileImageUrl || `${window.location.origin}/kumayiri-social-preview.png`,
     canonicalUrl: `${window.location.origin}/profile${userId ? `/${userId}` : ''}`
   });
 
-  // Generate structured data for creator profile SEO
+  // Generate structured data for creator profile SEO (CRITICAL: Use viewed profile data, not current user)
   const creatorStructuredData = useMemo(() => {
-    if (!currentUser || !userProfile) return null;
+    const actualProfileUser = profileUser || currentUser;
+    if (!actualProfileUser || !userProfile) return null;
     
     const profileUrl = `${window.location.origin}/profile${userId ? `/${userId}` : ''}`;
-    const creatorName = currentUser.firstName ? 
-      `${currentUser.firstName}${currentUser.lastName ? ` ${currentUser.lastName}` : ''}` : 
-      currentUser.email?.split('@')[0] || 'Creator';
+    const creatorName = actualProfileUser.firstName ? 
+      `${actualProfileUser.firstName}${actualProfileUser.lastName ? ` ${actualProfileUser.lastName}` : ''}` : 
+      actualProfileUser.email?.split('@')[0] || 'Creator';
     
     return createCreatorStructuredData({
       name: creatorName,
@@ -114,11 +124,11 @@ export default function Profile({ userId }: ProfileProps = {}) {
       location: userProfile.location || undefined,
       website: userProfile.website || undefined,
       profileUrl,
-      profileImageUrl: currentUser.profileImageUrl || undefined,
-      joinDate: currentUser.createdAt ? new Date(currentUser.createdAt).toISOString() : undefined,
+      profileImageUrl: actualProfileUser.profileImageUrl || undefined,
+      joinDate: actualProfileUser.createdAt ? new Date(actualProfileUser.createdAt).toISOString() : undefined,
       comicsCount: userProjects.length
     });
-  }, [currentUser, userProfile, userProjects, userId]);
+  }, [profileUser, currentUser, userProfile, userProjects, userId]);
 
   // Inject structured data for SEO
   useStructuredData(creatorStructuredData, 'creator-structured-data');
