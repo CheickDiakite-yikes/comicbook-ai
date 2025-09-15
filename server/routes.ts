@@ -1926,6 +1926,83 @@ Redress this character in the specified outfit while maintaining their core visu
             timing: panelData.timing,
             soundEffects: panelData.soundEffects,
             characters: pageData.characters || [],
+            
+            // ENHANCED ENVIRONMENTAL DETAILS
+            locationSpecifics: panelData.environmentalDetails || panelData.environment?.settingName,
+            interiorExterior: panelData.environment?.settingName?.toLowerCase().includes('indoor') ? 'interior' : 
+                             panelData.environment?.settingName?.toLowerCase().includes('outdoor') ? 'exterior' : null,
+            roomType: panelData.environment?.keyObjects?.[0], // Extract from key objects
+            architecturalStyle: panelData.visualStyle,
+            setDressing: panelData.keyProps || panelData.environment?.keyObjects || [],
+            props: panelData.keyProps || panelData.environment?.keyObjects || [],
+            backgroundElements: panelData.keyProps || panelData.environment?.backgroundCharacters || [],
+            atmosphere: panelData.environment?.atmosphere || panelData.mood,
+            environmentalSoundscape: panelData.environment?.soundscape || panelData.audioLandscape?.ambientSounds || [],
+            
+            // ENHANCED LIGHTING CONDITIONS  
+            primaryLightSource: panelData.lighting?.lightingPrimary,
+            timeOfDay: panelData.environment?.timeOfDay,
+            lightingMood: panelData.lighting?.lightingMood,
+            lightDirection: panelData.lighting?.lightingSecondary,
+            shadowIntensity: panelData.lighting?.shadows,
+            colorTemperature: panelData.lighting?.colorTemperature,
+            lightingEffects: panelData.visualEffects || [],
+            practicalLights: panelData.lighting?.practicalLights || [],
+            
+            // ENHANCED WEATHER CONDITIONS
+            weatherCondition: panelData.weatherConditions || panelData.environment?.weather,
+            precipitation: panelData.environment?.weather?.includes('rain') ? 'rain' : 
+                          panelData.environment?.weather?.includes('snow') ? 'snow' : 'none',
+            windCondition: panelData.environment?.weather?.includes('wind') ? 'moderate_wind' : 'still',
+            temperature: panelData.environment?.weather?.includes('cold') ? 'cold' : 
+                        panelData.environment?.weather?.includes('hot') ? 'hot' : 'mild',
+            humidity: 'normal',
+            visibility: 'crystal_clear',
+            atmosphericEffects: panelData.specialEffects || [],
+            seasonalContext: 'spring',
+            
+            // ENHANCED CAMERA SPECIFICATIONS
+            cameraMovement: panelData.cinematography?.movement || panelData.cinematography?.cameraMovement,
+            frameComposition: panelData.cinematography?.composition,
+            depthOfField: panelData.cinematography?.depth || panelData.cinematography?.depthOfField,
+            focusPoint: panelData.cinematography?.focusPoint || panelData.cinematography?.cameraFocusPoint,
+            perspectiveType: panelData.cinematography?.cameraAngle,
+            visualStyle: panelData.visualStyle || panelData.artisticNotes,
+            colorGrading: panelData.mood === 'dark' ? 'cool_tones' : 'warm_tones',
+            
+            // ENHANCED CHARACTER POSITIONING
+            characterPositions: panelData.characterStates ? JSON.stringify(panelData.characterStates) : null,
+            proxemics: panelData.characterProximity,
+            spatialRelationships: panelData.characterPositioning ? [panelData.characterPositioning] : [],
+            physicalInteractions: panelData.characterInteractions ? [panelData.characterInteractions] : [],
+            characterFocus: panelData.characterStates?.length > 1 ? 'group' : 'single_character',
+            eyelineDirections: panelData.characterStates?.map((cs: any) => `${cs.characterName}_${cs.facingDirection}`) || [],
+            gestureDescriptions: panelData.characterStates?.map((cs: any) => cs.pose || cs.bodyLanguage).filter(Boolean) || [],
+            
+            // ENHANCED TECHNICAL DIRECTION
+            pacing: panelData.pacing,
+            transitionType: panelData.transitionType,
+            panelBorders: panelData.panelBorders || 'standard',
+            visualEffects: panelData.visualEffects || [],
+            specialEffects: panelData.specialEffects || [],
+            stylizedElements: panelData.stylizedElements || [],
+            
+            // ENHANCED AUDIO ELEMENTS
+            detailedSoundEffects: panelData.detailedSoundEffects ? JSON.stringify(panelData.detailedSoundEffects) : null,
+            ambientSounds: panelData.audioLandscape?.ambientSounds || panelData.environment?.soundscape || [],
+            musicCues: panelData.audioLandscape?.musicCues,
+            voiceOverText: panelData.audioLandscape?.voiceOverText,
+            voiceOverCharacter: panelData.audioLandscape?.voiceOverCharacter,
+            dialoguePlacement: panelData.audioLandscape?.dialoguePlacement || 'distributed',
+            silenceEmphasis: panelData.audioLandscape?.silenceEmphasis || false,
+            soundPerspective: panelData.audioLandscape?.soundPerspective,
+            
+            // ENHANCED AI GENERATION METADATA
+            generationPrompt: panelData.generationNotes?.generationPrompt,
+            negativePrompt: panelData.generationNotes?.negativePrompt,
+            promptWeight: panelData.generationNotes?.promptWeight ? JSON.stringify(panelData.generationNotes.promptWeight) : null,
+            consistencyNotes: panelData.consistencyNotes?.join('; ') || null,
+            referenceImages: panelData.generationNotes?.referenceImages || [],
           });
           
           // Save dialogue for this panel
