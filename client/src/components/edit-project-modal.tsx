@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { aiService } from "@/lib/ai-service";
-import { X, Palette, BookOpen, Users, Wand2, Upload, Plus, Edit, Trash2 } from "lucide-react";
+import { X, Palette, BookOpen, Users, Wand2, Upload, Plus, Edit, Trash2, Camera, Image } from "lucide-react";
 import type { Project, Character } from "@shared/schema";
 import StructuredScriptViewer from "./structured-script-viewer";
 
@@ -70,6 +70,8 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
   const [isGeneratingCharacterBio, setIsGeneratingCharacterBio] = useState(false);
   const [isGeneratingCharacterVisual, setIsGeneratingCharacterVisual] = useState(false);
   const [isGeneratingFullCharacter, setIsGeneratingFullCharacter] = useState(false);
+  const [isGeneratingReferencePortrait, setIsGeneratingReferencePortrait] = useState<string | null>(null);
+  const [isUploadingReferenceImage, setIsUploadingReferenceImage] = useState<string | null>(null);
   const [newCharacter, setNewCharacter] = useState({ name: "", role: "", bio: "", visualDescriptors: "" });
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
   const [showCharacterForm, setShowCharacterForm] = useState(false);
@@ -177,6 +179,54 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "characters"] });
       toast({ title: "Character deleted", description: "Character removed successfully!" });
+    },
+  });
+
+  // Reference portrait generation mutation
+  const generateReferencePortraitMutation = useMutation({
+    mutationFn: async (characterId: string) => {
+      const response = await apiRequest("POST", `/api/characters/${characterId}/generate-reference-portrait`);
+      return response.json();
+    },
+    onSuccess: (_, characterId) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "characters"] });
+      setIsGeneratingReferencePortrait(null);
+      toast({ 
+        title: "Reference Portrait Generated", 
+        description: "AI reference portrait has been generated successfully!" 
+      });
+    },
+    onError: () => {
+      setIsGeneratingReferencePortrait(null);
+      toast({ 
+        title: "Error", 
+        description: "Failed to generate reference portrait. Please try again.", 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  // Update character with reference image URL mutation
+  const updateCharacterReferenceImageMutation = useMutation({
+    mutationFn: async ({ characterId, referenceImageUrl }: { characterId: string; referenceImageUrl: string }) => {
+      const response = await apiRequest("PUT", `/api/characters/${characterId}`, { referenceImageUrl });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "characters"] });
+      setIsUploadingReferenceImage(null);
+      toast({ 
+        title: "Reference Image Updated", 
+        description: "Character reference image has been uploaded successfully!" 
+      });
+    },
+    onError: () => {
+      setIsUploadingReferenceImage(null);
+      toast({ 
+        title: "Error", 
+        description: "Failed to update reference image. Please try again.", 
+        variant: "destructive" 
+      });
     },
   });
 
@@ -405,6 +455,90 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
   const handleGenerateFullCharacter = (roleType?: string) => {
     setIsGeneratingFullCharacter(true);
     generateFullCharacterMutation.mutate(roleType);
+  };
+
+  // Handle reference image upload
+  const handleReferenceImageUpload = async (characterId: string, file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid File Type",
+        description: "Please select an image file.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      toast({
+        title: "File Too Large",
+        description: "Please select an image under 10MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploadingReferenceImage(characterId);
+
+    try {
+      // Get upload URL
+      const uploadResponse = await fetch("/api/upload/presigned-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const uploadData = await uploadResponse.json();
+
+      if (!uploadResponse.ok) {
+        throw new Error(uploadData.error || "Failed to get upload URL");
+      }
+
+      // Upload image to object storage
+      const uploadResult = await fetch(uploadData.uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+      });
+
+      if (!uploadResult.ok) {
+        throw new Error("Failed to upload image");
+      }
+
+      // Set ACL policy for the uploaded image
+      const imageURL = uploadData.uploadURL.split('?')[0]; // Remove query params
+      const aclResponse = await fetch("/api/auth/user/profile-image", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageURL }),
+      });
+
+      if (!aclResponse.ok) {
+        throw new Error("Failed to set image permissions");
+      }
+
+      const aclData = await aclResponse.json();
+      
+      // Update character with reference image URL
+      updateCharacterReferenceImageMutation.mutate({
+        characterId,
+        referenceImageUrl: aclData.objectPath
+      });
+
+    } catch (error) {
+      console.error("Upload error:", error);
+      setIsUploadingReferenceImage(null);
+      toast({
+        title: "Upload Failed",
+        description: error instanceof Error ? error.message : "Failed to upload image. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle AI reference portrait generation
+  const handleGenerateReferencePortrait = (characterId: string) => {
+    setIsGeneratingReferencePortrait(characterId);
+    generateReferencePortraitMutation.mutate(characterId);
   };
 
   return (
@@ -746,6 +880,101 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
                           />
                         </div>
                       </div>
+
+                      {/* Reference Portrait Section */}
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <label className="text-sm font-medium">Reference Portrait</label>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const characterId = editingCharacter?.id;
+                                if (characterId) {
+                                  handleGenerateReferencePortrait(characterId);
+                                } else {
+                                  toast({
+                                    title: "Save Character First",
+                                    description: "Please save the character before generating a reference portrait.",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }}
+                              disabled={isGeneratingReferencePortrait === editingCharacter?.id || !editingCharacter?.id}
+                              data-testid="button-generate-reference-portrait"
+                              className="text-xs"
+                            >
+                              <Camera className="mr-1 h-3 w-3" />
+                              {isGeneratingReferencePortrait === editingCharacter?.id ? "Generating..." : "Generate with AI"}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const input = document.createElement('input');
+                                input.type = 'file';
+                                input.accept = 'image/*';
+                                input.onchange = (e) => {
+                                  const file = (e.target as HTMLInputElement).files?.[0];
+                                  const characterId = editingCharacter?.id;
+                                  if (file && characterId) {
+                                    handleReferenceImageUpload(characterId, file);
+                                  } else if (!characterId) {
+                                    toast({
+                                      title: "Save Character First",
+                                      description: "Please save the character before uploading a reference image.",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                };
+                                input.click();
+                              }}
+                              disabled={isUploadingReferenceImage === editingCharacter?.id || !editingCharacter?.id}
+                              data-testid="button-upload-reference-image"
+                              className="text-xs"
+                            >
+                              <Upload className="mr-1 h-3 w-3" />
+                              {isUploadingReferenceImage === editingCharacter?.id ? "Uploading..." : "Upload Image"}
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        {/* Reference Portrait Display */}
+                        {editingCharacter?.referenceImageUrl ? (
+                          <div className="border rounded-lg p-3 bg-muted/20">
+                            <div className="flex items-center gap-3">
+                              <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                                <img
+                                  src={editingCharacter.referenceImageUrl}
+                                  alt={`${editingCharacter.name} reference`}
+                                  className="w-full h-full object-cover"
+                                  data-testid="image-reference-portrait"
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium">Reference Portrait</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Use this as a visual reference when drawing {editingCharacter.name}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="border-2 border-dashed border-muted-foreground/20 rounded-lg p-4 text-center">
+                            <Image className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
+                            <p className="text-sm text-muted-foreground">
+                              No reference portrait yet
+                            </p>
+                            <p className="text-xs text-muted-foreground/70 mt-1">
+                              {editingCharacter?.id ? "Generate with AI or upload an image above" : "Save character first to add reference portrait"}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
                       <div className="flex space-x-2 mt-4">
                         <Button
                           type="button"
@@ -782,39 +1011,110 @@ export default function EditProjectModal({ open, onClose, project }: EditProject
                   {characters.map((character) => (
                     <Card key={character.id}>
                       <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h4 className="font-semibold">{character.name}</h4>
-                            {character.role && (
-                              <p className="text-sm text-muted-foreground">{character.role}</p>
-                            )}
-                            {character.bio && (
-                              <p className="text-sm mt-2 line-clamp-2">{character.bio}</p>
+                        <div className="flex gap-3">
+                          {/* Reference Portrait Thumbnail */}
+                          <div className="flex-shrink-0">
+                            {character.referenceImageUrl ? (
+                              <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted">
+                                <img
+                                  src={character.referenceImageUrl}
+                                  alt={`${character.name} reference`}
+                                  className="w-full h-full object-cover"
+                                  data-testid={`image-character-reference-${character.id}`}
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-16 h-16 rounded-lg bg-muted/30 border-2 border-dashed border-muted-foreground/20 flex items-center justify-center">
+                                <Image className="h-6 w-6 text-muted-foreground/40" />
+                              </div>
                             )}
                           </div>
-                          <div className="flex space-x-1 ml-2">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setEditingCharacter(character);
-                                setShowCharacterForm(true);
-                              }}
-                              data-testid={`button-edit-character-${character.id}`}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => deleteCharacterMutation.mutate(character.id)}
-                              disabled={deleteCharacterMutation.isPending}
-                              data-testid={`button-delete-character-${character.id}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                          
+                          {/* Character Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold truncate">{character.name}</h4>
+                                {character.role && (
+                                  <p className="text-sm text-muted-foreground">{character.role}</p>
+                                )}
+                                {character.bio && (
+                                  <p className="text-sm mt-2 line-clamp-2">{character.bio}</p>
+                                )}
+                              </div>
+                              
+                              {/* Action Buttons */}
+                              <div className="flex flex-col space-y-1 ml-2">
+                                <div className="flex space-x-1">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setEditingCharacter(character);
+                                      setShowCharacterForm(true);
+                                    }}
+                                    data-testid={`button-edit-character-${character.id}`}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => deleteCharacterMutation.mutate(character.id)}
+                                    disabled={deleteCharacterMutation.isPending}
+                                    data-testid={`button-delete-character-${character.id}`}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                                
+                                {/* Reference Portrait Quick Actions */}
+                                <div className="flex space-x-1">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleGenerateReferencePortrait(character.id)}
+                                    disabled={isGeneratingReferencePortrait === character.id}
+                                    data-testid={`button-generate-portrait-${character.id}`}
+                                    className="text-xs px-2"
+                                  >
+                                    <Camera className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      const input = document.createElement('input');
+                                      input.type = 'file';
+                                      input.accept = 'image/*';
+                                      input.onchange = (e) => {
+                                        const file = (e.target as HTMLInputElement).files?.[0];
+                                        if (file) {
+                                          handleReferenceImageUpload(character.id, file);
+                                        }
+                                      };
+                                      input.click();
+                                    }}
+                                    disabled={isUploadingReferenceImage === character.id}
+                                    data-testid={`button-upload-portrait-${character.id}`}
+                                    className="text-xs px-2"
+                                  >
+                                    <Upload className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                
+                                {/* Loading Indicators */}
+                                {(isGeneratingReferencePortrait === character.id || isUploadingReferenceImage === character.id) && (
+                                  <div className="text-xs text-muted-foreground text-center mt-1">
+                                    {isGeneratingReferencePortrait === character.id ? "Generating..." : "Uploading..."}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </CardContent>

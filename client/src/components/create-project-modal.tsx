@@ -86,9 +86,11 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [isGeneratingCharacterBio, setIsGeneratingCharacterBio] = useState<number | null>(null);
   const [isGeneratingCharacterVisual, setIsGeneratingCharacterVisual] = useState<number | null>(null);
+  const [isGeneratingReferencePortrait, setIsGeneratingReferencePortrait] = useState<number | null>(null);
+  const [isUploadingReferenceImage, setIsUploadingReferenceImage] = useState<number | null>(null);
   const [showAIStoryGenerator, setShowAIStoryGenerator] = useState(false);
   const [characters, setCharacters] = useState([
-    { name: "Captain Thunder", role: "Main Hero", bio: "A powerful superhero with lightning abilities, tall with silver hair and a blue cape. Always confident and protective of civilians.", visualDescriptors: "" }
+    { name: "Captain Thunder", role: "Main Hero", bio: "A powerful superhero with lightning abilities, tall with silver hair and a blue cape. Always confident and protective of civilians.", visualDescriptors: "", referenceImageUrl: "", shouldGeneratePortrait: false }
   ]);
   const [showGenerationCompleteBanner, setShowGenerationCompleteBanner] = useState(false);
   
@@ -127,12 +129,34 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
       
       // Then create the characters
       const validCharacters = characters.filter(char => char.name && char.role);
+      const createdCharacters = [];
       for (const character of validCharacters) {
-        await apiRequest("POST", `/api/projects/${project.id}/characters`, {
+        const createdCharacter = await apiRequest("POST", `/api/projects/${project.id}/characters`, {
           name: character.name,
           role: character.role,
           bio: character.bio,
           visualDescriptors: character.visualDescriptors || "",
+          referenceImageUrl: character.referenceImageUrl || "",
+        });
+        createdCharacters.push({ ...createdCharacter, shouldGeneratePortrait: character.shouldGeneratePortrait });
+      }
+
+      // Generate reference portraits for characters that were marked for generation
+      const charactersToGenerate = createdCharacters.filter(char => char.shouldGeneratePortrait);
+      if (charactersToGenerate.length > 0) {
+        toast({
+          title: "Generating Reference Portraits",
+          description: `Creating AI portraits for ${charactersToGenerate.length} character(s)...`,
+        });
+
+        // Generate portraits in parallel (don't wait for completion)
+        charactersToGenerate.forEach(async (character) => {
+          try {
+            await apiRequest("POST", `/api/characters/${character.id}/generate-reference-portrait`);
+          } catch (error) {
+            console.error(`Failed to generate portrait for ${character.name}:`, error);
+            // Don't show individual errors to avoid spam, they'll see the results in the editor
+          }
         });
       }
       
@@ -227,13 +251,118 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
   };
 
   const addCharacter = () => {
-    setCharacters([...characters, { name: "", role: "", bio: "", visualDescriptors: "" }]);
+    setCharacters([...characters, { name: "", role: "", bio: "", visualDescriptors: "", referenceImageUrl: "", shouldGeneratePortrait: false }]);
   };
 
   const updateCharacter = (index: number, field: string, value: string) => {
     const updated = [...characters];
     updated[index] = { ...updated[index], [field]: value };
     setCharacters(updated);
+  };
+
+  // Handle reference portrait upload
+  const handleReferenceImageUpload = async (index: number, file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid File Type",
+        description: "Please select an image file.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      toast({
+        title: "File Too Large",
+        description: "Please select an image under 10MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploadingReferenceImage(index);
+
+    try {
+      // Get upload URL
+      const uploadResponse = await fetch("/api/upload/presigned-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const uploadData = await uploadResponse.json();
+
+      if (!uploadResponse.ok) {
+        throw new Error(uploadData.error || "Failed to get upload URL");
+      }
+
+      // Upload image to object storage
+      const uploadResult = await fetch(uploadData.uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+      });
+
+      if (!uploadResult.ok) {
+        throw new Error("Failed to upload image");
+      }
+
+      // Set ACL policy for the uploaded image
+      const imageURL = uploadData.uploadURL.split('?')[0]; // Remove query params
+      const aclResponse = await fetch("/api/auth/user/profile-image", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageURL }),
+      });
+
+      if (!aclResponse.ok) {
+        throw new Error("Failed to set image permissions");
+      }
+
+      const aclData = await aclResponse.json();
+      
+      // Update character with reference image URL
+      updateCharacter(index, "referenceImageUrl", aclData.objectPath);
+
+      toast({
+        title: "Image Uploaded!",
+        description: "Reference portrait uploaded successfully.",
+      });
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({
+        title: "Upload Failed",
+        description: error instanceof Error ? error.message : "Failed to upload image. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingReferenceImage(null);
+    }
+  };
+
+  // Handle AI reference portrait generation (schedule for project creation)
+  const handleGenerateReferencePortrait = async (index: number) => {
+    const character = characters[index];
+    const formData = form.getValues();
+    
+    if (!character.name || !character.bio) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter character name and bio first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Mark character for AI generation after project creation
+    const updated = [...characters];
+    updated[index] = { ...updated[index], shouldGeneratePortrait: true };
+    setCharacters(updated);
+
+    toast({
+      title: "AI Generation Scheduled",
+      description: "Reference portrait will be generated when you create the project.",
+    });
   };
 
   // Handle background generation completion
@@ -247,7 +376,14 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
       form.setValue("genre", completeStory.genre);
       form.setValue("description", completeStory.description);
       setSelectedArtStyle(storyData?.artStyle || "");
-      setCharacters(completeStory.characters || []);
+      setCharacters((completeStory.characters || []).map((char: any) => ({
+        name: char.name || "",
+        role: char.role || "",
+        bio: char.bio || "",
+        visualDescriptors: char.visualDescriptors || "",
+        referenceImageUrl: char.referenceImageUrl || "",
+        shouldGeneratePortrait: char.shouldGeneratePortrait || false
+      })));
       setGeneratedStructuredScript(completeStory.structuredScript);
       
       if (completeStory.structuredScript) {
@@ -287,7 +423,7 @@ The complete structured script with full character details has been generated an
     form.reset();
     setSelectedArtStyle("");
     setCharacters([
-      { name: "Captain Thunder", role: "Main Hero", bio: "A powerful superhero with lightning abilities, tall with silver hair and a blue cape. Always confident and protective of civilians.", visualDescriptors: "" }
+      { name: "Captain Thunder", role: "Main Hero", bio: "A powerful superhero with lightning abilities, tall with silver hair and a blue cape. Always confident and protective of civilians.", visualDescriptors: "", referenceImageUrl: "", shouldGeneratePortrait: false }
     ]);
     setGeneratedStructuredScript(null);
   };
@@ -748,8 +884,82 @@ Create a visual description that fits the ${selectedArtStyle || 'comic-book'} ar
                           />
                         </div>
                         <div>
-                          <FormLabel className="text-sm font-medium block mb-2">Visual Style</FormLabel>
-                          <div className="w-12 h-12 bg-chart-1 rounded-full"></div>
+                          <FormLabel className="text-sm font-medium block mb-2">Reference Portrait</FormLabel>
+                          <div className="space-y-3">
+                            {/* Portrait Preview */}
+                            <div className="relative">
+                              {character.referenceImageUrl ? (
+                                <div className="w-16 h-16 rounded-lg overflow-hidden border-2 border-border bg-muted">
+                                  <img 
+                                    src={character.referenceImageUrl} 
+                                    alt={`${character.name || 'Character'} reference portrait`}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              ) : character.shouldGeneratePortrait ? (
+                                <div className="w-16 h-16 rounded-lg border-2 border-primary bg-primary/10 flex items-center justify-center">
+                                  <div className="flex flex-col items-center">
+                                    <Wand2 className="h-4 w-4 text-primary mb-1" />
+                                    <span className="text-xs text-primary font-medium">Scheduled</span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="w-16 h-16 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/50 flex items-center justify-center">
+                                  <Camera className="h-6 w-6 text-muted-foreground/50" />
+                                </div>
+                              )}
+                              
+                              {/* Loading overlay */}
+                              {(isGeneratingReferencePortrait === index || isUploadingReferenceImage === index) && (
+                                <div className="absolute inset-0 bg-background/80 rounded-lg flex items-center justify-center">
+                                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex flex-col gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleGenerateReferencePortrait(index)}
+                                disabled={isGeneratingReferencePortrait === index || isUploadingReferenceImage === index}
+                                className="h-8 text-xs"
+                                data-testid={`button-generate-portrait-${index}`}
+                              >
+                                <Wand2 className="mr-1 h-3 w-3" />
+                                {isGeneratingReferencePortrait === index ? "Generating..." : "Generate with AI"}
+                              </Button>
+                              
+                              <div className="relative">
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      handleReferenceImageUpload(index, file);
+                                    }
+                                  }}
+                                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                  disabled={isGeneratingReferencePortrait === index || isUploadingReferenceImage === index}
+                                  data-testid={`input-upload-portrait-${index}`}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={isGeneratingReferencePortrait === index || isUploadingReferenceImage === index}
+                                  className="h-8 text-xs w-full"
+                                  data-testid={`button-upload-portrait-${index}`}
+                                >
+                                  <Upload className="mr-1 h-3 w-3" />
+                                  {isUploadingReferenceImage === index ? "Uploading..." : "Upload Image"}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                       <div className="mt-4 grid md:grid-cols-2 gap-4">

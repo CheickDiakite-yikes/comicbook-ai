@@ -288,6 +288,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         projectId: req.params.projectId,
       });
+      
+      // Handle referenceImageUrl with ObjectStorage ACL policy
+      if (characterData.referenceImageUrl) {
+        const objectStorageService = new ObjectStorageService();
+        
+        // Apply ACL policy and get normalized path
+        const normalizedPath = await objectStorageService.trySetObjectEntityAclPolicy(
+          characterData.referenceImageUrl,
+          {
+            owner: userId,
+            visibility: "public", // Character reference images are public for consistency
+          }
+        );
+        
+        // Update with normalized path
+        characterData.referenceImageUrl = normalizedPath;
+      }
+      
       const character = await storage.createCharacter(characterData);
       res.json(character);
     } catch (error) {
@@ -332,6 +350,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updates = insertCharacterSchema.partial().parse(req.body);
+      
+      // Handle referenceImageUrl with ObjectStorage ACL policy
+      if (updates.referenceImageUrl) {
+        const objectStorageService = new ObjectStorageService();
+        
+        // Apply ACL policy and get normalized path
+        const normalizedPath = await objectStorageService.trySetObjectEntityAclPolicy(
+          updates.referenceImageUrl,
+          {
+            owner: userId,
+            visibility: "public", // Character reference images are public for consistency
+          }
+        );
+        
+        // Update with normalized path
+        updates.referenceImageUrl = normalizedPath;
+      }
+      
       const updatedCharacter = await storage.updateCharacter(req.params.id, updates);
       res.json(updatedCharacter);
     } catch (error) {
@@ -759,10 +795,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // CRITICAL FIX: Merge fresh database characters into projectContext
+      // This ensures referenceImageUrl and other character data reaches Gemini
+      let enhancedProjectContext = projectContext;
+      if (currentPageId && projectId) {
+        try {
+          const freshCharacters = await storage.getProjectCharacters(projectId);
+          enhancedProjectContext = {
+            ...projectContext,
+            characters: freshCharacters.map(char => ({
+              name: char.name,
+              role: char.role,
+              bio: char.bio,
+              visualDescriptors: char.visualDescriptors,
+              alwaysTraits: char.alwaysTraits,
+              neverTraits: char.neverTraits,
+              colorScheme: char.colorScheme,
+              referenceImageUrl: char.referenceImageUrl, // This is the critical field!
+            }))
+          };
+          console.log(`🎯 CHARACTER CONTEXT: Updated projectContext with ${freshCharacters.length} fresh characters including referenceImageUrl`);
+        } catch (error) {
+          console.error("Error fetching fresh characters for Gemini context:", error);
+          // Continue with original projectContext
+        }
+      }
+      
       const result = await geminiService.generatePanelImage({
         prompt: enhancedPrompt, // Use enhanced prompt with script data
         panelId,
-        projectContext,
+        projectContext: enhancedProjectContext, // Use enhanced context with fresh character data
         characterContext,
         styleOptions,
         panelContext,
@@ -3124,6 +3186,23 @@ Redress this character in the specified outfit while maintaining their core visu
         referenceImageUrl: req.body.referenceImageUrl,
         colorScheme: req.body.colorScheme,
       };
+      
+      // Handle referenceImageUrl with ObjectStorage ACL policy
+      if (characterData.referenceImageUrl) {
+        const objectStorageService = new ObjectStorageService();
+        
+        // Apply ACL policy and get normalized path
+        const normalizedPath = await objectStorageService.trySetObjectEntityAclPolicy(
+          characterData.referenceImageUrl,
+          {
+            owner: userId,
+            visibility: "public", // Character reference images are public for consistency
+          }
+        );
+        
+        // Update with normalized path
+        characterData.referenceImageUrl = normalizedPath;
+      }
 
       const character = await storage.createLibraryCharacter(userId, characterData);
       res.json(character);
@@ -3149,6 +3228,23 @@ Redress this character in the specified outfit while maintaining their core visu
         referenceImageUrl: req.body.referenceImageUrl,
         colorScheme: req.body.colorScheme,
       };
+      
+      // Handle referenceImageUrl with ObjectStorage ACL policy
+      if (updates.referenceImageUrl) {
+        const objectStorageService = new ObjectStorageService();
+        
+        // Apply ACL policy and get normalized path
+        const normalizedPath = await objectStorageService.trySetObjectEntityAclPolicy(
+          updates.referenceImageUrl,
+          {
+            owner: userId,
+            visibility: "public", // Character reference images are public for consistency
+          }
+        );
+        
+        // Update with normalized path
+        updates.referenceImageUrl = normalizedPath;
+      }
 
       const character = await storage.updateLibraryCharacter(characterId, userId, updates);
       if (!character) {
