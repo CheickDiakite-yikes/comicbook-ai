@@ -686,3 +686,111 @@ export interface FullCharacterProfile extends Character {
   consistencyRules: Array<CharacterConsistencyRule>;
   panelStates: Array<PanelCharacterStateWithDetails>;
 }
+
+// Parallel processing request schemas for validation
+export const parallelPanelGenerationSchema = z.object({
+  projectId: z.string().uuid("Invalid project ID format"),
+  panels: z.array(z.object({
+    id: z.string().min(1, "Panel ID required"),
+    panelNumber: z.number().int().positive("Panel number must be positive"),
+    prompt: z.string().min(1, "Prompt is required"),
+    pageId: z.string().uuid("Invalid page ID format").optional(),
+    dependencies: z.array(z.string()).optional().default([]),
+    priority: z.number().int().min(1).max(10).optional().default(5),
+    aspectRatio: z.number().positive().optional(),
+    dimensions: z.object({
+      width: z.number().positive(),
+      height: z.number().positive()
+    }).optional(),
+    styleOptions: z.object({
+      artStyle: z.string().optional(),
+      colorPalette: z.array(z.string()).optional(),
+      mood: z.string().optional()
+    }).optional()
+  })).min(1, "At least one panel required").max(50, "Maximum 50 panels allowed per batch"),
+  options: z.object({
+    maxConcurrency: z.number().int().min(1).max(10).optional().default(3),
+    batchSize: z.number().int().min(1).max(20).optional().default(5),
+    enableDependencyTracking: z.boolean().optional().default(true),
+    enableCharacterConsistency: z.boolean().optional().default(true),
+    enableProgressTracking: z.boolean().optional().default(true),
+    timeoutMs: z.number().int().min(30000).max(600000).optional().default(300000),
+    retryStrategy: z.enum(['exponential', 'linear', 'none']).optional().default('exponential'),
+    priorityMode: z.enum(['fifo', 'priority', 'dependency']).optional().default('dependency')
+  }).optional().default({})
+});
+
+export const parallelPageGenerationSchema = z.object({
+  projectId: z.string().uuid("Invalid project ID format"),
+  pages: z.array(z.object({
+    id: z.string().min(1, "Page ID required"),
+    pageNumber: z.number().int().positive("Page number must be positive"),
+    script: z.object({
+      title: z.string(),
+      panels: z.array(z.object({
+        panelNumber: z.number().int().positive(),
+        prompt: z.string().min(1),
+        visualDescription: z.string().optional(),
+        dialogue: z.array(z.object({
+          characterName: z.string(),
+          text: z.string()
+        })).optional()
+      })).min(1)
+    }),
+    layout: z.object({
+      template: z.string(),
+      panelCount: z.number().int().positive()
+    }),
+    dependencies: z.array(z.string()).optional().default([]),
+    priority: z.number().int().min(1).max(10).optional().default(5)
+  })).min(1, "At least one page required").max(20, "Maximum 20 pages allowed per batch"),
+  options: z.object({
+    maxConcurrency: z.number().int().min(1).max(5).optional().default(2),
+    batchSize: z.number().int().min(1).max(10).optional().default(3),
+    enableDependencyTracking: z.boolean().optional().default(true),
+    enableCharacterConsistency: z.boolean().optional().default(true),
+    enableProgressTracking: z.boolean().optional().default(true),
+    timeoutMs: z.number().int().min(60000).max(1800000).optional().default(900000),
+    retryStrategy: z.enum(['exponential', 'linear', 'none']).optional().default('exponential'),
+    priorityMode: z.enum(['fifo', 'priority', 'dependency']).optional().default('dependency')
+  }).optional().default({})
+});
+
+export const parallelBatchGenerationSchema = z.object({
+  projectId: z.string().uuid("Invalid project ID format"),
+  batches: z.array(z.object({
+    type: z.enum(['panels', 'pages', 'backgrounds', 'covers'], {
+      errorMap: () => ({ message: "Type must be one of: panels, pages, backgrounds, covers" })
+    }),
+    items: z.array(z.any()).min(1, "Each batch must have at least one item"),
+    batchPriority: z.number().int().min(1).max(10).optional().default(5),
+    metadata: z.object({
+      description: z.string().optional(),
+      tags: z.array(z.string()).optional()
+    }).optional()
+  })).min(1, "At least one batch required").max(10, "Maximum 10 batches allowed"),
+  options: z.object({
+    maxConcurrency: z.number().int().min(1).max(8).optional().default(3),
+    batchSize: z.number().int().min(1).max(15).optional().default(5),
+    enableDependencyTracking: z.boolean().optional().default(true),
+    enableCharacterConsistency: z.boolean().optional().default(true),
+    enableProgressTracking: z.boolean().optional().default(true),
+    timeoutMs: z.number().int().min(120000).max(3600000).optional().default(1800000),
+    retryStrategy: z.enum(['exponential', 'linear', 'none']).optional().default('exponential'),
+    priorityMode: z.enum(['fifo', 'priority', 'dependency']).optional().default('dependency')
+  }).optional().default({})
+});
+
+export const parallelSessionStatusSchema = z.object({
+  sessionId: z.string().uuid("Invalid session ID format")
+});
+
+export const parallelSessionCancelSchema = z.object({
+  sessionId: z.string().uuid("Invalid session ID format"),
+  reason: z.string().optional()
+});
+
+// Parallel processing types
+export type ParallelPanelGenerationRequest = z.infer<typeof parallelPanelGenerationSchema>;
+export type ParallelPageGenerationRequest = z.infer<typeof parallelPageGenerationSchema>;
+export type ParallelBatchGenerationRequest = z.infer<typeof parallelBatchGenerationSchema>;

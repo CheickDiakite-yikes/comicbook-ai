@@ -11,11 +11,15 @@ import {
   insertUserProfileSchema,
   insertProjectLikeSchema,
   insertProjectCommentSchema,
-  insertCharacterFromScriptSchema
+  insertCharacterFromScriptSchema,
+  parallelPanelGenerationSchema,
+  parallelPageGenerationSchema,
+  parallelBatchGenerationSchema
 } from "@shared/schema";
 import { geminiService } from "./gemini";
+import { ParallelGenerationService } from "./parallel-processing";
 import { z } from "zod";
-import { requireCredits, getProjectIdFromParams, getPanelIdFromBody, getPageIdFromRequest, createOperationMetadata } from "./creditMiddleware";
+import { requireCredits, getProjectIdFromParams, getProjectIdFromBody, getPanelIdFromBody, getPageIdFromRequest, createOperationMetadata, calculateParallelCredits } from "./creditMiddleware";
 import { isSocialCrawler, isLinkPreviewRequest } from "./utils/socialCrawlers";
 import { generateSSRHTML, generateFallbackHTML } from "./utils/htmlGenerator";
 
@@ -27,6 +31,9 @@ function getUserId(user: any): string {
   // Replit Auth
   return user.claims?.sub;
 }
+
+// Initialize parallel generation service
+const parallelGenerationService = new ParallelGenerationService(storage);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -1172,6 +1179,481 @@ Redress this character in the specified outfit while maintaining their core visu
       res.status(500).json({ message: "Failed to generate text" });
     }
   });
+
+  // ========================================
+  // PARALLEL PROCESSING ENDPOINTS
+  // ========================================
+
+  // Generate multiple panels in parallel - SECURED WITH VALIDATION & CREDITS
+  app.post("/api/parallel/panels", 
+    isAuthenticated,
+    // SECURITY FIX: Use body parser for project ID since route has no :projectId param
+    async (req: any, res: any, next: any) => {
+      try {
+        const userId = getUserId(req.user);
+        const panelCount = req.body?.panels?.length || 0;
+        
+        // CRITICAL: Manual credit check with correct item count calculation
+        const creditsRequired = calculateParallelCredits('panel_generation', panelCount);
+        const hasCredits = await storage.hasEnoughCredits(userId, creditsRequired);
+        
+        if (!hasCredits) {
+          const currentCredits = await storage.getCurrentMonthCredits(userId);
+          const remainingCredits = currentCredits.monthlyLimit - currentCredits.creditsUsed;
+          
+          return res.status(402).json({
+            message: "Insufficient AI credits for parallel panel generation",
+            error: "insufficient_credits",
+            creditsRequired,
+            remainingCredits,
+            monthlyLimit: currentCredits.monthlyLimit,
+            operationType: 'parallel_panel_generation',
+          });
+        }
+        
+        // Deduct credits upfront
+        const deductionResult = await storage.deductCredits(
+          userId,
+          'panel_generation',
+          creditsRequired,
+          req.body?.projectId,
+          createOperationMetadata(req, {
+            panelCount,
+            operationType: 'parallel_panels'
+          })
+        );
+        
+        if (!deductionResult.success) {
+          return res.status(500).json({
+            message: "Failed to deduct credits",
+            error: "credit_deduction_failed"
+          });
+        }
+        
+        req.creditInfo = {
+          operationType: 'panel_generation',
+          creditsDeducted: creditsRequired,
+          remainingCredits: deductionResult.remainingCredits,
+        };
+        
+        next();
+      } catch (error) {
+        console.error("Parallel panel credit check failed:", error);
+        res.status(500).json({
+          message: "Credit system error",
+          error: "credit_system_error"
+        });
+      }
+    },
+    async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      
+      // CRITICAL: Add strict Zod validation for security
+      const validationResult = parallelPanelGenerationSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({
+          message: "Invalid request data",
+          error: "validation_failed",
+          details: validationResult.error.errors.map(err => ({
+            path: err.path.join('.'),
+            message: err.message
+          }))
+        });
+      }
+      
+      const request = validationResult.data;
+      
+      // SECURITY: Verify project ownership
+      const project = await storage.getProject(request.projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ 
+          message: "Project not found or access denied",
+          error: "project_not_found" 
+        });
+      }
+      
+      const sessionId = await parallelGenerationService.generatePanelsInParallel(userId, request);
+      res.json({ sessionId, status: 'started', panelCount: request.panels.length });
+    } catch (error) {
+      console.error("Error starting parallel panel generation:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to start parallel panel generation";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  // Generate multiple pages in parallel - SECURED WITH VALIDATION & CREDITS
+  app.post("/api/parallel/pages", 
+    isAuthenticated,
+    // SECURITY FIX: Use body parser for project ID since route has no :projectId param
+    async (req: any, res: any, next: any) => {
+      try {
+        const userId = getUserId(req.user);
+        const pageCount = req.body?.pages?.length || 0;
+        
+        // CRITICAL: Manual credit check with correct item count calculation
+        const creditsRequired = calculateParallelCredits('full_page_generation', pageCount);
+        const hasCredits = await storage.hasEnoughCredits(userId, creditsRequired);
+        
+        if (!hasCredits) {
+          const currentCredits = await storage.getCurrentMonthCredits(userId);
+          const remainingCredits = currentCredits.monthlyLimit - currentCredits.creditsUsed;
+          
+          return res.status(402).json({
+            message: "Insufficient AI credits for parallel page generation",
+            error: "insufficient_credits",
+            creditsRequired,
+            remainingCredits,
+            monthlyLimit: currentCredits.monthlyLimit,
+            operationType: 'parallel_page_generation',
+          });
+        }
+        
+        // Deduct credits upfront
+        const deductionResult = await storage.deductCredits(
+          userId,
+          'full_page_generation',
+          creditsRequired,
+          req.body?.projectId,
+          createOperationMetadata(req, {
+            pageCount,
+            operationType: 'parallel_pages'
+          })
+        );
+        
+        if (!deductionResult.success) {
+          return res.status(500).json({
+            message: "Failed to deduct credits",
+            error: "credit_deduction_failed"
+          });
+        }
+        
+        req.creditInfo = {
+          operationType: 'full_page_generation',
+          creditsDeducted: creditsRequired,
+          remainingCredits: deductionResult.remainingCredits,
+        };
+        
+        next();
+      } catch (error) {
+        console.error("Parallel page credit check failed:", error);
+        res.status(500).json({
+          message: "Credit system error",
+          error: "credit_system_error"
+        });
+      }
+    },
+    async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      
+      // CRITICAL: Add strict Zod validation for security
+      const validationResult = parallelPageGenerationSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({
+          message: "Invalid request data",
+          error: "validation_failed",
+          details: validationResult.error.errors.map(err => ({
+            path: err.path.join('.'),
+            message: err.message
+          }))
+        });
+      }
+      
+      const request = validationResult.data;
+      
+      // SECURITY: Verify project ownership
+      const project = await storage.getProject(request.projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ 
+          message: "Project not found or access denied",
+          error: "project_not_found" 
+        });
+      }
+      
+      const sessionId = await parallelGenerationService.generatePagesInParallel(userId, request);
+      res.json({ sessionId, status: 'started', pageCount: request.pages.length });
+    } catch (error) {
+      console.error("Error starting parallel page generation:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to start parallel page generation";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  // Generate mixed content in batches - SECURED WITH VALIDATION & CREDITS
+  app.post("/api/parallel/batch", 
+    isAuthenticated,
+    // SECURITY FIX: Use body parser for project ID since route has no :projectId param
+    async (req: any, res: any, next: any) => {
+      try {
+        const userId = getUserId(req.user);
+        const batchCount = req.body?.batches?.length || 0;
+        
+        // CRITICAL: Manual credit check with correct item count calculation
+        const creditsRequired = calculateParallelCredits('complete_story_generation', batchCount);
+        const hasCredits = await storage.hasEnoughCredits(userId, creditsRequired);
+        
+        if (!hasCredits) {
+          const currentCredits = await storage.getCurrentMonthCredits(userId);
+          const remainingCredits = currentCredits.monthlyLimit - currentCredits.creditsUsed;
+          
+          return res.status(402).json({
+            message: "Insufficient AI credits for parallel batch generation",
+            error: "insufficient_credits",
+            creditsRequired,
+            remainingCredits,
+            monthlyLimit: currentCredits.monthlyLimit,
+            operationType: 'parallel_batch_generation',
+          });
+        }
+        
+        // Deduct credits upfront
+        const deductionResult = await storage.deductCredits(
+          userId,
+          'complete_story_generation',
+          creditsRequired,
+          req.body?.projectId,
+          createOperationMetadata(req, {
+            batchCount,
+            operationType: 'parallel_batch'
+          })
+        );
+        
+        if (!deductionResult.success) {
+          return res.status(500).json({
+            message: "Failed to deduct credits",
+            error: "credit_deduction_failed"
+          });
+        }
+        
+        req.creditInfo = {
+          operationType: 'complete_story_generation',
+          creditsDeducted: creditsRequired,
+          remainingCredits: deductionResult.remainingCredits,
+        };
+        
+        next();
+      } catch (error) {
+        console.error("Parallel batch credit check failed:", error);
+        res.status(500).json({
+          message: "Credit system error",
+          error: "credit_system_error"
+        });
+      }
+    },
+    async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      
+      // CRITICAL: Add strict Zod validation for security
+      const validationResult = parallelBatchGenerationSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({
+          message: "Invalid request data",
+          error: "validation_failed",
+          details: validationResult.error.errors.map(err => ({
+            path: err.path.join('.'),
+            message: err.message
+          }))
+        });
+      }
+      
+      const request = validationResult.data;
+      
+      // SECURITY: Verify project ownership
+      const project = await storage.getProject(request.projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ 
+          message: "Project not found or access denied",
+          error: "project_not_found" 
+        });
+      }
+      
+      const sessionId = await parallelGenerationService.generateBatchInParallel(userId, request);
+      res.json({ sessionId, status: 'started', batchCount: request.batches.length });
+    } catch (error) {
+      console.error("Error starting parallel batch generation:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to start parallel batch generation";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  // Get session status and progress - SECURED WITH OWNERSHIP CHECK
+  app.get("/api/parallel/sessions/:sessionId", 
+    isAuthenticated,
+    async (req: any, res) => {
+    try {
+      const { sessionId } = req.params;
+      const userId = getUserId(req.user);
+      
+      const status = parallelGenerationService.getSessionStatus(sessionId);
+      
+      if (!status) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      
+      // SECURITY: Verify session ownership
+      const sessionOwner = parallelGenerationService.getSessionOwner(sessionId);
+      if (sessionOwner !== userId) {
+        return res.status(403).json({ 
+          message: "Access denied to session",
+          error: "session_access_denied" 
+        });
+      }
+      
+      res.json(status);
+    } catch (error) {
+      console.error("Error getting session status:", error);
+      res.status(500).json({ message: "Failed to get session status" });
+    }
+  });
+
+  // Cancel a running session - SECURED WITH OWNERSHIP CHECK
+  app.post("/api/parallel/sessions/:sessionId/cancel", 
+    isAuthenticated,
+    async (req: any, res) => {
+    try {
+      const { sessionId } = req.params;
+      const userId = getUserId(req.user);
+      
+      // SECURITY: Verify session ownership before allowing cancellation
+      const sessionOwner = parallelGenerationService.getSessionOwner(sessionId);
+      if (!sessionOwner) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      
+      if (sessionOwner !== userId) {
+        return res.status(403).json({ 
+          message: "Access denied to session",
+          error: "session_access_denied" 
+        });
+      }
+      
+      const cancelled = await parallelGenerationService.cancelSession(sessionId);
+      
+      if (!cancelled) {
+        return res.status(404).json({ message: "Session not found or already completed" });
+      }
+      
+      res.json({ success: true, message: "Session cancelled successfully" });
+    } catch (error) {
+      console.error("Error cancelling session:", error);
+      res.status(500).json({ message: "Failed to cancel session" });
+    }
+  });
+
+  // Get all sessions for the current user
+  app.get("/api/parallel/sessions", 
+    isAuthenticated,
+    async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const sessions = parallelGenerationService.getUserSessions(userId);
+      res.json(sessions);
+    } catch (error) {
+      console.error("Error getting user sessions:", error);
+      res.status(500).json({ message: "Failed to get user sessions" });
+    }
+  });
+
+  // Server-Sent Events endpoint for real-time progress updates - SECURED
+  app.get("/api/parallel/sessions/:sessionId/events", 
+    isAuthenticated,
+    async (req: any, res) => {
+    try {
+      const { sessionId } = req.params;
+      const userId = getUserId(req.user);
+      
+      // CRITICAL SECURITY: Verify session ownership before allowing SSE connection
+      const sessionStatus = parallelGenerationService.getSessionStatus(sessionId);
+      if (!sessionStatus) {
+        return res.status(404).json({ 
+          message: "Session not found",
+          error: "session_not_found" 
+        });
+      }
+      
+      // Verify user owns this session (prevents unauthorized session monitoring)
+      const sessionOwner = parallelGenerationService.getSessionOwner(sessionId);
+      if (sessionOwner !== userId) {
+        return res.status(403).json({ 
+          message: "Access denied to session",
+          error: "session_access_denied" 
+        });
+      }
+      
+      // Set up Server-Sent Events
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Cache-Control'
+      });
+
+      // Send initial connection message
+      res.write(`data: ${JSON.stringify({ type: 'connected', sessionId })}\n\n`);
+
+      // Set up event listeners for progress updates
+      const onProgressUpdate = (updatedSessionId: string, progress: any) => {
+        if (updatedSessionId === sessionId) {
+          res.write(`data: ${JSON.stringify({ type: 'progress', data: progress })}\n\n`);
+        }
+      };
+
+      const onTaskCompleted = (updatedSessionId: string, taskId: string, result: any) => {
+        if (updatedSessionId === sessionId) {
+          res.write(`data: ${JSON.stringify({ type: 'taskCompleted', taskId, result })}\n\n`);
+        }
+      };
+
+      const onSessionCompleted = (updatedSessionId: string, result: any) => {
+        if (updatedSessionId === sessionId) {
+          res.write(`data: ${JSON.stringify({ type: 'sessionCompleted', data: result })}\n\n`);
+          res.end();
+        }
+      };
+
+      const onSessionFailed = (updatedSessionId: string, result: any, error: any) => {
+        if (updatedSessionId === sessionId) {
+          res.write(`data: ${JSON.stringify({ type: 'sessionFailed', data: result, error: error.message })}\n\n`);
+          res.end();
+        }
+      };
+
+      const onSessionCancelled = (updatedSessionId: string, result: any) => {
+        if (updatedSessionId === sessionId) {
+          res.write(`data: ${JSON.stringify({ type: 'sessionCancelled', data: result })}\n\n`);
+          res.end();
+        }
+      };
+
+      // Register event listeners
+      parallelGenerationService.on('progressUpdate', onProgressUpdate);
+      parallelGenerationService.on('taskCompleted', onTaskCompleted);
+      parallelGenerationService.on('sessionCompleted', onSessionCompleted);
+      parallelGenerationService.on('sessionFailed', onSessionFailed);
+      parallelGenerationService.on('sessionCancelled', onSessionCancelled);
+
+      // Clean up on client disconnect
+      req.on('close', () => {
+        parallelGenerationService.removeListener('progressUpdate', onProgressUpdate);
+        parallelGenerationService.removeListener('taskCompleted', onTaskCompleted);
+        parallelGenerationService.removeListener('sessionCompleted', onSessionCompleted);
+        parallelGenerationService.removeListener('sessionFailed', onSessionFailed);
+        parallelGenerationService.removeListener('sessionCancelled', onSessionCancelled);
+        res.end();
+      });
+
+    } catch (error) {
+      console.error("Error setting up SSE for session:", error);
+      res.status(500).json({ message: "Failed to set up event stream" });
+    }
+  });
+
+  // ========================================
+  // END PARALLEL PROCESSING ENDPOINTS
+  // ========================================
 
   // Generate complete character with AI
   app.post("/api/projects/:projectId/generate-character", 

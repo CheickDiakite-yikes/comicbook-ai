@@ -139,6 +139,25 @@ export function getPageIdFromRequest(req: any): string | undefined {
 }
 
 /**
+ * Helper to get project ID from request body (for parallel processing routes)
+ */
+export function getProjectIdFromBody(req: any): string | undefined {
+  return req.body?.projectId;
+}
+
+/**
+ * Helper to calculate credits for parallel operations based on item count
+ */
+export function calculateParallelCredits(operationType: CreditOperationType, itemCount: number): number {
+  const baseCost = CREDIT_COSTS[operationType];
+  // Apply scaling for parallel operations
+  if (operationType === 'panel_generation') {
+    return Math.max(itemCount * baseCost, 1); // Minimum 1 credit
+  }
+  return itemCount * baseCost;
+}
+
+/**
  * Helper to create metadata for operations
  */
 export function createOperationMetadata(req: any, additionalData?: any): any {
