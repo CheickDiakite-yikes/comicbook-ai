@@ -307,20 +307,98 @@ export const scriptPages = pgTable("script_pages", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Script Panels table - Panel-level script data
+// Script Panels table - Movie-level detailed panel data
 export const scriptPanels = pgTable("script_panels", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   scriptPageId: varchar("script_page_id").notNull().references(() => scriptPages.id),
   panelNumber: integer("panel_number").notNull(),
+  
+  // Core Panel Information
   action: text("action").notNull(), // What happens in this panel
   sceneDescription: text("scene_description").notNull(), // Visual description for AI
   visualNotes: text("visual_notes"), // Art direction notes
   characters: text("characters").array(), // Character names present in panel
   mood: varchar("mood"), // panel-specific mood
-  cameraAngle: varchar("camera_angle"), // close-up, wide-shot, bird's-eye, etc.
-  shotType: varchar("shot_type"), // establishing, reaction, action, etc.
-  timing: varchar("timing"), // fast, slow, dramatic-pause, etc.
-  soundEffects: text("sound_effects").array(), // SFX for this panel
+  
+  // ENVIRONMENTAL DETAILS
+  // Location & Set Details
+  locationSpecifics: text("location_specifics"), // "bustling downtown street corner", "cozy living room with fireplace"
+  interiorExterior: varchar("interior_exterior"), // "interior", "exterior", "mixed"
+  roomType: varchar("room_type"), // "bedroom", "office", "kitchen", "vehicle", "outdoor_space"
+  architecturalStyle: varchar("architectural_style"), // "modern", "victorian", "industrial", "futuristic"
+  setDressing: text("set_dressing").array(), // ["family photos on mantle", "scattered books", "vintage lamp"]
+  props: text("props").array(), // ["laptop computer", "coffee mug", "car keys", "smartphone"]
+  backgroundElements: text("background_elements").array(), // ["city skyline", "mountains", "busy crowd"]
+  atmosphere: varchar("atmosphere"), // "tense", "peaceful", "chaotic", "mysterious", "romantic"
+  environmentalSoundscape: text("environmental_soundscape").array(), // ["traffic noise", "birds chirping", "air conditioning hum"]
+  
+  // LIGHTING CONDITIONS
+  primaryLightSource: varchar("primary_light_source"), // "natural_sunlight", "artificial_indoor", "candlelight", "moonlight"
+  timeOfDay: varchar("time_of_day"), // "dawn", "morning", "midday", "afternoon", "dusk", "night", "midnight"
+  lightingMood: varchar("lighting_mood"), // "bright_cheerful", "dim_moody", "dramatic_contrast", "soft_romantic"
+  lightDirection: varchar("light_direction"), // "front_lit", "back_lit", "side_lit", "top_lit", "under_lit"
+  shadowIntensity: varchar("shadow_intensity"), // "no_shadows", "soft_shadows", "medium_shadows", "hard_dramatic_shadows"
+  colorTemperature: varchar("color_temperature"), // "warm_golden", "cool_blue", "neutral_white", "mixed_sources"
+  lightingEffects: text("lighting_effects").array(), // ["god_rays", "lens_flare", "volumetric_fog", "rim_lighting"]
+  practicalLights: text("practical_lights").array(), // ["table_lamp", "neon_signs", "candles", "phone_screen"]
+  
+  // WEATHER & ATMOSPHERIC CONDITIONS
+  weatherCondition: varchar("weather_condition"), // "clear", "cloudy", "rainy", "stormy", "snowy", "foggy"
+  precipitation: varchar("precipitation"), // "none", "light_rain", "heavy_rain", "drizzle", "snow", "hail"
+  windCondition: varchar("wind_condition"), // "still", "light_breeze", "moderate_wind", "strong_wind", "gale"
+  temperature: varchar("temperature"), // "freezing", "cold", "cool", "mild", "warm", "hot", "sweltering"
+  humidity: varchar("humidity"), // "dry", "normal", "humid", "muggy"
+  visibility: varchar("visibility"), // "crystal_clear", "hazy", "foggy", "very_poor"
+  atmosphericEffects: text("atmospheric_effects").array(), // ["mist", "dust_particles", "steam", "smoke"]
+  seasonalContext: varchar("seasonal_context"), // "spring", "summer", "autumn", "winter"
+  
+  // CAMERA SPECIFICATIONS & CINEMATOGRAPHY
+  cameraAngle: varchar("camera_angle"), // "eye_level", "high_angle", "low_angle", "bird's_eye", "worm's_eye"
+  shotType: varchar("shot_type"), // "establishing", "wide", "medium", "close_up", "extreme_close_up", "over_shoulder"
+  cameraMovement: varchar("camera_movement"), // "static", "pan", "tilt", "zoom_in", "zoom_out", "dolly", "tracking"
+  frameComposition: varchar("frame_composition"), // "centered", "rule_of_thirds", "off_center", "symmetric", "dynamic"
+  depthOfField: varchar("depth_of_field"), // "shallow", "medium", "deep", "everything_in_focus"
+  focusPoint: varchar("focus_point"), // "foreground", "middle_ground", "background", "character_face", "object"
+  perspectiveType: varchar("perspective_type"), // "single_point", "two_point", "three_point", "atmospheric"
+  visualStyle: varchar("visual_style"), // "realistic", "stylized", "noir", "comic_book", "cinematic"
+  colorGrading: varchar("color_grading"), // "natural", "warm_tones", "cool_tones", "high_contrast", "desaturated"
+  
+  // CHARACTER POSITIONING & INTERACTIONS
+  characterPositions: jsonb("character_positions"), // JSON object with character spatial relationships
+  proxemics: varchar("proxemics"), // "intimate", "personal", "social", "public" (distance between characters)
+  spatialRelationships: text("spatial_relationships").array(), // ["John_left_of_Mary", "Sarah_behind_desk", "crowd_surrounds_hero"]
+  physicalInteractions: text("physical_interactions").array(), // ["handshake", "pointing_at_object", "looking_towards_door"]
+  characterFocus: varchar("character_focus"), // "single_character", "two_characters", "group", "no_characters"
+  eyelineDirections: text("eyeline_directions").array(), // ["John_looking_at_Mary", "Sarah_staring_off_panel", "crowd_watching_action"]
+  gestureDescriptions: text("gesture_descriptions").array(), // ["raised_eyebrows", "crossed_arms", "open_palms"]
+  
+  // TECHNICAL DIRECTION
+  pacing: varchar("pacing"), // "very_slow", "slow", "moderate", "fast", "very_fast", "frozen_moment"
+  timing: varchar("timing"), // "real_time", "slow_motion", "time_lapse", "frozen", "compressed_time"
+  transitionType: varchar("transition_type"), // "cut", "fade", "dissolve", "wipe", "match_cut", "jump_cut"
+  panelBorders: varchar("panel_borders"), // "standard", "rounded", "irregular", "borderless", "overlapping"
+  visualEffects: text("visual_effects").array(), // ["motion_blur", "speed_lines", "impact_lines", "thought_bubbles"]
+  specialEffects: text("special_effects").array(), // ["explosions", "magical_aura", "energy_beams", "particle_effects"]
+  stylizedElements: text("stylized_elements").array(), // ["halftone_shading", "bold_outlines", "watercolor_background"]
+  
+  // AUDIO ELEMENTS & SOUND DESIGN
+  soundEffects: text("sound_effects").array(), // Traditional SFX array maintained for compatibility
+  detailedSoundEffects: jsonb("detailed_sound_effects"), // JSON with volume, duration, source, type
+  ambientSounds: text("ambient_sounds").array(), // ["city_traffic", "office_chatter", "nature_sounds"]
+  musicCues: varchar("music_cues"), // "dramatic_orchestral", "light_jazz", "no_music", "fade_in", "fade_out"
+  voiceOverText: text("voice_over_text"), // Narrator or character voice-over content
+  voiceOverCharacter: varchar("voice_over_character"), // Name of character doing voice-over or "narrator"
+  dialoguePlacement: varchar("dialogue_placement"), // "top_panel", "bottom_panel", "distributed", "minimal"
+  silenceEmphasis: boolean("silence_emphasis").default(false), // Whether silence is a key element
+  soundPerspective: varchar("sound_perspective"), // "close_intimate", "distant_muffled", "echo_reverb"
+  
+  // AI GENERATION METADATA
+  generationPrompt: text("generation_prompt"), // Complete AI prompt for this panel
+  negativePrompt: text("negative_prompt"), // Things to avoid in generation
+  promptWeight: jsonb("prompt_weight"), // JSON with element importance weights
+  consistencyNotes: text("consistency_notes"), // Notes for maintaining visual consistency
+  referenceImages: text("reference_images").array(), // URLs or paths to reference materials
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
