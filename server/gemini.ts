@@ -2327,7 +2327,9 @@ export class GeminiService {
   }
 
   /**
-   * Build a structured script generation prompt with rich metadata
+   * Build a structured script generation prompt with rich metadata (ENHANCED VERSION)
+   * Now includes movie-quality panel descriptions with detailed character states,
+   * camera work, lighting, and technical direction using enhanced schema fields
    */
   private buildStructuredScriptPrompt(request: GenerateStructuredScriptRequest): string {
     let prompt = `You are an expert comic book script writer. Create a highly detailed, structured comic book script with rich metadata for optimal AI comic generation.
@@ -2363,16 +2365,54 @@ CHARACTERS:`;
    - Setting and characters present
    - Brief narrative description
 
-3. Panel-Level Details (CRITICAL for AI generation):
+3. ENHANCED Panel-Level Details (MOVIE-QUALITY for AI generation):
    - Panel numbering: Number panels sequentially within each page (1, 2, 3, 4, 5, 6)
-   - Visual description (detailed, specific, visual)
-   - Camera angle (close-up, medium shot, wide shot, bird's eye, worm's eye, over-shoulder, etc.)
-   - Shot type (establishing shot, action shot, reaction shot, dramatic shot, etc.)
-   - Mood and atmosphere
-   - Character emotions for each character in the panel
-   - Visual notes (lighting, composition, special effects)
-   - Timing (beat, pause, moment, action)
-   - Sound effects (if any)
+   - Visual description (extremely detailed, specific, cinematic)
+   
+   **CINEMATOGRAPHY (Film-Level Direction)**:
+   - Camera angle with reasoning: specific angles (low angle for power, high angle for vulnerability)
+   - Shot size: precise framing (extreme close-up, close-up, medium, wide, extreme wide)
+   - Camera movement: static, pan, tilt, zoom, dolly, tracking shots
+   - Depth of field: shallow (character focus), medium, deep (environmental context)
+   - Focus point: what draws the eye first in the composition
+   - Composition: rule of thirds, leading lines, framing devices, visual balance
+   
+   **LIGHTING DESIGN (Professional Level)**:
+   - Primary lighting: source, direction, intensity (harsh sunlight, soft window light)
+   - Secondary lighting: fill lights, rim lights, accent lighting
+   - Lighting mood: dramatic, naturalistic, stylized, noir, bright, moody
+   - Shadow placement: cast shadows, character shadows, environmental shadows
+   - Color temperature: warm (2700K-3000K), neutral (3500K-4100K), cool (5000K+)
+   
+   **CHARACTER STATES (Enhanced Detail)**:
+   - Character positioning: exact body position, stance, gestures
+   - Character interactions: who is interacting with whom, proximity
+   - Emotional states: specific facial expressions, micro-expressions
+   - Body language: posture details, hand positions, eye contact
+   - Clothing states: condition, fit, styling details
+   
+   **ENVIRONMENTAL DETAILS (Complete Scene Setting)**:
+   - Weather conditions: clear, overcast, raining, stormy, foggy, snowing
+   - Time of day: specific lighting conditions for different times
+   - Atmospheric elements: dust particles, steam, smoke, mist, environmental mood
+   - Key props: foreground, midground, background objects that advance story
+   - Environmental storytelling: background details that enhance narrative
+   
+   **TECHNICAL DIRECTION (Advanced Techniques)**:
+   - Panel pacing: very slow, slow, moderate, fast, very fast, frozen moment
+   - Timing: real-time, slow-motion, time-lapse, compressed time
+   - Transition type: cut, fade, dissolve, wipe, match cut, jump cut
+   - Visual effects: motion blur, speed lines, impact effects, thought bubbles
+   - Special effects: explosions, magical aura, energy beams, particle effects
+   - Panel borders: standard, rounded, irregular, borderless, overlapping
+   
+   **AUDIO LANDSCAPE (Complete Sound Design)**:
+   - Sound effects: specific, layered audio descriptions
+   - Ambient sounds: environmental audio layers (city traffic, office chatter, nature)
+   - Music cues: dramatic orchestral, light jazz, tension building, emotional swells
+   - Voice-over: narrator or character internal thoughts
+   - Dialogue placement: strategic positioning for speech bubbles
+   - Silence emphasis: moments where quiet drives the narrative
 
 4. Dialogue Specifications:
    - Character name
@@ -2380,18 +2420,35 @@ CHARACTERS:`;
    - Tone (excited, whispered, shouting, thoughtful, etc.)
    - Placement (top-left, center, bottom-right, off-panel, etc.)
 
-GUIDELINES:
+ENHANCED GUIDELINES FOR MOVIE-QUALITY SCRIPTS:
 - CRITICAL: Number panels sequentially within each page starting from 1 (Panel 1, Panel 2, Panel 3, etc.)
-- **PAGE COUNT DETERMINATION**: Analyze story needs - simple concepts (6-12 pages), complex plots (12-20 pages), epic stories (20-30+ pages). Consider genre: Action/Superhero (more pages for fights), Romance/Slice-of-life (fewer pages for character moments), Horror/Mystery (medium length for tension building).
-- Make visual descriptions extremely detailed and specific
-- Include concrete visual elements AI can understand
-- Specify camera work like a film director
-- Consider panel-to-panel flow and transitions
-- Balance action, dialogue, and emotional beats
-- Ensure each panel has clear visual focus
-- Include environmental details and character positioning
+- **PAGE COUNT DETERMINATION**: Analyze story complexity - simple concepts (6-12 pages), complex plots (12-20 pages), epic stories (20-30+ pages). Genre considerations: Action/Superhero (more panels for choreographed sequences), Romance/Character-driven (fewer panels for emotional beats), Horror/Mystery (medium pacing for tension and reveals).
 
-Create a script that tells a complete, satisfying story with strong visual storytelling, memorable characters, and emotional impact. Focus on creating vivid, specific imagery that AI can translate into compelling comic panels.`;
+**PROFESSIONAL STANDARDS**:
+- Visual descriptions must be EXTREMELY detailed and cinematic
+- Include specific technical camera direction (lens choice, movement, framing)
+- Specify professional lighting setups with mood and technical details
+- Character positioning must be precise and purposeful
+- Environmental storytelling through every background element
+- Panel-to-panel flow with intentional pacing and rhythm
+- Color psychology considerations for mood enhancement
+- Sound design integration for complete sensory experience
+
+**VISUAL STORYTELLING MASTERY**:
+- Each panel must have multiple layers of visual information
+- Foreground, midground, background composition planning
+- Character acting through body language and micro-expressions
+- Environmental details that advance plot and character development
+- Technical effects that enhance rather than distract from story
+- Transition planning between panels for optimal reading flow
+
+**AI OPTIMIZATION**:
+- Use concrete, specific visual language AI can interpret accurately
+- Include technical specifications that translate to visual parameters
+- Provide character consistency guidelines throughout the script
+- Balance artistic vision with technical execution requirements
+
+Create a MOVIE-QUALITY script with the depth and precision of a professional film storyboard, utilizing every technical field for maximum visual impact and narrative clarity. The script should generate panels that rival professional comic book and film production standards.`;
 
     return prompt;
   }
@@ -3465,44 +3522,96 @@ NARRATIVE CONSISTENCY RULES:
 ${characterBible.narrativeConsistency.globalRules.map(rule => `- ${rule}`).join('\n')}
 
 INSTRUCTIONS:
-Create detailed panel scripts for the specified pages. For each page:
+Create MOVIE-QUALITY detailed panel scripts that utilize the full range of cinematic techniques. For each page:
 
 1. **Page Structure**: Determine optimal panel count and layout based on story beats
-2. **Panel Details**: For each panel, provide:
-   - Visual description with specific character positions and actions
-   - Camera angle and shot type for best storytelling
-   - Character emotional states and expressions
-   - Environmental details (setting, lighting, atmosphere)
-   - Sound effects and mood indicators
-   - Dialogue with proper tone and placement
+2. **ENHANCED Panel Details**: For each panel, provide comprehensive technical direction:
 
-3. **Character Consistency**: Ensure all characters match their profiles:
-   - Use exact physical descriptions from character bible
-   - Maintain clothing states and color schemes
-   - Follow personality traits and speech patterns
-   - Respect "always" and "never" rules
+   **A. CHARACTER STATES (Enhanced Detail)**:
+   - Physical positioning (exact body position, stance, gesture)
+   - Emotional expression (specific facial expression, micro-expressions)
+   - Body language and posture details
+   - Clothing state and appearance condition
+   - Character interactions and proximity to others
+   - Eye contact and facing direction
+   - Visibility level (full body, partial, silhouette, close-up)
+   - Character-specific lighting conditions
 
-4. **Visual Storytelling**: Leverage comic medium effectively:
-   - Use varied camera angles and shot types
-   - Plan panel transitions and pacing
-   - Consider page turns and reveals
-   - Balance action, dialogue, and atmosphere
+   **B. CINEMATOGRAPHY (Film-Level Direction)**:
+   - Camera angle: specific angle with reasoning (low angle for power, high angle for vulnerability)
+   - Shot size: precise framing (extreme close-up, close-up, medium, wide, extreme wide)
+   - Camera movement: static, pan, tilt, zoom, dolly, tracking
+   - Depth of field: shallow (character focus), medium, deep (environmental context)
+   - Focus point: what draws the eye first
+   - Composition: rule of thirds, leading lines, framing devices
+   - Camera height: eye level, low angle, high angle, bird's eye, worm's eye
 
-5. **Continuity**: Maintain consistency with:
-   - Previous chunk events and character states
-   - Story outline beats and emotional progression
-   - Environmental details and time of day
-   - Character relationships and dynamics
+   **C. LIGHTING DESIGN (Professional Level)**:
+   - Primary lighting: source, direction, intensity (harsh sunlight, soft window light)
+   - Secondary lighting: fill lights, rim lights, accent lights
+   - Lighting mood: dramatic, naturalistic, stylized, noir, bright
+   - Shadow placement: cast shadows, character shadows, environmental shadows
+   - Color temperature: warm (2700K-3000K), neutral (3500K-4100K), cool (5000K+)
+   - Time of day lighting: golden hour, blue hour, noon harsh, twilight
 
-6. **Technical Direction**: Provide clear guidance for:
-   - Panel composition and framing
-   - Character positioning and interaction
-   - Background and environmental details
-   - Lighting and atmospheric effects
+   **D. ENVIRONMENTAL DETAILS (Complete Scene Setting)**:
+   - Weather conditions: clear, overcast, raining, stormy, foggy, snowing
+   - Atmospheric elements: dust particles, steam, smoke, mist
+   - Key props and objects: foreground, midground, background elements
+   - Environmental storytelling: details that advance narrative
+   - Background activity: ambient life, movement, secondary action
+   - Architectural details: specific building features, textures, materials
 
-Generate detailed panel scripts that bring the story outline to life while maintaining complete visual and narrative consistency.
+   **E. TECHNICAL DIRECTION (Advanced Techniques)**:
+   - Panel pacing: very slow, slow, moderate, fast, very fast, frozen moment
+   - Timing: real-time, slow-motion, time-lapse, compressed time
+   - Transition type: cut, fade, dissolve, wipe, match cut, jump cut
+   - Visual effects: motion blur, speed lines, impact effects, thought bubbles
+   - Special effects: explosions, magical aura, energy beams, particle effects
+   - Stylized elements: halftone shading, bold outlines, watercolor backgrounds
 
-Output in the specified JSON format with all required fields completed.`;
+   **F. AUDIO LANDSCAPE (Complete Sound Design)**:
+   - Sound effects: specific, layered audio (not just "crash" but "metallic screech of bending steel")
+   - Ambient sounds: environmental audio layers (city traffic, office chatter, nature sounds)
+   - Music cues: dramatic orchestral, light jazz, tension building, emotional swells
+   - Voice-over: narrator or character internal thoughts
+   - Dialogue placement: panel positioning for speech bubbles (top, center, distributed)
+   - Silence emphasis: moments where quiet is key to the story
+   - Sound perspective: close intimate sounds, distant muffled, echoing reverb
+
+3. **ENHANCED Character Consistency**: Use character bible data meticulously:
+   - Exact physical measurements and build descriptions
+   - Precise clothing states with color coordination
+   - Maintain speech patterns and vocabulary
+   - Follow "always" traits religiously (never deviate)
+   - Avoid "never" traits completely
+   - Use characteristic poses and signature expressions
+
+4. **ADVANCED Visual Storytelling**: Professional comic techniques:
+   - Varied shot sequences for rhythm (wide-medium-close-extreme close)
+   - Page turn reveals and cliffhangers
+   - Panel shape storytelling (jagged for action, soft for emotions)
+   - Gutters and white space for pacing
+   - Visual metaphors and symbolism
+   - Color psychology for mood enhancement
+
+5. **COMPREHENSIVE Continuity**: Track every detail:
+   - Character clothing and appearance changes
+   - Time progression and lighting shifts
+   - Object placement and environmental consistency
+   - Character relationship dynamics evolution
+   - Plot thread advancement and setup/payoff
+
+6. **PROFESSIONAL Technical Direction**: Industry-standard guidance:
+   - Specific camera lens effects (wide-angle distortion, telephoto compression)
+   - Aspect ratio considerations for panel shapes
+   - Color palette consistency across panels
+   - Texture and material specifications
+   - Perspective accuracy and spatial relationships
+
+Generate MOVIE-QUALITY panel scripts with the depth and precision of a professional film storyboard, utilizing every available technical field for maximum visual impact and narrative clarity.
+
+Output in the specified JSON format with ALL enhanced fields completed comprehensively.
 
     return prompt;
   }
@@ -3583,13 +3692,73 @@ Output in the specified JSON format with all required fields completed.`;
                         depth: { type: "string" },
                         focusPoint: { type: "string" },
                         composition: { type: "string" },
-                        movement: { type: "string" }
+                        movement: { type: "string" },
+                        cameraMovement: { type: "string" },
+                        cameraFocusPoint: { type: "string" },
+                        depthOfField: { type: "string" }
                       },
                       required: ["cameraAngle", "shotSize", "composition"]
+                    },
+                    
+                    // ENHANCED LIGHTING SYSTEM
+                    lighting: {
+                      type: "object",
+                      properties: {
+                        lightingPrimary: { type: "string" },
+                        lightingSecondary: { type: "string" },
+                        lightingMood: { type: "string" },
+                        shadows: { type: "string" },
+                        colorTemperature: { type: "string" }
+                      },
+                      required: ["lightingPrimary", "lightingMood"]
+                    },
+                    
+                    // ENHANCED CHARACTER POSITIONING
+                    characterPositioning: { type: "string" },
+                    characterInteractions: { type: "string" },
+                    characterProximity: { type: "string" },
+                    
+                    // ENHANCED ENVIRONMENTAL DETAILS
+                    weatherConditions: { type: "string" },
+                    keyProps: { type: "array", items: { type: "string" } },
+                    environmentalDetails: { type: "string" },
+                    
+                    // TECHNICAL DIRECTION
+                    pacing: { type: "string" },
+                    transitionType: { type: "string" },
+                    panelBorders: { type: "string" },
+                    visualEffects: { type: "array", items: { type: "string" } },
+                    specialEffects: { type: "array", items: { type: "string" } },
+                    stylizedElements: { type: "array", items: { type: "string" } },
+                    
+                    // ENHANCED AUDIO SYSTEM
+                    audioLandscape: {
+                      type: "object",
+                      properties: {
+                        ambientSounds: { type: "array", items: { type: "string" } },
+                        musicCues: { type: "string" },
+                        voiceOverText: { type: "string" },
+                        voiceOverCharacter: { type: "string" },
+                        dialoguePlacement: { type: "string" },
+                        silenceEmphasis: { type: "boolean" },
+                        soundPerspective: { type: "string" }
+                      }
+                    },
+                    
+                    // AI GENERATION METADATA
+                    generationNotes: {
+                      type: "object",
+                      properties: {
+                        generationPrompt: { type: "string" },
+                        negativePrompt: { type: "string" },
+                        promptWeight: { type: "object" },
+                        referenceImages: { type: "array", items: { type: "string" } }
+                      }
                     },
                     visualNotes: { type: "string" },
                     timing: { type: "string" },
                     soundEffects: { type: "array", items: { type: "string" } },
+                    detailedSoundEffects: { type: "object" },
                     dialogue: {
                       type: "array",
                       items: {
@@ -3605,8 +3774,11 @@ Output in the specified JSON format with all required fields completed.`;
                         required: ["characterName", "text", "tone", "placement"]
                       }
                     },
-                    transitionType: { type: "string" },
-                    consistencyNotes: { type: "array", items: { type: "string" } }
+                    consistencyNotes: { type: "array", items: { type: "string" } },
+                    
+                    // LEGACY COMPATIBILITY FIELDS
+                    visualStyle: { type: "string" },
+                    artisticNotes: { type: "string" }
                   },
                   required: ["panelNumber", "panelType", "visualDescription", "cameraAngle", "shotType", "mood"]
                 }
