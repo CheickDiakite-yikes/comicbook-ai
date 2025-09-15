@@ -140,11 +140,8 @@ function AnimatedWord({ word, index, comicEffect = 'pop' }: AnimatedWordProps) {
       }
     },
     glow: {
-      initial: { opacity: 0, textShadow: "0 0 0px rgba(59, 130, 246, 0)" },
-      animate: { 
-        opacity: 1, 
-        textShadow: "0 0 10px rgba(59, 130, 246, 0.8)"
-      },
+      initial: { opacity: 0, scale: 0.9 },
+      animate: { opacity: 1, scale: 1 },
       transition: { 
         duration: 0.6,
         delay: index * 0.1
@@ -154,8 +151,11 @@ function AnimatedWord({ word, index, comicEffect = 'pop' }: AnimatedWordProps) {
 
   return (
     <motion.span
-      className="inline-block mr-2"
+      className={`inline-block mr-2 ${comicEffect === 'glow' ? 'text-shadow-glow' : ''}`}
       {...effects[comicEffect]}
+      style={{
+        textShadow: comicEffect === 'glow' ? '0 0 8px rgba(59, 130, 246, 0.6)' : undefined
+      }}
     >
       {word}
     </motion.span>
