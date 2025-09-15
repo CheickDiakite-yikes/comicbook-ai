@@ -627,18 +627,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI Generation endpoints
-  app.post("/api/generate-image", 
+  // AI Generation endpoints - SECURE: projectId from authenticated route params
+  app.post("/api/projects/:projectId/generate-image", 
     isAuthenticated,
     requireCredits({
       operationType: "panel_generation",
-      getResourceId: getPanelIdFromBody,
+      getResourceId: getProjectIdFromParams,
       getMetadata: (req) => createOperationMetadata(req, { 
         prompt: req.body.prompt?.substring(0, 100) 
       })
     }),
     async (req: any, res) => {
     try {
+      // SECURITY FIX: projectId now comes from authenticated route params, not user-controlled request body
+      const projectId = req.params.projectId;
+      const userId = getUserId(req.user);
+      
+      // Verify user owns the project before any processing
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(403).json({ 
+          message: "Access denied: Invalid project or insufficient permissions",
+          error: "unauthorized_project_access"
+        });
+      }
+      
       const { 
         prompt, 
         panelId, 
@@ -646,8 +659,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         characterContext, 
         styleOptions, 
         panelContext,
-        // New optional fields for enhanced context
-        projectId,
+        // Optional fields for enhanced context
         currentPageId,
         selectedPanelNumber
       } = req.body;
@@ -656,6 +668,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let previousPanelsContext: Array<{panelNumber: number; prompt: string; imageUrl?: string}> = [];
       let crossPageContext: Array<{pageNumber: number; panels: Array<{panelNumber: number; prompt: string; imageUrl?: string}>}> = [];
       let enhancedPrompt = prompt; // Default to original prompt
+      
+      console.log(`✅ SECURITY: Project ownership validated for user ${userId}, project ${projectId}`);
       
       if (currentPageId && selectedPanelNumber && projectId) {
         console.log(`🎯 ENHANCED CONTEXT: Building rich script-enhanced context for panel ${selectedPanelNumber} on page ${currentPageId}`);
@@ -681,7 +695,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // SCRIPT ENHANCEMENT: Add the same script enhancement logic from full-page generation
           try {
-            const project = await storage.getProject(projectId);
+            const project = await storage.getProject(projectId); // Project already validated above
             const currentPage = await storage.getPage(currentPageId);
             const characters = await storage.getProjectCharacters(projectId);
             
@@ -824,6 +838,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await geminiService.generatePanelImage({
         prompt: enhancedPrompt, // Use enhanced prompt with script data
         panelId,
+        projectId, // SECURITY FIX: Pass authenticated projectId from route params instead of deriving from panelId
         projectContext: enhancedProjectContext, // Use enhanced context with fresh character data
         characterContext,
         styleOptions,
@@ -1342,6 +1357,7 @@ Redress this character in the specified outfit while maintaining their core visu
           result = await geminiService.generatePanelImage({
             prompt: characterPrompt,
             panelId: panelId,
+            projectId, // SECURITY FIX: Pass authenticated projectId from request body instead of deriving from panelId
             sourceImageUrl: currentPanelImage, // Pass current panel image for editing
             projectContext: projectContext,
             characterContext: [{
@@ -1455,34 +1471,34 @@ Redress this character in the specified outfit while maintaining their core visu
     }
   });
 
-  // Background Generation route - enhanced for both panel and page-level generation
-  app.post("/api/generate-background", 
+  // Background Generation route - SECURE: projectId from authenticated route params
+  app.post("/api/projects/:projectId/generate-background", 
     isAuthenticated,
     requireCredits({
       operationType: "background_generation",
-      getResourceId: getPageIdFromRequest,
+      getResourceId: getProjectIdFromParams,
       getMetadata: (req) => createOperationMetadata(req, { 
-        projectId: req.body.projectId,
+        projectId: req.params.projectId,
         pageId: req.body.pageId 
       })
     }),
     async (req: any, res) => {
     try {
-      const { panelId, projectId, pageId, layoutTemplate, panelContext } = req.body;
-      
-      // Support both panel-level and page-level background generation
-      const actualProjectId = projectId || (pageId ? (await storage.getPage(pageId))?.projectId : null);
-      const actualPanelId = panelId || 1; // Default to panel 1 for page-level generation
-      
-      if (!actualProjectId) {
-        return res.status(400).json({ message: "Project ID is required (either directly or via page)" });
-      }
-
-      const project = await storage.getProject(actualProjectId);
+      // SECURITY FIX: projectId now comes from authenticated route params, not user-controlled request body
+      const projectId = req.params.projectId;
       const userId = getUserId(req.user);
+      
+      // Verify user owns the project before any processing
+      const project = await storage.getProject(projectId);
       if (!project || project.userId !== userId) {
-        return res.status(404).json({ message: "Project not found" });
+        return res.status(403).json({ 
+          message: "Access denied: Invalid project or insufficient permissions",
+          error: "unauthorized_project_access"
+        });
       }
+      
+      const { panelId, pageId, layoutTemplate, panelContext } = req.body;
+      const actualPanelId = panelId || 1; // Default to panel 1 for page-level generation
 
       const projectContext = {
         title: project.title,
@@ -1498,7 +1514,7 @@ Redress this character in the specified outfit while maintaining their core visu
           const page = await storage.getPage(pageId);
           if (page) {
             // Get structured script for this project
-            const structuredScript = await storage.getProjectStructuredScript(actualProjectId);
+            const structuredScript = await storage.getProjectStructuredScript(projectId);
             if (structuredScript) {
               // Script pages are already included in the FullStructuredScript
               const matchingScriptPage = structuredScript.pages.find(sp => sp.pageNumber === page.pageNumber);
@@ -1651,14 +1667,24 @@ Redress this character in the specified outfit while maintaining their core visu
   // PARALLEL PROCESSING ENDPOINTS
   // ========================================
 
-  // Generate multiple panels in parallel - SECURED WITH VALIDATION & CREDITS
-  app.post("/api/parallel/panels", 
+  // Generate multiple panels in parallel - SECURE: projectId from authenticated route params
+  app.post("/api/projects/:projectId/parallel/panels", 
     isAuthenticated,
-    // SECURITY FIX: Use body parser for project ID since route has no :projectId param
+    // SECURITY FIX: projectId now from authenticated route params, not user-controlled request body
     async (req: any, res: any, next: any) => {
       try {
         const userId = getUserId(req.user);
+        const projectId = req.params.projectId;
         const panelCount = req.body?.panels?.length || 0;
+        
+        // SECURITY FIX: Verify user owns the project before any processing
+        const project = await storage.getProject(projectId);
+        if (!project || project.userId !== userId) {
+          return res.status(403).json({ 
+            message: "Access denied: Invalid project or insufficient permissions",
+            error: "unauthorized_project_access"
+          });
+        }
         
         // CRITICAL: Manual credit check with correct item count calculation
         const creditsRequired = calculateParallelCredits('panel_generation', panelCount);
@@ -1683,7 +1709,7 @@ Redress this character in the specified outfit while maintaining their core visu
           userId,
           'panel_generation',
           creditsRequired,
-          req.body?.projectId,
+          projectId, // SECURITY FIX: Use authenticated projectId from route params
           createOperationMetadata(req, {
             panelCount,
             operationType: 'parallel_panels'
@@ -1749,14 +1775,24 @@ Redress this character in the specified outfit while maintaining their core visu
     }
   });
 
-  // Generate multiple pages in parallel - SECURED WITH VALIDATION & CREDITS
-  app.post("/api/parallel/pages", 
+  // Generate multiple pages in parallel - SECURE: projectId from authenticated route params  
+  app.post("/api/projects/:projectId/parallel/pages", 
     isAuthenticated,
-    // SECURITY FIX: Use body parser for project ID since route has no :projectId param
+    // SECURITY FIX: projectId now from authenticated route params, not user-controlled request body
     async (req: any, res: any, next: any) => {
       try {
         const userId = getUserId(req.user);
+        const projectId = req.params.projectId;
         const pageCount = req.body?.pages?.length || 0;
+        
+        // SECURITY FIX: Verify user owns the project before any processing
+        const project = await storage.getProject(projectId);
+        if (!project || project.userId !== userId) {
+          return res.status(403).json({ 
+            message: "Access denied: Invalid project or insufficient permissions",
+            error: "unauthorized_project_access"
+          });
+        }
         
         // CRITICAL: Manual credit check with correct item count calculation
         const creditsRequired = calculateParallelCredits('full_page_generation', pageCount);
@@ -1781,7 +1817,7 @@ Redress this character in the specified outfit while maintaining their core visu
           userId,
           'full_page_generation',
           creditsRequired,
-          req.body?.projectId,
+          projectId, // SECURITY FIX: Use authenticated projectId from route params
           createOperationMetadata(req, {
             pageCount,
             operationType: 'parallel_pages'
@@ -1847,14 +1883,24 @@ Redress this character in the specified outfit while maintaining their core visu
     }
   });
 
-  // Generate mixed content in batches - SECURED WITH VALIDATION & CREDITS
-  app.post("/api/parallel/batch", 
+  // Generate mixed content in batches - SECURE: projectId from authenticated route params
+  app.post("/api/projects/:projectId/parallel/batch", 
     isAuthenticated,
-    // SECURITY FIX: Use body parser for project ID since route has no :projectId param
+    // SECURITY FIX: projectId now from authenticated route params, not user-controlled request body
     async (req: any, res: any, next: any) => {
       try {
         const userId = getUserId(req.user);
+        const projectId = req.params.projectId;
         const batchCount = req.body?.batches?.length || 0;
+        
+        // SECURITY FIX: Verify user owns the project before any processing
+        const project = await storage.getProject(projectId);
+        if (!project || project.userId !== userId) {
+          return res.status(403).json({ 
+            message: "Access denied: Invalid project or insufficient permissions",
+            error: "unauthorized_project_access"
+          });
+        }
         
         // CRITICAL: Manual credit check with correct item count calculation
         const creditsRequired = calculateParallelCredits('complete_story_generation', batchCount);
@@ -1879,7 +1925,7 @@ Redress this character in the specified outfit while maintaining their core visu
           userId,
           'complete_story_generation',
           creditsRequired,
-          req.body?.projectId,
+          projectId, // SECURITY FIX: Use authenticated projectId from route params
           createOperationMetadata(req, {
             batchCount,
             operationType: 'parallel_batch'
@@ -2323,7 +2369,7 @@ Redress this character in the specified outfit while maintaining their core visu
       const { GeminiService } = await import("./gemini");
       const geminiService = new GeminiService();
       
-      // Generate structured script
+      // Generate structured script with character validation
       const structuredScriptResponse = await geminiService.generateStructuredScript({
         title,
         description,
@@ -2333,7 +2379,7 @@ Redress this character in the specified outfit while maintaining their core visu
         pageCount: validatedPageCount,
         tone,
         logline,
-      });
+      }, projectId);
       
       // Check if structured script already exists for this project
       const existingScript = await storage.getProjectStructuredScript(projectId);
@@ -2621,7 +2667,8 @@ Redress this character in the specified outfit while maintaining their core visu
 
       const { geminiService } = await import("./gemini");
       
-      // Generate chunked script
+      // Generate chunked script with character validation
+      // Note: projectId not available in this endpoint, but character validation will run on the Gemini service level
       const scriptChunk = await geminiService.generateChunkedScript({
         storyOutline,
         characterBible,
@@ -2667,7 +2714,7 @@ Redress this character in the specified outfit while maintaining their core visu
 
       const { geminiService } = await import("./gemini");
       
-      // Run full multi-stage generation
+      // Run full multi-stage generation with character validation
       const result = await geminiService.generateMultiStageScript({
         title,
         description,
@@ -2680,7 +2727,7 @@ Redress this character in the specified outfit while maintaining their core visu
         targetAudience,
         themes,
         artStyle
-      });
+      }, projectId);
       
       // If projectId is provided, save to database
       if (projectId) {

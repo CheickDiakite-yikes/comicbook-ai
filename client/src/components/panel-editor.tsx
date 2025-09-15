@@ -606,9 +606,9 @@ export default function PanelEditor({
       
       console.log('🎨 Background generation prompt:', environmentalPrompt);
       
-      const result = await apiRequest("POST", "/api/generate-background", {
+      // SECURITY FIX: Use secure project-based route with authenticated projectId
+      const result = await apiRequest("POST", `/api/projects/${project.id}/generate-background`, {
         panelId: selectedPanel,
-        projectId: project.id,
         panelContext: enhancedContext,
         environmentalPrompt: environmentalPrompt, // Include enhanced environmental context
         scriptContext: scriptContext // Pass script context for server-side processing

@@ -38,6 +38,7 @@ export interface ParallelGenerationOptions {
 export interface ParallelGenerationResult {
   sessionId: string;
   userId: string; // SECURITY: Track session ownership
+  projectId: string; // CRITICAL: Track project for proper context scoping
   totalTasks: number;
   completedTasks: number;
   failedTasks: number;
@@ -55,6 +56,7 @@ export class ParallelGenerationManager extends EventEmitter {
   private dependencyTracker: DependencyTracker;
   private progressTracker: ProgressTracker;
   private activeSessions: Map<string, ParallelGenerationResult> = new Map();
+  private taskToSessionMap: Map<string, string> = new Map(); // SECURITY FIX: Track task->session mapping explicitly
   private storage: IStorage;
 
   constructor(storage: IStorage) {
@@ -96,6 +98,7 @@ export class ParallelGenerationManager extends EventEmitter {
     const result: ParallelGenerationResult = {
       sessionId,
       userId: request.userId, // SECURITY: Track session ownership
+      projectId: request.projectId, // CRITICAL: Store projectId for context scoping
       totalTasks: request.tasks.length,
       completedTasks: 0,
       failedTasks: 0,
@@ -132,7 +135,7 @@ export class ParallelGenerationManager extends EventEmitter {
         ? this.dependencyTracker.getReadyTasks(sessionId)
         : request.tasks;
 
-      await this.scheduleTasks(sessionId, initialTasks, request.options);
+      await this.scheduleTasks(sessionId, request.projectId, initialTasks, request.options);
 
       this.emit('sessionStarted', sessionId, result);
       return sessionId;
@@ -160,8 +163,18 @@ export class ParallelGenerationManager extends EventEmitter {
     // Cancel all pending tasks
     await this.workerPool.cancelTasksBySession(sessionId);
     
-    // Cleanup resources
-    this.stateManager.cleanupProject(sessionId);
+    // SECURITY FIX: Clean up all task-to-session mappings for cancelled session
+    for (const [taskId, mappedSessionId] of this.taskToSessionMap.entries()) {
+      if (mappedSessionId === sessionId) {
+        this.taskToSessionMap.delete(taskId);
+      }
+    }
+    
+    // Cleanup resources - FIXED: Use projectId instead of sessionId for shared state cleanup
+    const projectId = session.projectId;
+    if (projectId) {
+      this.stateManager.cleanupProject(projectId);
+    }
     this.dependencyTracker.cleanupSession(sessionId);
     this.progressTracker.cleanupSession(sessionId);
 
@@ -198,7 +211,8 @@ export class ParallelGenerationManager extends EventEmitter {
    * Schedule tasks for execution
    */
   private async scheduleTasks(
-    sessionId: string, 
+    sessionId: string,
+    projectId: string, 
     tasks: ParallelGenerationTask[], 
     options: ParallelGenerationOptions
   ): Promise<void> {
@@ -211,7 +225,7 @@ export class ParallelGenerationManager extends EventEmitter {
     const batches = this.createBatches(tasks, options.batchSize);
     
     for (const batch of batches) {
-      await this.processBatch(sessionId, batch, options);
+      await this.processBatch(sessionId, projectId, batch, options);
     }
   }
 
@@ -231,11 +245,12 @@ export class ParallelGenerationManager extends EventEmitter {
    */
   private async processBatch(
     sessionId: string,
+    projectId: string,
     batch: ParallelGenerationTask[],
     options: ParallelGenerationOptions
   ): Promise<void> {
     const batchPromises = batch.map(task => 
-      this.processTask(sessionId, task, options)
+      this.processTask(sessionId, projectId, task, options)
     );
 
     await Promise.allSettled(batchPromises);
@@ -246,13 +261,14 @@ export class ParallelGenerationManager extends EventEmitter {
    */
   private async processTask(
     sessionId: string,
+    projectId: string,
     task: ParallelGenerationTask,
     options: ParallelGenerationOptions
   ): Promise<void> {
     try {
-      // Get shared state for character consistency
+      // Get shared state for character consistency - FIXED: Using projectId instead of title
       const sharedContext = options.enableCharacterConsistency 
-        ? await this.stateManager.getSharedContext(task.payload.projectContext.title)
+        ? await this.stateManager.getSharedContext(projectId)
         : null;
 
       // Enhance task payload with shared context
@@ -261,6 +277,9 @@ export class ParallelGenerationManager extends EventEmitter {
         : task.payload;
 
       // Submit to worker pool
+      // SECURITY FIX: Map task ID to session ID for proper tracking without relying on parsing
+      this.taskToSessionMap.set(task.id, sessionId);
+      
       await this.workerPool.submitTask({
         id: task.id,
         sessionId,
@@ -306,14 +325,20 @@ export class ParallelGenerationManager extends EventEmitter {
 
     const session = this.activeSessions.get(sessionId);
     if (!session) return;
+    
+    // SECURITY FIX: Clean up task-to-session mapping when task completes
+    this.taskToSessionMap.delete(taskId);
 
     // Update session results
     session.results.set(taskId, result);
     session.completedTasks++;
 
-    // Update shared state with result
+    // Update shared state with result - FIXED: Pass projectId for proper context scoping
     if (result.status === 'completed') {
-      this.stateManager.updateCharacterStates(taskId, result);
+      const projectId = session.projectId;
+      if (projectId) {
+        this.stateManager.updateCharacterStates(projectId, taskId, result);
+      }
     }
 
     // Update progress
@@ -325,7 +350,7 @@ export class ParallelGenerationManager extends EventEmitter {
       // Schedule newly ready tasks
       const session_request = this.getSessionRequest(sessionId);
       if (session_request) {
-        this.scheduleTasks(sessionId, readyTasks, session_request.options);
+        this.scheduleTasks(sessionId, session.projectId, readyTasks, session_request.options);
       }
     }
 
@@ -376,8 +401,11 @@ export class ParallelGenerationManager extends EventEmitter {
     session.status = 'completed';
     session.endTime = new Date();
 
-    // Cleanup resources
-    this.stateManager.cleanupProject(sessionId);
+    // Cleanup resources - FIXED: Use projectId instead of sessionId for shared state cleanup
+    const projectId = session.projectId;
+    if (projectId) {
+      this.stateManager.cleanupProject(projectId);
+    }
     this.dependencyTracker.cleanupSession(sessionId);
     this.progressTracker.cleanupSession(sessionId);
 
@@ -397,8 +425,11 @@ export class ParallelGenerationManager extends EventEmitter {
     // Cancel remaining tasks
     this.workerPool.cancelTasksBySession(sessionId);
 
-    // Cleanup resources
-    this.stateManager.cleanupProject(sessionId);
+    // Cleanup resources - FIXED: Use projectId instead of sessionId for shared state cleanup
+    const projectId = session.projectId;
+    if (projectId) {
+      this.stateManager.cleanupProject(projectId);
+    }
     this.dependencyTracker.cleanupSession(sessionId);
     this.progressTracker.cleanupSession(sessionId);
 
@@ -409,9 +440,8 @@ export class ParallelGenerationManager extends EventEmitter {
    * Utility methods
    */
   private findSessionByTaskId(taskId: string): string | undefined {
-    // Implementation would track task -> session mapping
-    // For now, parse from task ID if it includes session info
-    return taskId.split('_')[0];
+    // SECURITY FIX: Use explicit task->session mapping instead of parsing taskId
+    return this.taskToSessionMap.get(taskId);
   }
 
   private getSessionRequest(sessionId: string): ParallelGenerationRequest | undefined {
@@ -425,7 +455,7 @@ export class ParallelGenerationManager extends EventEmitter {
    */
   async shutdown(): Promise<void> {
     // Cancel all active sessions
-    for (const sessionId of this.activeSessions.keys()) {
+    for (const sessionId of Array.from(this.activeSessions.keys())) {
       await this.cancelSession(sessionId);
     }
 

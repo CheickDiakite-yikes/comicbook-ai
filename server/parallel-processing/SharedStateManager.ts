@@ -190,9 +190,8 @@ export class SharedStateManager extends EventEmitter {
     return true;
   }
 
-  async updateCharacterStates(taskId: string, result: GenerateImageResponse): Promise<void> {
-    // Extract project ID from task ID (you'd need to implement this based on your task ID format)
-    const projectId = this.extractProjectIdFromTaskId(taskId);
+  async updateCharacterStates(projectId: string, taskId: string, result: GenerateImageResponse): Promise<void> {
+    // FIXED: Accept projectId directly instead of trying to extract from taskId
     const state = this.projectStates.get(projectId);
     
     if (!state) {
@@ -283,7 +282,7 @@ export class SharedStateManager extends EventEmitter {
     // Clear locks
     const projectLocks = this.locks.get(projectId);
     if (projectLocks) {
-      for (const characterName of [...projectLocks]) {
+      for (const characterName of Array.from(projectLocks)) {
         this.unlockCharacter(projectId, characterName);
       }
       this.locks.delete(projectId);
@@ -310,12 +309,9 @@ export class SharedStateManager extends EventEmitter {
       .filter(color => color.length > 0);
   }
 
-  private extractProjectIdFromTaskId(taskId: string): string {
-    // Implement based on your task ID format
-    // For example, if task ID is "project_123_panel_456", extract "project_123"
-    const parts = taskId.split('_');
-    return parts.slice(0, 2).join('_'); // Assumes "project_id" format
-  }
+  // SECURITY FIX: Removed extractProjectIdFromTaskId method
+  // ProjectId should always be provided explicitly from authenticated sources, 
+  // never derived from parsing taskId or other untrusted data
 
   private extractPromptFromResult(result: GenerateImageResponse): string {
     // You'd need to store the original prompt in the result or pass it separately

@@ -6,6 +6,12 @@ import { imageEnhancer } from "./image-enhancer";
 import { ObjectStorageService } from "./objectStorage";
 import { characterNameService } from "./services/CharacterNameService";
 import { characterDescriptorService } from "./services/CharacterDescriptorService";
+import { 
+  createCharacterNameEnum, 
+  buildCharacterConstraintInstructions,
+  validateScriptCharacters,
+  validatePanelCharacters
+} from "./utils/characterValidation";
 
 // Initialize Gemini AI client
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
@@ -13,6 +19,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 export interface GenerateImageRequest {
   prompt: string;
   panelId: string | number;
+  projectId: string; // REQUIRED: Authenticated project ID from route params (not derived from panelId)
   sourceImageUrl?: string; // For image editing - the existing panel image
   projectContext: {
     title: string;
@@ -1274,26 +1281,63 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
     const startTime = Date.now();
     const isEditMode = !!request.sourceImageUrl;
     
-    // 🔄 PHASE 4: INITIALIZE CHARACTER STATE TRACKING FOR CONSISTENCY
-    let sharedStateManager: any = null;
-    let projectId: string | null = null;
+    // 🔒 RUNTIME CHARACTER VALIDATION GUARD: Validate characters before panel generation
+    const { projectId } = request; // SECURITY FIX: Use authenticated projectId from route params, not derived from panelId
+    
+    // SECURITY ENFORCEMENT: ProjectId is required - fail fast if missing
+    if (!projectId) {
+      console.error(`🚫 SECURITY VIOLATION: Missing required projectId for panel ${request.panelId}`);
+      return {
+        imageUrl: "",
+        status: "failed",
+        panelId: request.panelId,
+        error: "Generation blocked - missing authenticated project context. This request must come from a valid project route."
+      };
+    }
     
     try {
-      // Extract project ID from panel ID or request context
-      if (typeof request.panelId === 'string' && request.panelId.includes('_')) {
-        projectId = request.panelId.split('_')[0];
-      } else if (request.projectContext?.title) {
-        // Try to get project ID from context (this might need enhancement)
+      // 🔒 CHARACTER VALIDATION GATE: Verify all characters exist before panel generation
+      {
         const { storage } = await import("./storage");
-        const projects = await storage.getUserProjects('temp'); // This needs proper user ID
-        const project = projects.find(p => p.title === request.projectContext.title);
-        if (project) {
-          projectId = project.id;
+        const validationResult = await validatePanelCharacters(
+          request, 
+          projectId, 
+          storage
+        );
+        
+        if (!validationResult.isValid) {
+          const errorDetails = validationResult.errors.map(e => 
+            `Unknown character "${e.characterName}" in ${e.location}${
+              e.suggestions?.length ? ` (suggestions: ${e.suggestions.join(", ")})` : ""
+            }`
+          ).join("; ");
+          
+          console.error(`🚫 PANEL GENERATION BLOCKED: ${errorDetails}`);
+          
+          return {
+            imageUrl: "",
+            status: "failed",
+            panelId: request.panelId,
+            error: `Panel generation blocked - unknown characters detected: ${errorDetails}. Only these characters are allowed in project.`
+          };
         }
+        
+        console.log(`✅ Character validation passed for panel ${request.panelId}: ${validationResult.validCharacters.length} valid characters found`);
       }
+    } catch (validationError) {
+      console.error("Character validation error:", validationError);
+      // Continue with generation but log the error
+    }
+    
+    // 🔄 PHASE 4: INITIALIZE CHARACTER STATE TRACKING FOR CONSISTENCY
+    let sharedStateManager: any = null;
+    
+    try {
+      // SECURITY FIX: Use authenticated projectId (already validated above) instead of parsing from panelId
+      // This ensures SharedStateManager operates on the correct, authenticated project context
       
-      // Initialize SharedStateManager for character consistency
-      if (projectId) {
+      // Initialize SharedStateManager for character consistency  
+      {
         const { SharedStateManager } = await import("./parallel-processing/SharedStateManager");
         const { storage } = await import("./storage");
         
@@ -1985,11 +2029,24 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
   /**
    * Generate a structured comic script with rich metadata
    */
-  async generateStructuredScript(request: GenerateStructuredScriptRequest): Promise<GenerateStructuredScriptResponse> {
+  async generateStructuredScript(request: GenerateStructuredScriptRequest, projectId?: string): Promise<GenerateStructuredScriptResponse> {
     try {
-      const prompt = this.buildStructuredScriptPrompt(request);
+      // 🔒 CHARACTER VALIDATION: Get project characters for constraints
+      let projectCharacters: Array<{ name: string; id: string }> = [];
+      if (projectId) {
+        try {
+          const { storage } = await import("./storage");
+          projectCharacters = await storage.getProjectCharacters(projectId);
+        } catch (error) {
+          console.warn("Could not load project characters for validation:", error);
+        }
+      }
       
-      console.log("Generating structured script with prompt:", prompt);
+      const characterNames = projectCharacters.map(c => c.name);
+      const prompt = this.buildStructuredScriptPrompt(request, characterNames);
+      
+      console.log("Generating structured script with character constraints:", characterNames.length > 0 ? characterNames.join(", ") : "No character constraints");
+      console.log("Prompt length:", prompt.length);
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-pro",
@@ -2036,7 +2093,9 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
                             items: {
                               type: "object",
                               properties: {
-                                characterName: { type: "string" },
+                                characterName: characterNames.length > 0 ? 
+                                  { type: "string", enum: characterNames } : 
+                                  { type: "string" },
                                 text: { type: "string" },
                                 tone: { type: "string" },
                                 placement: { type: "string" }
@@ -2070,6 +2129,27 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
         // Validate and ensure we have at least some pages
         if (!structuredScript.pages || structuredScript.pages.length === 0) {
           throw new Error("No pages generated in structured script");
+        }
+        
+        // 🔒 VALIDATION GATE: Validate character names in generated script
+        if (projectId && projectCharacters.length > 0) {
+          const validationResult = await validateScriptCharacters(
+            structuredScript, 
+            projectId, 
+            (await import("./storage")).storage
+          );
+          
+          if (!validationResult.isValid) {
+            const errorDetails = validationResult.errors.map(e => 
+              `Unknown character "${e.characterName}" in ${e.location}${
+                e.suggestions?.length ? ` (suggestions: ${e.suggestions.join(", ")})` : ""
+              }`
+            ).join("; ");
+            
+            throw new Error(`Script validation failed - unknown characters detected: ${errorDetails}. Only these characters are allowed: ${characterNames.join(", ")}`);
+          }
+          
+          console.log(`✅ Script validation passed: ${validationResult.validCharacters.length} valid characters found`);
         }
         
         // Fill in missing required fields with defaults and ensure page count
@@ -2468,10 +2548,23 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
    * Stage 3: Generate detailed panel scripts using chunking system
    */
   async generateChunkedScript(
-    request: ChunkedScriptGenerationRequest
+    request: ChunkedScriptGenerationRequest,
+    projectId?: string
   ): Promise<ChunkedScriptResponse> {
     try {
-      const prompt = this.buildChunkedScriptPrompt(request);
+      // 🔒 CHARACTER VALIDATION: Get project characters for constraints
+      let projectCharacters: Array<{ name: string; id: string }> = [];
+      if (projectId) {
+        try {
+          const { storage } = await import("./storage");
+          projectCharacters = await storage.getProjectCharacters(projectId);
+        } catch (error) {
+          console.warn("Could not load project characters for validation:", error);
+        }
+      }
+      
+      const characterNames = projectCharacters.map(c => c.name);
+      const prompt = this.buildChunkedScriptPrompt(request, characterNames);
       
       console.log(`📝 STAGE 3: Generating script chunk ${request.chunkInfo.currentChunk}/${request.chunkInfo.totalChunks}`);
       console.log(`Processing pages: ${request.chunkInfo.pagesInChunk.join(', ')}`);
@@ -2481,7 +2574,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
         model: "gemini-2.5-pro",
         config: {
           responseMimeType: "application/json",
-          responseSchema: this.getChunkedScriptSchema()
+          responseSchema: this.getChunkedScriptSchema(characterNames)
         },
         contents: prompt,
       });
@@ -2497,6 +2590,27 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
       if (!scriptChunk.pages || scriptChunk.pages.length === 0) {
         throw new Error("No pages generated in script chunk");
       }
+      
+      // 🔒 VALIDATION GATE: Validate character names in generated script chunk
+      if (projectId && projectCharacters.length > 0) {
+        const validationResult = await validateScriptCharacters(
+          scriptChunk, 
+          projectId, 
+          (await import("./storage")).storage
+        );
+        
+        if (!validationResult.isValid) {
+          const errorDetails = validationResult.errors.map(e => 
+            `Unknown character "${e.characterName}" in ${e.location}${
+              e.suggestions?.length ? ` (suggestions: ${e.suggestions.join(", ")})` : ""
+            }`
+          ).join("; ");
+          
+          throw new Error(`Script chunk validation failed - unknown characters detected: ${errorDetails}. Only these characters are allowed: ${characterNames.join(", ")}`);
+        }
+        
+        console.log(`✅ Script chunk validation passed: ${validationResult.validCharacters.length} valid characters found`);
+      }
 
       console.log(`✅ STAGE 3 CHUNK ${request.chunkInfo.currentChunk} COMPLETE: Generated ${scriptChunk.pages.length} pages with detailed panels`);
       return scriptChunk;
@@ -2511,7 +2625,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
   /**
    * Full multi-stage script generation orchestrator
    */
-  async generateMultiStageScript(request: MultiStageScriptRequest): Promise<{
+  async generateMultiStageScript(request: MultiStageScriptRequest, projectId?: string): Promise<{
     storyOutline: StoryOutlineResponse;
     characterBible: CharacterBibleResponse;
     scriptChunks: ChunkedScriptResponse[];
@@ -2554,7 +2668,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
           generationMode: "sequential"
         };
         
-        const chunkResult = await this.generateChunkedScript(chunkRequest);
+        const chunkResult = await this.generateChunkedScript(chunkRequest, projectId);
         scriptChunks.push(chunkResult);
         
         // Prepare summary for next chunk
@@ -3136,7 +3250,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
    * Now includes movie-quality panel descriptions with detailed character states,
    * camera work, lighting, and technical direction using enhanced schema fields
    */
-  private buildStructuredScriptPrompt(request: GenerateStructuredScriptRequest): string {
+  private buildStructuredScriptPrompt(request: GenerateStructuredScriptRequest, validCharacterNames?: string[]): string {
     let prompt = `You are an expert comic book script writer. Create a highly detailed, structured comic book script with rich metadata for optimal AI comic generation.
 
 STORY BRIEF:
@@ -3156,6 +3270,11 @@ CHARACTERS:`;
     request.settings.forEach(setting => {
       prompt += `\n- ${setting.name}: ${setting.description}`;
     });
+    
+    // 🔒 CHARACTER CONSTRAINTS: Add strict character validation instructions
+    if (validCharacterNames && validCharacterNames.length > 0) {
+      prompt += `\n\n${buildCharacterConstraintInstructions(validCharacterNames.map(name => ({ name })))}`;
+    }
 
     prompt += `\n\nPRODUCE A STRUCTURED SCRIPT WITH:
 
@@ -4273,7 +4392,7 @@ Generate comprehensive character profiles in the specified JSON format.`;
   /**
    * Build prompt for chunked script generation
    */
-  private buildChunkedScriptPrompt(request: ChunkedScriptGenerationRequest): string {
+  private buildChunkedScriptPrompt(request: ChunkedScriptGenerationRequest, validCharacterNames?: string[]): string {
     const { storyOutline, characterBible, chunkInfo, previousChunkSummary } = request;
     
     let prompt = `You are a professional comic book scripwriter creating detailed panel scripts. Generate a script chunk for pages ${chunkInfo.startPage}-${chunkInfo.endPage}.
@@ -4325,6 +4444,8 @@ PREVIOUS CHUNK CONTEXT:
 
 NARRATIVE CONSISTENCY RULES:
 ${characterBible.narrativeConsistency.globalRules.map(rule => `- ${rule}`).join('\n')}
+
+${validCharacterNames && validCharacterNames.length > 0 ? buildCharacterConstraintInstructions(validCharacterNames.map(name => ({ name }))) : ''}
 
 INSTRUCTIONS:
 Create MOVIE-QUALITY detailed panel scripts that utilize the full range of cinematic techniques. For each page:
@@ -4424,7 +4545,7 @@ Output in the specified JSON format with ALL enhanced fields completed comprehen
   /**
    * Get JSON schema for chunked script generation
    */
-  private getChunkedScriptSchema(): any {
+  private getChunkedScriptSchema(validCharacterNames?: string[]): any {
     return {
       type: "object",
       properties: {
@@ -4459,7 +4580,9 @@ Output in the specified JSON format with ALL enhanced fields completed comprehen
                       items: {
                         type: "object",
                         properties: {
-                          characterName: { type: "string" },
+                          characterName: validCharacterNames && validCharacterNames.length > 0 ? 
+                            { type: "string", enum: validCharacterNames } : 
+                            { type: "string" },
                           emotion: { type: "string" },
                           facialExpression: { type: "string" },
                           bodyLanguage: { type: "string" },
@@ -4470,7 +4593,9 @@ Output in the specified JSON format with ALL enhanced fields completed comprehen
                           clothingState: { type: "string" },
                           lightingCondition: { type: "string" },
                           proximityToOthers: { type: "string" },
-                          interactingWith: { type: "array", items: { type: "string" } }
+                          interactingWith: validCharacterNames && validCharacterNames.length > 0 ? 
+                            { type: "array", items: { type: "string", enum: validCharacterNames } } : 
+                            { type: "array", items: { type: "string" } }
                         },
                         required: ["characterName", "emotion", "position", "visibility"]
                       }
@@ -4569,7 +4694,9 @@ Output in the specified JSON format with ALL enhanced fields completed comprehen
                       items: {
                         type: "object",
                         properties: {
-                          characterName: { type: "string" },
+                          characterName: validCharacterNames && validCharacterNames.length > 0 ? 
+                            { type: "string", enum: validCharacterNames } : 
+                            { type: "string" },
                           text: { type: "string" },
                           tone: { type: "string" },
                           placement: { type: "string" },
