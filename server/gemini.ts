@@ -128,6 +128,323 @@ export interface GenerateStructuredScriptResponse {
   }>;
 }
 
+// ========================================
+// MULTI-STAGE SCRIPT GENERATION INTERFACES
+// ========================================
+
+export interface MultiStageScriptRequest {
+  title: string;
+  genre?: string;
+  description: string;
+  characters: Array<{
+    name: string;
+    role: string;
+    bio: string;
+    visualHints?: string;
+  }>;
+  settings: Array<{
+    name: string;
+    description: string;
+  }>;
+  pageCount?: number;
+  tone?: string;
+  logline?: string;
+  targetAudience?: string;
+  themes?: string[];
+  artStyle?: string;
+}
+
+export interface StoryOutlineResponse {
+  title: string;
+  logline: string;
+  estimatedPageCount: number;
+  totalActs: number;
+  overallThemes: string[];
+  targetTone: string;
+  storyBeats: Array<{
+    beatNumber: number;
+    beatTitle: string;
+    description: string;
+    emotionalTone: string;
+    estimatedPageRange: string; // e.g., "1-3"
+    keyEvents: string[];
+    charactersInvolved: string[];
+  }>;
+  actStructure: Array<{
+    actNumber: number;
+    actTitle: string;
+    startPage: number;
+    endPage: number;
+    summary: string;
+    majorEvents: string[];
+    characterArcs: { [character: string]: string };
+    emotionalArc: string;
+  }>;
+  pageSummaries: Array<{
+    pageNumber: number;
+    pageTitle: string;
+    summary: string;
+    setting: string;
+    characters: string[];
+    plotFunction: string; // e.g., "Setup", "Inciting Incident", "Climax"
+    emotionalTone: string;
+    keyMoments: string[];
+    transitionTo?: string; // How it connects to the next page
+  }>;
+  worldBuildingElements: {
+    primarySettings: string[];
+    secondarySettings: string[];
+    timeOfDay: { [setting: string]: string };
+    atmosphere: { [setting: string]: string };
+  };
+  consistencyNotes: string[];
+}
+
+export interface CharacterBibleResponse {
+  characters: Array<{
+    id: string;
+    name: string;
+    role: string;
+    bio: string;
+    
+    // Enhanced Appearance Details
+    physicalProfile: {
+      height: string;
+      build: string;
+      bodyType: string;
+      posture: string;
+      
+      // Facial Features
+      faceShape: string;
+      eyeColor: string;
+      eyeShape: string;
+      eyebrowShape: string;
+      noseShape: string;
+      lipShape: string;
+      jawline: string;
+      
+      // Hair Details
+      hairColor: string;
+      hairTexture: string;
+      hairLength: string;
+      hairStyle: string;
+      facialHair?: string;
+      
+      // Skin
+      skinTone: string;
+      skinTexture: string;
+      
+      // Distinctive Features
+      scarsMarkings?: string[];
+      tattoos?: string[];
+      piercings?: string[];
+      glasses?: string;
+    };
+    
+    // Clothing & Style
+    defaultClothingState: {
+      stateName: string;
+      isDefault: boolean;
+      headwear?: string;
+      upperBody: string;
+      lowerBody: string;
+      footwear: string;
+      outerwear?: string;
+      jewelry?: string[];
+      accessories?: string[];
+      primaryColors: string[];
+      colorScheme: string;
+      styleDescription: string;
+      fittingNotes: string;
+    };
+    
+    alternateClothingStates?: Array<{
+      stateName: string; // "formal", "casual", "work", "action"
+      description: string;
+      appropriateScenes: string[];
+    }>;
+    
+    // Character Voice & Mannerisms
+    personality: {
+      coreTraits: string[];
+      motivations: string[];
+      fears: string[];
+      quirks: string[];
+      speechPattern: string;
+      voiceDescription: string;
+      commonPhrases: string[];
+      bodyLanguage: string[];
+      facialExpressions: string[];
+      gestureStyle: string;
+    };
+    
+    // Story Role
+    storyFunction: {
+      primaryRole: string; // "protagonist", "antagonist", "mentor", "comic relief"
+      relationshipToProtagonist: string;
+      characterArc: string;
+      keyScenes: string[];
+      emotionalJourney: string;
+    };
+    
+    // Consistency Guidelines
+    consistencyRules: {
+      alwaysTraits: string[];
+      neverTraits: string[];
+      characteristicPoses: string[];
+      signatureExpressions: string[];
+      warningNotes: string[]; // Things to avoid
+    };
+  }>;
+  
+  characterRelationships: Array<{
+    character1: string;
+    character2: string;
+    relationshipType: string;
+    dynamicDescription: string;
+    conflictPoints?: string[];
+    bondingMoments?: string[];
+  }>;
+  
+  narrativeConsistency: {
+    globalRules: string[];
+    settingSpecificRules: { [setting: string]: string[] };
+    storyProgressionRules: string[];
+  };
+}
+
+export interface ChunkedScriptGenerationRequest {
+  storyOutline: StoryOutlineResponse;
+  characterBible: CharacterBibleResponse;
+  chunkInfo: {
+    totalChunks: number;
+    currentChunk: number;
+    pagesInChunk: number[];
+    startPage: number;
+    endPage: number;
+  };
+  previousChunkSummary?: {
+    lastScene: string;
+    characterStates: { [character: string]: string };
+    plotProgression: string;
+    unresolvedElements: string[];
+  };
+  generationMode: "sequential" | "parallel";
+}
+
+export interface ChunkedScriptResponse {
+  chunkNumber: number;
+  pagesGenerated: number[];
+  pages: Array<{
+    pageNumber: number;
+    title: string;
+    overallMood: string;
+    setting: string;
+    characters: string[];
+    narrative: string;
+    layoutSuggestion: string;
+    panelCount: number;
+    
+    panels: Array<{
+      panelNumber: number;
+      panelType: string; // "establishing", "action", "dialogue", "close-up", "transition"
+      visualDescription: string;
+      cameraAngle: string;
+      shotType: string;
+      mood: string;
+      
+      // Enhanced Character Details
+      characterStates: Array<{
+        characterName: string;
+        emotion: string;
+        facialExpression: string;
+        bodyLanguage: string;
+        position: string;
+        pose: string;
+        facingDirection: string;
+        visibility: string;
+        clothingState: string;
+        lightingCondition: string;
+        proximityToOthers: string;
+        interactingWith: string[];
+      }>;
+      
+      // Environmental Details
+      environment: {
+        settingName: string;
+        timeOfDay: string;
+        weather?: string;
+        lighting: string;
+        atmosphere: string;
+        keyObjects: string[];
+        backgroundCharacters?: string[];
+        soundscape: string[];
+      };
+      
+      // Technical Direction
+      cinematography: {
+        cameraAngle: string;
+        shotSize: string; // "extreme close-up", "close-up", "medium", "wide", "extreme wide"
+        depth: string; // "shallow", "medium", "deep"
+        focusPoint: string;
+        composition: string;
+        movement?: string; // "static", "pan", "zoom", "tracking"
+      };
+      
+      visualNotes: string;
+      timing: string;
+      soundEffects: string[];
+      
+      dialogue: Array<{
+        characterName: string;
+        text: string;
+        tone: string;
+        placement: string;
+        bubbleType: string; // "speech", "thought", "whisper", "shout", "narrative"
+        emotionalSubtext: string;
+      }>;
+      
+      transitionType?: string; // "cut", "fade", "dissolve", "wipe", "match cut"
+      consistencyNotes: string[];
+    }>;
+    
+    pageTransition: {
+      transitionType: string;
+      description: string;
+      continuityNotes: string[];
+    };
+  }>;
+  
+  chunkSummary: {
+    plotProgressionThisChunk: string;
+    characterDevelopments: { [character: string]: string };
+    unresolvedPlotThreads: string[];
+    setupForNextChunk: string[];
+    continuityCheckpoints: string[];
+  };
+  
+  nextChunkPrep?: {
+    expectedOpeningScene: string;
+    characterStatesCarryover: { [character: string]: string };
+    plotMomentum: string;
+    atmosphereCarryover: string;
+  };
+}
+
+export interface MultiStageGenerationProgress {
+  stage: "outline" | "character_bible" | "chunked_script";
+  currentStep: string;
+  totalSteps: number;
+  completedSteps: number;
+  progress: number; // 0-100
+  estimatedTimeRemaining?: number; // in seconds
+  currentlyProcessing?: string;
+  chunksCompleted?: number;
+  totalChunks?: number;
+  errors?: string[];
+  warnings?: string[];
+}
+
 // Legacy interfaces for backward compatibility
 export interface GenerateScriptRequest {
   title: string;
@@ -1056,6 +1373,469 @@ export class GeminiService {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       throw new Error("Failed to generate script: " + errorMessage);
     }
+  }
+
+  // ========================================
+  // MULTI-STAGE SCRIPT GENERATION METHODS
+  // ========================================
+
+  /**
+   * Stage 1: Generate comprehensive story outline with acts, beats, and page planning
+   */
+  async generateStoryOutline(request: MultiStageScriptRequest): Promise<StoryOutlineResponse> {
+    try {
+      const prompt = this.buildStoryOutlinePrompt(request);
+      
+      console.log("🎬 STAGE 1: Generating story outline...");
+      console.log("Prompt length:", prompt.length);
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-pro",
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              logline: { type: "string" },
+              estimatedPageCount: { type: "number" },
+              totalActs: { type: "number" },
+              overallThemes: { type: "array", items: { type: "string" } },
+              targetTone: { type: "string" },
+              storyBeats: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    beatNumber: { type: "number" },
+                    beatTitle: { type: "string" },
+                    description: { type: "string" },
+                    emotionalTone: { type: "string" },
+                    estimatedPageRange: { type: "string" },
+                    keyEvents: { type: "array", items: { type: "string" } },
+                    charactersInvolved: { type: "array", items: { type: "string" } }
+                  },
+                  required: ["beatNumber", "beatTitle", "description", "emotionalTone", "keyEvents", "charactersInvolved"]
+                }
+              },
+              actStructure: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    actNumber: { type: "number" },
+                    actTitle: { type: "string" },
+                    startPage: { type: "number" },
+                    endPage: { type: "number" },
+                    summary: { type: "string" },
+                    majorEvents: { type: "array", items: { type: "string" } },
+                    characterArcs: { 
+                      type: "object",
+                      properties: {
+                        character: { type: "string" }
+                      }
+                    },
+                    emotionalArc: { type: "string" }
+                  },
+                  required: ["actNumber", "actTitle", "startPage", "endPage", "summary", "majorEvents", "emotionalArc"]
+                }
+              },
+              pageSummaries: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    pageNumber: { type: "number" },
+                    pageTitle: { type: "string" },
+                    summary: { type: "string" },
+                    setting: { type: "string" },
+                    characters: { type: "array", items: { type: "string" } },
+                    plotFunction: { type: "string" },
+                    emotionalTone: { type: "string" },
+                    keyMoments: { type: "array", items: { type: "string" } },
+                    transitionTo: { type: "string" }
+                  },
+                  required: ["pageNumber", "pageTitle", "summary", "setting", "characters", "plotFunction", "emotionalTone", "keyMoments"]
+                }
+              },
+              worldBuildingElements: {
+                type: "object",
+                properties: {
+                  primarySettings: { type: "array", items: { type: "string" } },
+                  secondarySettings: { type: "array", items: { type: "string" } },
+                  timeOfDay: {
+                    type: "object",
+                    properties: {
+                      setting: { type: "string" }
+                    }
+                  },
+                  atmosphere: {
+                    type: "object",
+                    properties: {
+                      setting: { type: "string" }
+                    }
+                  }
+                },
+                required: ["primarySettings", "secondarySettings"]
+              },
+              consistencyNotes: { type: "array", items: { type: "string" } }
+            },
+            required: ["title", "logline", "estimatedPageCount", "totalActs", "overallThemes", "targetTone", "storyBeats", "actStructure", "pageSummaries", "worldBuildingElements", "consistencyNotes"]
+          }
+        },
+        contents: prompt,
+      });
+
+      const responseText = response.text || "";
+      if (!responseText) {
+        throw new Error("No response received from Gemini for story outline");
+      }
+
+      const storyOutline: StoryOutlineResponse = JSON.parse(responseText);
+      
+      // Validate essential structure
+      if (!storyOutline.pageSummaries || storyOutline.pageSummaries.length === 0) {
+        throw new Error("No page summaries generated in story outline");
+      }
+
+      console.log(`✅ STAGE 1 COMPLETE: Generated outline for ${storyOutline.estimatedPageCount} pages with ${storyOutline.totalActs} acts`);
+      return storyOutline;
+
+    } catch (error) {
+      console.error("Error generating story outline:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      throw new Error("Failed to generate story outline: " + errorMessage);
+    }
+  }
+
+  /**
+   * Stage 2: Generate comprehensive character bible with detailed appearance profiles
+   */
+  async generateCharacterBible(
+    request: MultiStageScriptRequest, 
+    storyOutline: StoryOutlineResponse
+  ): Promise<CharacterBibleResponse> {
+    try {
+      const prompt = this.buildCharacterBiblePrompt(request, storyOutline);
+      
+      console.log("👥 STAGE 2: Generating character bible...");
+      console.log("Prompt length:", prompt.length);
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-pro",
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "object",
+            properties: {
+              characters: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    name: { type: "string" },
+                    role: { type: "string" },
+                    bio: { type: "string" },
+                    physicalProfile: {
+                      type: "object",
+                      properties: {
+                        height: { type: "string" },
+                        build: { type: "string" },
+                        bodyType: { type: "string" },
+                        posture: { type: "string" },
+                        faceShape: { type: "string" },
+                        eyeColor: { type: "string" },
+                        eyeShape: { type: "string" },
+                        eyebrowShape: { type: "string" },
+                        noseShape: { type: "string" },
+                        lipShape: { type: "string" },
+                        jawline: { type: "string" },
+                        hairColor: { type: "string" },
+                        hairTexture: { type: "string" },
+                        hairLength: { type: "string" },
+                        hairStyle: { type: "string" },
+                        facialHair: { type: "string" },
+                        skinTone: { type: "string" },
+                        skinTexture: { type: "string" },
+                        scarsMarkings: { type: "array", items: { type: "string" } },
+                        tattoos: { type: "array", items: { type: "string" } },
+                        piercings: { type: "array", items: { type: "string" } },
+                        glasses: { type: "string" }
+                      },
+                      required: ["height", "build", "faceShape", "eyeColor", "hairColor", "skinTone"]
+                    },
+                    defaultClothingState: {
+                      type: "object",
+                      properties: {
+                        stateName: { type: "string" },
+                        isDefault: { type: "boolean" },
+                        headwear: { type: "string" },
+                        upperBody: { type: "string" },
+                        lowerBody: { type: "string" },
+                        footwear: { type: "string" },
+                        outerwear: { type: "string" },
+                        jewelry: { type: "array", items: { type: "string" } },
+                        accessories: { type: "array", items: { type: "string" } },
+                        primaryColors: { type: "array", items: { type: "string" } },
+                        colorScheme: { type: "string" },
+                        styleDescription: { type: "string" },
+                        fittingNotes: { type: "string" }
+                      },
+                      required: ["stateName", "isDefault", "upperBody", "lowerBody", "footwear", "primaryColors", "colorScheme", "styleDescription"]
+                    },
+                    personality: {
+                      type: "object",
+                      properties: {
+                        coreTraits: { type: "array", items: { type: "string" } },
+                        motivations: { type: "array", items: { type: "string" } },
+                        fears: { type: "array", items: { type: "string" } },
+                        quirks: { type: "array", items: { type: "string" } },
+                        speechPattern: { type: "string" },
+                        voiceDescription: { type: "string" },
+                        commonPhrases: { type: "array", items: { type: "string" } },
+                        bodyLanguage: { type: "array", items: { type: "string" } },
+                        facialExpressions: { type: "array", items: { type: "string" } },
+                        gestureStyle: { type: "string" }
+                      },
+                      required: ["coreTraits", "motivations", "speechPattern", "voiceDescription"]
+                    },
+                    consistencyRules: {
+                      type: "object",
+                      properties: {
+                        alwaysTraits: { type: "array", items: { type: "string" } },
+                        neverTraits: { type: "array", items: { type: "string" } },
+                        characteristicPoses: { type: "array", items: { type: "string" } },
+                        signatureExpressions: { type: "array", items: { type: "string" } },
+                        warningNotes: { type: "array", items: { type: "string" } }
+                      },
+                      required: ["alwaysTraits", "neverTraits"]
+                    }
+                  },
+                  required: ["id", "name", "role", "bio", "physicalProfile", "defaultClothingState", "personality", "consistencyRules"]
+                }
+              },
+              characterRelationships: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    character1: { type: "string" },
+                    character2: { type: "string" },
+                    relationshipType: { type: "string" },
+                    dynamicDescription: { type: "string" },
+                    conflictPoints: { type: "array", items: { type: "string" } },
+                    bondingMoments: { type: "array", items: { type: "string" } }
+                  },
+                  required: ["character1", "character2", "relationshipType", "dynamicDescription"]
+                }
+              },
+              narrativeConsistency: {
+                type: "object",
+                properties: {
+                  globalRules: { type: "array", items: { type: "string" } },
+                  settingSpecificRules: {
+                    type: "object",
+                    properties: {
+                      setting: { type: "array", items: { type: "string" } }
+                    }
+                  },
+                  storyProgressionRules: { type: "array", items: { type: "string" } }
+                },
+                required: ["globalRules", "storyProgressionRules"]
+              }
+            },
+            required: ["characters", "characterRelationships", "narrativeConsistency"]
+          }
+        },
+        contents: prompt,
+      });
+
+      const responseText = response.text || "";
+      if (!responseText) {
+        throw new Error("No response received from Gemini for character bible");
+      }
+
+      const characterBible: CharacterBibleResponse = JSON.parse(responseText);
+      
+      // Validate essential structure
+      if (!characterBible.characters || characterBible.characters.length === 0) {
+        throw new Error("No characters generated in character bible");
+      }
+
+      console.log(`✅ STAGE 2 COMPLETE: Generated detailed profiles for ${characterBible.characters.length} characters`);
+      return characterBible;
+
+    } catch (error) {
+      console.error("Error generating character bible:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      throw new Error("Failed to generate character bible: " + errorMessage);
+    }
+  }
+
+  /**
+   * Stage 3: Generate detailed panel scripts using chunking system
+   */
+  async generateChunkedScript(
+    request: ChunkedScriptGenerationRequest
+  ): Promise<ChunkedScriptResponse> {
+    try {
+      const prompt = this.buildChunkedScriptPrompt(request);
+      
+      console.log(`📝 STAGE 3: Generating script chunk ${request.chunkInfo.currentChunk}/${request.chunkInfo.totalChunks}`);
+      console.log(`Processing pages: ${request.chunkInfo.pagesInChunk.join(', ')}`);
+      console.log("Prompt length:", prompt.length);
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-pro",
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: this.getChunkedScriptSchema()
+        },
+        contents: prompt,
+      });
+
+      const responseText = response.text || "";
+      if (!responseText) {
+        throw new Error("No response received from Gemini for script chunk");
+      }
+
+      const scriptChunk: ChunkedScriptResponse = JSON.parse(responseText);
+      
+      // Validate essential structure
+      if (!scriptChunk.pages || scriptChunk.pages.length === 0) {
+        throw new Error("No pages generated in script chunk");
+      }
+
+      console.log(`✅ STAGE 3 CHUNK ${request.chunkInfo.currentChunk} COMPLETE: Generated ${scriptChunk.pages.length} pages with detailed panels`);
+      return scriptChunk;
+
+    } catch (error) {
+      console.error("Error generating chunked script:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      throw new Error("Failed to generate script chunk: " + errorMessage);
+    }
+  }
+
+  /**
+   * Full multi-stage script generation orchestrator
+   */
+  async generateMultiStageScript(request: MultiStageScriptRequest): Promise<{
+    storyOutline: StoryOutlineResponse;
+    characterBible: CharacterBibleResponse;
+    scriptChunks: ChunkedScriptResponse[];
+  }> {
+    try {
+      console.log("🚀 STARTING MULTI-STAGE SCRIPT GENERATION");
+      console.log(`Project: ${request.title}`);
+      console.log(`Characters: ${request.characters.map(c => c.name).join(', ')}`);
+      console.log(`Target Pages: ${request.pageCount || 'Auto-determine'}`);
+
+      // Stage 1: Generate story outline
+      const storyOutline = await this.generateStoryOutline(request);
+      
+      // Stage 2: Generate character bible
+      const characterBible = await this.generateCharacterBible(request, storyOutline);
+      
+      // Stage 3: Generate chunked scripts
+      const totalPages = storyOutline.estimatedPageCount;
+      const chunkSize = this.calculateOptimalChunkSize(totalPages);
+      const chunks = this.createChunkPlan(totalPages, chunkSize);
+      
+      console.log(`📋 CHUNKING PLAN: ${chunks.length} chunks of ~${chunkSize} pages each`);
+      
+      const scriptChunks: ChunkedScriptResponse[] = [];
+      let previousChunkSummary: ChunkedScriptGenerationRequest['previousChunkSummary'] = undefined;
+      
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        const chunkRequest: ChunkedScriptGenerationRequest = {
+          storyOutline,
+          characterBible,
+          chunkInfo: {
+            totalChunks: chunks.length,
+            currentChunk: i + 1,
+            pagesInChunk: chunk.pages,
+            startPage: chunk.startPage,
+            endPage: chunk.endPage
+          },
+          previousChunkSummary,
+          generationMode: "sequential"
+        };
+        
+        const chunkResult = await this.generateChunkedScript(chunkRequest);
+        scriptChunks.push(chunkResult);
+        
+        // Prepare summary for next chunk
+        if (i < chunks.length - 1 && chunkResult.nextChunkPrep) {
+          previousChunkSummary = {
+            lastScene: chunkResult.nextChunkPrep.expectedOpeningScene,
+            characterStates: chunkResult.nextChunkPrep.characterStatesCarryover,
+            plotProgression: chunkResult.nextChunkPrep.plotMomentum,
+            unresolvedElements: chunkResult.chunkSummary.unresolvedPlotThreads
+          };
+        }
+        
+        // Optional: Add delay between chunks to avoid rate limiting
+        if (i < chunks.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      console.log("🎉 MULTI-STAGE GENERATION COMPLETE!");
+      console.log(`Generated ${totalPages} pages across ${chunks.length} chunks with full character consistency`);
+
+      return {
+        storyOutline,
+        characterBible,
+        scriptChunks
+      };
+
+    } catch (error) {
+      console.error("Error in multi-stage script generation:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      throw new Error("Failed to generate multi-stage script: " + errorMessage);
+    }
+  }
+
+  // ========================================
+  // HELPER METHODS FOR MULTI-STAGE GENERATION
+  // ========================================
+
+  private calculateOptimalChunkSize(totalPages: number): number {
+    // Optimal chunk size based on content complexity and API limits
+    if (totalPages <= 5) return totalPages; // Small comics in one chunk
+    if (totalPages <= 12) return Math.ceil(totalPages / 2); // Medium comics in 2 chunks
+    if (totalPages <= 25) return Math.ceil(totalPages / 3); // Larger comics in 3 chunks
+    return Math.ceil(totalPages / Math.ceil(totalPages / 8)); // Very large comics in chunks of ~8 pages
+  }
+
+  private createChunkPlan(totalPages: number, chunkSize: number): Array<{
+    startPage: number;
+    endPage: number;
+    pages: number[];
+  }> {
+    const chunks = [];
+    let currentPage = 1;
+    
+    while (currentPage <= totalPages) {
+      const endPage = Math.min(currentPage + chunkSize - 1, totalPages);
+      const pages = [];
+      
+      for (let p = currentPage; p <= endPage; p++) {
+        pages.push(p);
+      }
+      
+      chunks.push({
+        startPage: currentPage,
+        endPage,
+        pages
+      });
+      
+      currentPage = endPage + 1;
+    }
+    
+    return chunks;
   }
 
   /**
@@ -2491,6 +3271,389 @@ Ensure story continuity and ${request.tones.join(" + ")} tones.`;
     }
 
     return updatedScript;
+  }
+
+  // ========================================
+  // HELPER METHODS FOR MULTI-STAGE GENERATION PROMPTS
+  // ========================================
+
+  /**
+   * Build prompt for story outline generation
+   */
+  private buildStoryOutlinePrompt(request: MultiStageScriptRequest): string {
+    let prompt = `You are a professional comic book writer and story architect. Create a comprehensive story outline for a comic book project.
+
+COMIC PROJECT DETAILS:
+- Title: "${request.title}"
+- Genre: ${request.genre || 'General'}
+- Target Pages: ${request.pageCount || 'Determine optimal length'}
+- Target Audience: ${request.targetAudience || 'General readers'}
+- Tone: ${request.tone || 'Balanced'}
+
+STORY CONCEPT:
+${request.description}
+
+MAIN CHARACTERS:
+${request.characters.map(char => `- ${char.name} (${char.role}): ${char.bio}`).join('\n')}
+
+KEY SETTINGS:
+${request.settings.map(setting => `- ${setting.name}: ${setting.description}`).join('\n')}
+
+THEMES TO EXPLORE:
+${request.themes?.join(', ') || 'Universal themes relevant to the story'}
+
+ART STYLE CONTEXT:
+${request.artStyle || 'Professional comic book illustration'}
+
+INSTRUCTIONS:
+Create a detailed story outline that includes:
+
+1. **Story Structure**: Divide into 2-4 acts with clear dramatic progression
+2. **Beat Analysis**: Break down into 8-12 story beats that drive plot and character development
+3. **Page Planning**: Create detailed summaries for each page showing plot function, setting, characters, and key moments
+4. **World Building**: Establish consistent rules for settings, time periods, and atmosphere
+5. **Character Arcs**: Plan how each character grows and changes throughout the story
+6. **Consistency Guidelines**: Rules to maintain visual and narrative consistency
+
+The outline should be comprehensive enough to guide detailed script generation while maintaining creative flexibility for individual scenes.
+
+Focus on:
+- Strong three-act structure with compelling conflicts
+- Character development arcs that serve the larger story
+- Visual storytelling opportunities unique to comics
+- Pacing that works for comic book format
+- Clear setup and payoff of story elements
+- Emotional journey that resonates with readers
+
+Generate a complete story outline in the specified JSON format.`;
+
+    return prompt;
+  }
+
+  /**
+   * Build prompt for character bible generation
+   */
+  private buildCharacterBiblePrompt(request: MultiStageScriptRequest, storyOutline: StoryOutlineResponse): string {
+    let prompt = `You are a professional character designer and visual development artist for comic books. Create a comprehensive character bible based on the story outline.
+
+COMIC PROJECT:
+- Title: "${request.title}"
+- Genre: ${request.genre || 'General'}
+- Art Style: ${request.artStyle || 'Professional comic book illustration'}
+- Total Pages: ${storyOutline.estimatedPageCount}
+
+STORY OUTLINE SUMMARY:
+- Logline: ${storyOutline.logline}
+- Acts: ${storyOutline.totalActs}
+- Themes: ${storyOutline.overallThemes.join(', ')}
+- Tone: ${storyOutline.targetTone}
+
+CHARACTERS TO DEVELOP:
+${request.characters.map(char => `- ${char.name} (${char.role}): ${char.bio}`).join('\n')}
+
+KEY STORY BEATS:
+${storyOutline.storyBeats.map(beat => `- ${beat.beatTitle}: ${beat.description}`).join('\n')}
+
+PRIMARY SETTINGS:
+${storyOutline.worldBuildingElements.primarySettings.join(', ')}
+
+INSTRUCTIONS:
+Create detailed character profiles that ensure visual consistency throughout the comic. For each character, provide:
+
+1. **Physical Profile**: Comprehensive appearance details including:
+   - Body type, height, build, posture
+   - Detailed facial features (face shape, eyes, nose, lips, jawline)
+   - Hair characteristics (color, texture, length, style)
+   - Skin tone and texture
+   - Distinctive features (scars, tattoos, glasses, etc.)
+
+2. **Clothing & Style**: Default outfit and style guidelines:
+   - Complete clothing description from head to toe
+   - Color scheme and style preferences
+   - Alternative outfits for different scenes/contexts
+   - Accessories and jewelry
+
+3. **Personality & Voice**: Character psychology and mannerisms:
+   - Core personality traits and motivations
+   - Speech patterns and common phrases
+   - Body language and facial expressions
+   - Fears, quirks, and distinctive behaviors
+
+4. **Story Function**: Role in the narrative:
+   - Primary story function and character arc
+   - Relationship to protagonist and other characters
+   - Key scenes and emotional journey
+   - Character growth throughout the story
+
+5. **Consistency Rules**: Visual guidelines:
+   - ALWAYS traits that must be maintained
+   - NEVER traits to avoid
+   - Characteristic poses and expressions
+   - Warning notes for common mistakes
+
+6. **Character Relationships**: Define dynamics between characters:
+   - Relationship types and descriptions
+   - Conflict points and bonding moments
+   - How relationships evolve throughout story
+
+Focus on creating characters that:
+- Are visually distinct and memorable
+- Reflect the story's themes and tone
+- Work well in the comic book medium
+- Have consistent, recognizable designs
+- Support the narrative effectively
+
+Generate comprehensive character profiles in the specified JSON format.`;
+
+    return prompt;
+  }
+
+  /**
+   * Build prompt for chunked script generation
+   */
+  private buildChunkedScriptPrompt(request: ChunkedScriptGenerationRequest): string {
+    const { storyOutline, characterBible, chunkInfo, previousChunkSummary } = request;
+    
+    let prompt = `You are a professional comic book scripwriter creating detailed panel scripts. Generate a script chunk for pages ${chunkInfo.startPage}-${chunkInfo.endPage}.
+
+PROJECT CONTEXT:
+- Title: ${storyOutline.title}
+- Total Pages: ${storyOutline.estimatedPageCount}
+- Current Chunk: ${chunkInfo.currentChunk}/${chunkInfo.totalChunks}
+- Pages in this chunk: ${chunkInfo.pagesInChunk.join(', ')}
+
+STORY OUTLINE:
+- Logline: ${storyOutline.logline}
+- Overall Tone: ${storyOutline.targetTone}
+- Themes: ${storyOutline.overallThemes.join(', ')}
+
+CHARACTER PROFILES:
+${characterBible.characters.map(char => {
+  const physical = char.physicalProfile;
+  const clothing = char.defaultClothingState;
+  return `${char.name} (${char.role}):
+  - Physical: ${physical.height} ${physical.build}, ${physical.faceShape} face, ${physical.eyeColor} eyes, ${physical.hairColor} ${physical.hairLength} hair
+  - Clothing: ${clothing.upperBody}, ${clothing.lowerBody}, ${clothing.footwear} (${clothing.colorScheme})
+  - Personality: ${char.personality.coreTraits.join(', ')}
+  - Speech: ${char.personality.speechPattern}
+  - Always: ${char.consistencyRules.alwaysTraits.join(', ')}
+  - Never: ${char.consistencyRules.neverTraits.join(', ')}`;
+}).join('\n\n')}
+
+PAGES TO SCRIPT (from outline):
+${storyOutline.pageSummaries
+  .filter(page => chunkInfo.pagesInChunk.includes(page.pageNumber))
+  .map(page => `Page ${page.pageNumber}: "${page.pageTitle}"
+  - Setting: ${page.setting}
+  - Characters: ${page.characters.join(', ')}
+  - Plot Function: ${page.plotFunction}
+  - Emotional Tone: ${page.emotionalTone}
+  - Summary: ${page.summary}
+  - Key Moments: ${page.keyMoments.join(', ')}
+  ${page.transitionTo ? `- Transitions to: ${page.transitionTo}` : ''}`)
+  .join('\n\n')}
+
+${previousChunkSummary ? `
+PREVIOUS CHUNK CONTEXT:
+- Last Scene: ${previousChunkSummary.lastScene}
+- Plot Progression: ${previousChunkSummary.plotProgression}
+- Character States: ${Object.entries(previousChunkSummary.characterStates).map(([char, state]) => `${char}: ${state}`).join(', ')}
+- Unresolved Elements: ${previousChunkSummary.unresolvedElements.join(', ')}
+` : ''}
+
+NARRATIVE CONSISTENCY RULES:
+${characterBible.narrativeConsistency.globalRules.map(rule => `- ${rule}`).join('\n')}
+
+INSTRUCTIONS:
+Create detailed panel scripts for the specified pages. For each page:
+
+1. **Page Structure**: Determine optimal panel count and layout based on story beats
+2. **Panel Details**: For each panel, provide:
+   - Visual description with specific character positions and actions
+   - Camera angle and shot type for best storytelling
+   - Character emotional states and expressions
+   - Environmental details (setting, lighting, atmosphere)
+   - Sound effects and mood indicators
+   - Dialogue with proper tone and placement
+
+3. **Character Consistency**: Ensure all characters match their profiles:
+   - Use exact physical descriptions from character bible
+   - Maintain clothing states and color schemes
+   - Follow personality traits and speech patterns
+   - Respect "always" and "never" rules
+
+4. **Visual Storytelling**: Leverage comic medium effectively:
+   - Use varied camera angles and shot types
+   - Plan panel transitions and pacing
+   - Consider page turns and reveals
+   - Balance action, dialogue, and atmosphere
+
+5. **Continuity**: Maintain consistency with:
+   - Previous chunk events and character states
+   - Story outline beats and emotional progression
+   - Environmental details and time of day
+   - Character relationships and dynamics
+
+6. **Technical Direction**: Provide clear guidance for:
+   - Panel composition and framing
+   - Character positioning and interaction
+   - Background and environmental details
+   - Lighting and atmospheric effects
+
+Generate detailed panel scripts that bring the story outline to life while maintaining complete visual and narrative consistency.
+
+Output in the specified JSON format with all required fields completed.`;
+
+    return prompt;
+  }
+
+  /**
+   * Get JSON schema for chunked script generation
+   */
+  private getChunkedScriptSchema(): any {
+    return {
+      type: "object",
+      properties: {
+        chunkNumber: { type: "number" },
+        pagesGenerated: { type: "array", items: { type: "number" } },
+        pages: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              pageNumber: { type: "number" },
+              title: { type: "string" },
+              overallMood: { type: "string" },
+              setting: { type: "string" },
+              characters: { type: "array", items: { type: "string" } },
+              narrative: { type: "string" },
+              layoutSuggestion: { type: "string" },
+              panelCount: { type: "number" },
+              panels: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    panelNumber: { type: "number" },
+                    panelType: { type: "string" },
+                    visualDescription: { type: "string" },
+                    cameraAngle: { type: "string" },
+                    shotType: { type: "string" },
+                    mood: { type: "string" },
+                    characterStates: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          characterName: { type: "string" },
+                          emotion: { type: "string" },
+                          facialExpression: { type: "string" },
+                          bodyLanguage: { type: "string" },
+                          position: { type: "string" },
+                          pose: { type: "string" },
+                          facingDirection: { type: "string" },
+                          visibility: { type: "string" },
+                          clothingState: { type: "string" },
+                          lightingCondition: { type: "string" },
+                          proximityToOthers: { type: "string" },
+                          interactingWith: { type: "array", items: { type: "string" } }
+                        },
+                        required: ["characterName", "emotion", "position", "visibility"]
+                      }
+                    },
+                    environment: {
+                      type: "object",
+                      properties: {
+                        settingName: { type: "string" },
+                        timeOfDay: { type: "string" },
+                        weather: { type: "string" },
+                        lighting: { type: "string" },
+                        atmosphere: { type: "string" },
+                        keyObjects: { type: "array", items: { type: "string" } },
+                        backgroundCharacters: { type: "array", items: { type: "string" } },
+                        soundscape: { type: "array", items: { type: "string" } }
+                      },
+                      required: ["settingName", "timeOfDay", "lighting", "atmosphere"]
+                    },
+                    cinematography: {
+                      type: "object",
+                      properties: {
+                        cameraAngle: { type: "string" },
+                        shotSize: { type: "string" },
+                        depth: { type: "string" },
+                        focusPoint: { type: "string" },
+                        composition: { type: "string" },
+                        movement: { type: "string" }
+                      },
+                      required: ["cameraAngle", "shotSize", "composition"]
+                    },
+                    visualNotes: { type: "string" },
+                    timing: { type: "string" },
+                    soundEffects: { type: "array", items: { type: "string" } },
+                    dialogue: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          characterName: { type: "string" },
+                          text: { type: "string" },
+                          tone: { type: "string" },
+                          placement: { type: "string" },
+                          bubbleType: { type: "string" },
+                          emotionalSubtext: { type: "string" }
+                        },
+                        required: ["characterName", "text", "tone", "placement"]
+                      }
+                    },
+                    transitionType: { type: "string" },
+                    consistencyNotes: { type: "array", items: { type: "string" } }
+                  },
+                  required: ["panelNumber", "panelType", "visualDescription", "cameraAngle", "shotType", "mood"]
+                }
+              },
+              pageTransition: {
+                type: "object",
+                properties: {
+                  transitionType: { type: "string" },
+                  description: { type: "string" },
+                  continuityNotes: { type: "array", items: { type: "string" } }
+                },
+                required: ["transitionType", "description"]
+              }
+            },
+            required: ["pageNumber", "title", "overallMood", "setting", "characters", "narrative", "panels"]
+          }
+        },
+        chunkSummary: {
+          type: "object",
+          properties: {
+            plotProgressionThisChunk: { type: "string" },
+            characterDevelopments: {
+              type: "object",
+              additionalProperties: { type: "string" }
+            },
+            unresolvedPlotThreads: { type: "array", items: { type: "string" } },
+            setupForNextChunk: { type: "array", items: { type: "string" } },
+            continuityCheckpoints: { type: "array", items: { type: "string" } }
+          },
+          required: ["plotProgressionThisChunk", "characterDevelopments", "unresolvedPlotThreads"]
+        },
+        nextChunkPrep: {
+          type: "object",
+          properties: {
+            expectedOpeningScene: { type: "string" },
+            characterStatesCarryover: {
+              type: "object",
+              additionalProperties: { type: "string" }
+            },
+            plotMomentum: { type: "string" },
+            atmosphereCarryover: { type: "string" }
+          },
+          required: ["expectedOpeningScene", "plotMomentum"]
+        }
+      },
+      required: ["chunkNumber", "pagesGenerated", "pages", "chunkSummary"]
+    };
   }
 }
 

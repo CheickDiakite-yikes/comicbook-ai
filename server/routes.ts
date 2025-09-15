@@ -1464,6 +1464,291 @@ Redress this character in the specified outfit while maintaining their core visu
     }
   });
 
+  // ========================================
+  // MULTI-STAGE SCRIPT GENERATION ENDPOINTS
+  // ========================================
+
+  // Generate story outline (Stage 1)
+  app.post("/api/generation/story-outline", 
+    isAuthenticated,
+    requireCredits({
+      operationType: "story_outline_generation",
+      getResourceId: (req) => req.body.title || 'story-outline',
+      getMetadata: (req) => createOperationMetadata(req, { 
+        pageCount: req.body.pageCount,
+        charactersCount: req.body.characters?.length 
+      })
+    }),
+    async (req: any, res) => {
+    try {
+      const { title, description, genre, characters, settings, pageCount, tone, logline, targetAudience, themes, artStyle } = req.body;
+      
+      // Validate required fields
+      if (!title || !description || !characters || !Array.isArray(characters) || characters.length === 0) {
+        return res.status(400).json({ 
+          message: "Missing required fields: title, description, and characters array are required" 
+        });
+      }
+
+      const { geminiService } = await import("./gemini");
+      
+      // Generate story outline
+      const storyOutline = await geminiService.generateStoryOutline({
+        title,
+        description,
+        genre,
+        characters,
+        settings: settings || [],
+        pageCount,
+        tone,
+        logline,
+        targetAudience,
+        themes,
+        artStyle
+      });
+      
+      res.json({
+        success: true,
+        storyOutline,
+        message: `Story outline generated successfully with ${storyOutline.estimatedPageCount} pages`
+      });
+    } catch (error) {
+      console.error("Error generating story outline:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate story outline";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  // Generate character bible (Stage 2)
+  app.post("/api/generation/character-bible", 
+    isAuthenticated,
+    requireCredits({
+      operationType: "character_bible_generation",
+      getResourceId: (req) => req.body.storyOutline?.title || 'character-bible',
+      getMetadata: (req) => createOperationMetadata(req, { 
+        charactersCount: req.body.storyOutline?.characters?.length,
+        pageCount: req.body.storyOutline?.estimatedPageCount
+      })
+    }),
+    async (req: any, res) => {
+    try {
+      const { title, description, genre, characters, settings, pageCount, tone, logline, targetAudience, themes, artStyle, storyOutline } = req.body;
+      
+      // Validate required fields
+      if (!storyOutline) {
+        return res.status(400).json({ 
+          message: "Story outline is required. Generate story outline first." 
+        });
+      }
+
+      const { geminiService } = await import("./gemini");
+      
+      // Generate character bible
+      const characterBible = await geminiService.generateCharacterBible({
+        title,
+        description,
+        genre,
+        characters,
+        settings: settings || [],
+        pageCount,
+        tone,
+        logline,
+        targetAudience,
+        themes,
+        artStyle
+      }, storyOutline);
+      
+      res.json({
+        success: true,
+        characterBible,
+        message: `Character bible generated successfully for ${characterBible.characters.length} characters`
+      });
+    } catch (error) {
+      console.error("Error generating character bible:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate character bible";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  // Generate chunked script (Stage 3)
+  app.post("/api/generation/chunked-script", 
+    isAuthenticated,
+    requireCredits({
+      operationType: "chunked_script_generation",
+      getResourceId: (req) => req.body.storyOutline?.title || 'chunked-script',
+      getMetadata: (req) => createOperationMetadata(req, { 
+        chunkNumber: req.body.chunkInfo?.currentChunk,
+        totalChunks: req.body.chunkInfo?.totalChunks,
+        pagesInChunk: req.body.chunkInfo?.pagesInChunk?.length
+      })
+    }),
+    async (req: any, res) => {
+    try {
+      const { storyOutline, characterBible, chunkInfo, previousChunkSummary, generationMode } = req.body;
+      
+      // Validate required fields
+      if (!storyOutline || !characterBible || !chunkInfo) {
+        return res.status(400).json({ 
+          message: "Story outline, character bible, and chunk info are required" 
+        });
+      }
+
+      const { geminiService } = await import("./gemini");
+      
+      // Generate chunked script
+      const scriptChunk = await geminiService.generateChunkedScript({
+        storyOutline,
+        characterBible,
+        chunkInfo,
+        previousChunkSummary,
+        generationMode: generationMode || "sequential"
+      });
+      
+      res.json({
+        success: true,
+        scriptChunk,
+        message: `Script chunk ${chunkInfo.currentChunk}/${chunkInfo.totalChunks} generated successfully with ${scriptChunk.pages.length} pages`
+      });
+    } catch (error) {
+      console.error("Error generating chunked script:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate chunked script";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  // Full multi-stage generation orchestrator
+  app.post("/api/generation/multi-stage", 
+    isAuthenticated,
+    requireCredits({
+      operationType: "multi_stage_script_generation",
+      getResourceId: (req) => req.body.title || 'multi-stage-generation',
+      getMetadata: (req) => createOperationMetadata(req, { 
+        pageCount: req.body.pageCount,
+        charactersCount: req.body.characters?.length,
+        projectId: req.body.projectId
+      })
+    }),
+    async (req: any, res) => {
+    try {
+      const { title, description, genre, characters, settings, pageCount, tone, logline, targetAudience, themes, artStyle, projectId } = req.body;
+      
+      // Validate required fields
+      if (!title || !description || !characters || !Array.isArray(characters) || characters.length === 0) {
+        return res.status(400).json({ 
+          message: "Missing required fields: title, description, and characters array are required" 
+        });
+      }
+
+      const { geminiService } = await import("./gemini");
+      
+      // Run full multi-stage generation
+      const result = await geminiService.generateMultiStageScript({
+        title,
+        description,
+        genre,
+        characters,
+        settings: settings || [],
+        pageCount,
+        tone,
+        logline,
+        targetAudience,
+        themes,
+        artStyle
+      });
+      
+      // If projectId is provided, save to database
+      if (projectId) {
+        try {
+          // Check if structured script already exists for this project
+          const existingScript = await storage.getProjectStructuredScript(projectId);
+          
+          let savedScript;
+          if (existingScript) {
+            // Clear existing pages/panels/dialogue for this script before adding new ones
+            const existingPages = await storage.getScriptPages(existingScript.id);
+            for (const page of existingPages) {
+              await storage.deleteScriptPage(page.id);
+            }
+            
+            // Update existing script
+            savedScript = await storage.updateStructuredScript(existingScript.id, {
+              title: result.storyOutline.title,
+              logline: result.storyOutline.logline,
+            }) || existingScript;
+          } else {
+            // Create new structured script
+            savedScript = await storage.createStructuredScript({
+              projectId,
+              title: result.storyOutline.title,
+              logline: result.storyOutline.logline,
+            });
+          }
+          
+          // Save all script chunks as pages
+          for (const chunk of result.scriptChunks) {
+            for (const pageData of chunk.pages) {
+              const savedPage = await storage.createScriptPage({
+                structuredScriptId: savedScript.id,
+                pageNumber: pageData.pageNumber,
+                title: pageData.title,
+                mood: pageData.overallMood,
+                setting: pageData.setting,
+              });
+              
+              // Save panels for this page
+              for (const panelData of pageData.panels) {
+                const savedPanel = await storage.createScriptPanel({
+                  scriptPageId: savedPage.id,
+                  panelNumber: panelData.panelNumber,
+                  action: panelData.visualDescription,
+                  sceneDescription: panelData.visualDescription,
+                  cameraAngle: panelData.cameraAngle,
+                  shotType: panelData.shotType,
+                  mood: panelData.mood,
+                  visualNotes: panelData.visualNotes || "",
+                  timing: panelData.timing || "moment",
+                  soundEffects: panelData.soundEffects || [],
+                  characters: pageData.characters || [],
+                });
+                
+                // Save dialogue for this panel
+                for (let i = 0; i < panelData.dialogue.length; i++) {
+                  const dialogueData = panelData.dialogue[i];
+                  await storage.createScriptDialogue({
+                    scriptPanelId: savedPanel.id,
+                    character: dialogueData.characterName,
+                    text: dialogueData.text,
+                    tone: dialogueData.tone,
+                    orderIndex: i,
+                  });
+                }
+              }
+            }
+          }
+          
+          console.log(`Saved multi-stage generated script to database for project ${projectId}`);
+        } catch (dbError) {
+          console.error("Error saving multi-stage script to database:", dbError);
+          // Don't fail the request - return the generated data even if DB save fails
+        }
+      }
+      
+      res.json({
+        success: true,
+        storyOutline: result.storyOutline,
+        characterBible: result.characterBible,
+        scriptChunks: result.scriptChunks,
+        totalPages: result.storyOutline.estimatedPageCount,
+        totalChunks: result.scriptChunks.length,
+        message: `Multi-stage script generated successfully: ${result.storyOutline.estimatedPageCount} pages across ${result.scriptChunks.length} chunks`
+      });
+    } catch (error) {
+      console.error("Error in multi-stage script generation:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate multi-stage script";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
   // Save structured script data directly (for preserving previewed scripts)
   app.post("/api/projects/:projectId/save-structured-script", isAuthenticated, async (req: any, res) => {
     try {

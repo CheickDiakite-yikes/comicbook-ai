@@ -69,6 +69,19 @@ export interface IStorage {
   updateCharacter(id: string, updates: Partial<InsertCharacter>): Promise<Character | undefined>;
   deleteCharacter(id: string): Promise<boolean>;
 
+  // Enhanced Character Profile operations
+  createCharacterAppearanceProfile(profile: any): Promise<any>;
+  getCharacterAppearanceProfile(characterId: string): Promise<any | undefined>;
+  updateCharacterAppearanceProfile(characterId: string, updates: any): Promise<any | undefined>;
+  
+  createCharacterClothingState(clothingState: any): Promise<any>;
+  getCharacterClothingStates(characterId: string): Promise<any[]>;
+  updateCharacterClothingState(id: string, updates: any): Promise<any | undefined>;
+  
+  createCharacterConsistencyRule(rule: any): Promise<any>;
+  getCharacterConsistencyRules(characterId: string): Promise<any[]>;
+  updateCharacterConsistencyRule(id: string, updates: any): Promise<any | undefined>;
+
   // Page operations
   createPage(page: InsertPage): Promise<Page>;
   getProjectPages(projectId: string): Promise<Page[]>;
@@ -556,6 +569,43 @@ export class MemStorage implements IStorage {
   async getProjectScriptCharacters(projectId: string): Promise<Array<{ name: string; count: number; pageNumbers: number[] }>> {
     throw new Error("Script character extraction not implemented for in-memory storage");
   }
+
+  // Enhanced Character Profile operations - Not implemented for in-memory storage
+  async createCharacterAppearanceProfile(profile: any): Promise<any> {
+    throw new Error("Enhanced character profiles not implemented for in-memory storage");
+  }
+
+  async getCharacterAppearanceProfile(characterId: string): Promise<any | undefined> {
+    return undefined;
+  }
+
+  async updateCharacterAppearanceProfile(characterId: string, updates: any): Promise<any | undefined> {
+    return undefined;
+  }
+  
+  async createCharacterClothingState(clothingState: any): Promise<any> {
+    throw new Error("Enhanced character profiles not implemented for in-memory storage");
+  }
+
+  async getCharacterClothingStates(characterId: string): Promise<any[]> {
+    return [];
+  }
+
+  async updateCharacterClothingState(id: string, updates: any): Promise<any | undefined> {
+    return undefined;
+  }
+  
+  async createCharacterConsistencyRule(rule: any): Promise<any> {
+    throw new Error("Enhanced character profiles not implemented for in-memory storage");
+  }
+
+  async getCharacterConsistencyRules(characterId: string): Promise<any[]> {
+    return [];
+  }
+
+  async updateCharacterConsistencyRule(id: string, updates: any): Promise<any | undefined> {
+    return undefined;
+  }
 }
 
 // Database storage implementation
@@ -760,6 +810,89 @@ export class DatabaseStorage implements IStorage {
   async deleteCharacter(id: string): Promise<boolean> {
     const result = await db.delete(characters).where(eq(characters.id, id));
     return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Enhanced Character Profile operations
+  async createCharacterAppearanceProfile(profile: any): Promise<any> {
+    const { characterAppearanceProfiles } = await import("@shared/schema");
+    const [created] = await db
+      .insert(characterAppearanceProfiles)
+      .values(profile)
+      .returning();
+    return created;
+  }
+
+  async getCharacterAppearanceProfile(characterId: string): Promise<any | undefined> {
+    const { characterAppearanceProfiles } = await import("@shared/schema");
+    const [profile] = await db
+      .select()
+      .from(characterAppearanceProfiles)
+      .where(eq(characterAppearanceProfiles.characterId, characterId));
+    return profile || undefined;
+  }
+
+  async updateCharacterAppearanceProfile(characterId: string, updates: any): Promise<any | undefined> {
+    const { characterAppearanceProfiles } = await import("@shared/schema");
+    const [updated] = await db
+      .update(characterAppearanceProfiles)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(characterAppearanceProfiles.characterId, characterId))
+      .returning();
+    return updated;
+  }
+
+  async createCharacterClothingState(clothingState: any): Promise<any> {
+    const { characterClothingStates } = await import("@shared/schema");
+    const [created] = await db
+      .insert(characterClothingStates)
+      .values(clothingState)
+      .returning();
+    return created;
+  }
+
+  async getCharacterClothingStates(characterId: string): Promise<any[]> {
+    const { characterClothingStates } = await import("@shared/schema");
+    return await db
+      .select()
+      .from(characterClothingStates)
+      .where(eq(characterClothingStates.characterId, characterId));
+  }
+
+  async updateCharacterClothingState(id: string, updates: any): Promise<any | undefined> {
+    const { characterClothingStates } = await import("@shared/schema");
+    const [updated] = await db
+      .update(characterClothingStates)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(characterClothingStates.id, id))
+      .returning();
+    return updated;
+  }
+
+  async createCharacterConsistencyRule(rule: any): Promise<any> {
+    const { characterConsistencyRules } = await import("@shared/schema");
+    const [created] = await db
+      .insert(characterConsistencyRules)
+      .values(rule)
+      .returning();
+    return created;
+  }
+
+  async getCharacterConsistencyRules(characterId: string): Promise<any[]> {
+    const { characterConsistencyRules } = await import("@shared/schema");
+    return await db
+      .select()
+      .from(characterConsistencyRules)
+      .where(eq(characterConsistencyRules.characterId, characterId));
+  }
+
+  async updateCharacterConsistencyRule(id: string, updates: any): Promise<any | undefined> {
+    const { characterConsistencyRules } = await import("@shared/schema");
+    const [updated] = await db
+      .update(characterConsistencyRules)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(characterConsistencyRules.id, id))
+      .returning();
+    return updated;
   }
 
   // Page operations
