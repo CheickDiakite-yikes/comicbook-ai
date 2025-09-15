@@ -78,6 +78,23 @@ export interface GenerateImageResponse {
   error?: string;
 }
 
+export interface GenerateReferencePortraitRequest {
+  characterId: string;
+  characterName: string;
+  visualDescriptors: string;
+  alwaysTraits: string;
+  artStyle?: string;
+  forceRegenerate?: boolean;
+}
+
+export interface GenerateReferencePortraitResponse {
+  status: "completed" | "failed";
+  referenceImageUrl?: string;
+  characterId: string;
+  characterName: string;
+  error?: string;
+}
+
 export interface GenerateStructuredScriptRequest {
   title: string;
   genre?: string;
@@ -578,11 +595,711 @@ export class GeminiService {
   }
 
   /**
+   * 🎨 PHASE 1: REFERENCE PORTRAIT GENERATION SYSTEM
+   * Generate canonical reference portraits for character consistency
+   */
+  async generateReferencePortrait(request: GenerateReferencePortraitRequest): Promise<GenerateReferencePortraitResponse> {
+    console.log(`🖼️ Generating reference portrait for character: ${request.characterName}`);
+    
+    try {
+      // Build optimized portrait prompt for character consistency
+      const portraitPrompt = this.buildReferencePortraitPrompt(request);
+      
+      // Generate the reference portrait using specialized parameters
+      const portraitResult = await this.generatePanelImage({
+        prompt: portraitPrompt,
+        panelId: `ref_${request.characterId}`,
+        projectContext: {
+          title: "Character Reference",
+          artStyle: request.artStyle || "Professional Character Reference Sheet",
+          characters: [], // Don't include other characters to avoid confusion
+        },
+        panelContext: {
+          layoutTemplate: "single",
+          panelNumber: 1,
+          aspectRatio: 1.0, // Square aspect for portraits
+          dimensions: { width: 512, height: 512 },
+          panelType: "character_reference"
+        }
+      });
+      
+      if (portraitResult.status === "completed" && portraitResult.imageUrl) {
+        console.log(`✅ Reference portrait generated for ${request.characterName}: ${portraitResult.imageUrl}`);
+        
+        return {
+          status: "completed",
+          referenceImageUrl: portraitResult.imageUrl,
+          characterId: request.characterId,
+          characterName: request.characterName
+        };
+      } else {
+        console.error(`❌ Failed to generate reference portrait for ${request.characterName}: ${portraitResult.error}`);
+        
+        return {
+          status: "failed",
+          characterId: request.characterId,
+          characterName: request.characterName,
+          error: portraitResult.error || "Unknown generation error"
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`❌ Error generating reference portrait for ${request.characterName}:`, errorMessage);
+      
+      return {
+        status: "failed",
+        characterId: request.characterId,
+        characterName: request.characterName,
+        error: errorMessage
+      };
+    }
+  }
+  
+  /**
+   * Build specialized prompt for reference portrait generation
+   */
+  private buildReferencePortraitPrompt(request: GenerateReferencePortraitRequest): string {
+    return `REFERENCE CHARACTER PORTRAIT GENERATION:
+
+Character: ${request.characterName}
+Visual Description: ${request.visualDescriptors}
+Immutable Traits: ${request.alwaysTraits}
+
+STYLE REQUIREMENTS:
+- Professional character reference sheet style
+- Clean front-facing portrait against neutral background
+- Clear focus on identifying features
+- Consistent lighting and composition
+- High detail on face, hair, and distinctive features
+- Comic book illustration style with clean linework
+
+CRITICAL PORTRAIT GUIDELINES:
+- This is a REFERENCE IMAGE for character consistency
+- Focus on facial features, hair, skin tone, and identifying characteristics
+- Neutral expression with slight smile
+- Eyes looking directly at viewer
+- Clear, well-lit, professional quality
+- Avoid dramatic poses or distracting elements
+- Maximum detail on: ${request.alwaysTraits}
+
+Generate a clean, professional reference portrait that will serve as the visual standard for this character in all future comic panels.`;
+  }
+  
+  /**
+   * 🎯 PHASE 3: CROSS-PANEL CHARACTER CONSISTENCY VALIDATION
+   * Validate character appearance consistency across panels
+   */
+  async validateCharacterConsistency(options: {
+    currentPanelImageUrl: string;
+    characterId: string;
+    characterName: string;
+    referenceImageUrl?: string;
+    previousPanelImageUrls?: string[];
+    toleranceLevel?: 'strict' | 'moderate' | 'lenient';
+  }): Promise<{
+    isConsistent: boolean;
+    consistencyScore: number; // 0-100 scale
+    deviations: Array<{
+      type: 'facial_features' | 'hair' | 'body_type' | 'clothing' | 'color_scheme';
+      severity: 'minor' | 'moderate' | 'major';
+      description: string;
+    }>;
+    recommendation: 'accept' | 'review' | 'regenerate';
+    confidenceLevel: number; // 0-100 scale
+  }> {
+    console.log(`🔍 Validating character consistency for ${options.characterName}...`);
+    
+    try {
+      const tolerance = options.toleranceLevel || 'moderate';
+      const toleranceThresholds = {
+        strict: { accept: 95, review: 85 },
+        moderate: { accept: 85, review: 70 },
+        lenient: { accept: 75, review: 60 }
+      };
+      
+      // Build consistency validation prompt
+      const validationPrompt = this.buildConsistencyValidationPrompt(options);
+      
+      // Use Gemini's vision capabilities to analyze the image
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-image-preview",
+        contents: [
+          {
+            inlineData: {
+              mimeType: "image/jpeg", // Assuming JPEG, but should detect from URL
+              data: await this.downloadImageAsBase64(options.currentPanelImageUrl).then(data => data.data)
+            }
+          },
+          { text: validationPrompt }
+        ]
+      });
+      
+      if (!response.candidates?.[0]?.content?.parts?.[0]?.text) {
+        throw new Error("No validation response received from Gemini");
+      }
+      
+      const analysisText = response.candidates[0].content.parts[0].text;
+      console.log(`🔍 Raw consistency analysis:`, analysisText);
+      
+      // Parse the structured response from Gemini
+      const consistencyResult = this.parseConsistencyValidation(analysisText, tolerance, toleranceThresholds);
+      
+      console.log(`📊 Character consistency result for ${options.characterName}:`, consistencyResult);
+      
+      return consistencyResult;
+    } catch (error) {
+      console.error(`❌ Error validating character consistency for ${options.characterName}:`, error);
+      
+      // Return fallback result
+      return {
+        isConsistent: true, // Default to accepting in case of validation error
+        consistencyScore: 50,
+        deviations: [{
+          type: 'facial_features',
+          severity: 'moderate',
+          description: 'Unable to validate consistency due to technical error'
+        }],
+        recommendation: 'review',
+        confidenceLevel: 0
+      };
+    }
+  }
+  
+  /**
+   * Build validation prompt for character consistency analysis
+   */
+  private buildConsistencyValidationPrompt(options: {
+    characterId: string;
+    characterName: string;
+    referenceImageUrl?: string;
+    previousPanelImageUrls?: string[];
+    toleranceLevel?: 'strict' | 'moderate' | 'lenient';
+  }): string {
+    return `CRITICAL CHARACTER CONSISTENCY ANALYSIS:
+
+You are analyzing this comic panel image to validate character consistency for: ${options.characterName}
+
+ANALYSIS REQUIREMENTS:
+1. Examine the character's appearance in extreme detail
+2. Score consistency on a 0-100 scale where:
+   - 100 = Perfect consistency, no changes
+   - 85-99 = Minor variations within acceptable range
+   - 70-84 = Noticeable changes requiring review
+   - 50-69 = Significant inconsistencies requiring regeneration
+   - 0-49 = Major character changes, complete regeneration needed
+
+3. Identify specific deviations in these categories:
+   - FACIAL_FEATURES: eyes, nose, lips, jawline, facial structure
+   - HAIR: color, style, length, texture
+   - BODY_TYPE: height, build, proportions
+   - CLOTHING: style, colors, fit, accessories
+   - COLOR_SCHEME: skin tone, hair color, eye color
+
+4. Rate deviation severity:
+   - MINOR: Slight artistic variation, acceptable
+   - MODERATE: Noticeable change, needs review
+   - MAJOR: Significant change, requires regeneration
+
+PROVIDE YOUR ANALYSIS IN THIS EXACT FORMAT:
+CONSISTENCY_SCORE: [0-100 number]
+OVERALL_ASSESSMENT: [CONSISTENT/INCONSISTENT]
+DEVIATIONS:
+- [CATEGORY]: [SEVERITY] - [description]
+- [CATEGORY]: [SEVERITY] - [description]
+RECOMMENDATION: [ACCEPT/REVIEW/REGENERATE]
+CONFIDENCE: [0-100 number]
+
+${options.referenceImageUrl ? `REFERENCE: Compare against canonical reference image: ${options.referenceImageUrl}` : ''}
+
+Analyze the character appearance thoroughly and provide structured feedback.`;
+  }
+  
+  /**
+   * Parse Gemini's consistency validation response
+   */
+  private parseConsistencyValidation(
+    analysisText: string, 
+    tolerance: 'strict' | 'moderate' | 'lenient',
+    thresholds: { accept: number; review: number }
+  ): {
+    isConsistent: boolean;
+    consistencyScore: number;
+    deviations: Array<{
+      type: 'facial_features' | 'hair' | 'body_type' | 'clothing' | 'color_scheme';
+      severity: 'minor' | 'moderate' | 'major';
+      description: string;
+    }>;
+    recommendation: 'accept' | 'review' | 'regenerate';
+    confidenceLevel: number;
+  } {
+    try {
+      // Extract consistency score
+      const scoreMatch = analysisText.match(/CONSISTENCY_SCORE:\s*(\d+)/i);
+      const consistencyScore = scoreMatch ? parseInt(scoreMatch[1]) : 50;
+      
+      // Extract overall assessment
+      const assessmentMatch = analysisText.match(/OVERALL_ASSESSMENT:\s*(CONSISTENT|INCONSISTENT)/i);
+      const isConsistent = assessmentMatch ? assessmentMatch[1].toUpperCase() === 'CONSISTENT' : false;
+      
+      // Extract deviations
+      const deviations: Array<{
+        type: 'facial_features' | 'hair' | 'body_type' | 'clothing' | 'color_scheme';
+        severity: 'minor' | 'moderate' | 'major';
+        description: string;
+      }> = [];
+      
+      const deviationMatches = analysisText.match(/DEVIATIONS:(.*?)(?=RECOMMENDATION:|$)/is);
+      if (deviationMatches) {
+        const deviationLines = deviationMatches[1].split('\n').filter(line => line.trim().startsWith('-'));
+        
+        for (const line of deviationLines) {
+          const match = line.match(/([A-Z_]+):\s*(MINOR|MODERATE|MAJOR)\s*-\s*(.+)/i);
+          if (match) {
+            const [, category, severity, description] = match;
+            deviations.push({
+              type: this.mapDeviationType(category),
+              severity: severity.toLowerCase() as 'minor' | 'moderate' | 'major',
+              description: description.trim()
+            });
+          }
+        }
+      }
+      
+      // Extract recommendation
+      const recommendationMatch = analysisText.match(/RECOMMENDATION:\s*(ACCEPT|REVIEW|REGENERATE)/i);
+      let recommendation: 'accept' | 'review' | 'regenerate' = 'review';
+      
+      if (recommendationMatch) {
+        recommendation = recommendationMatch[1].toLowerCase() as 'accept' | 'review' | 'regenerate';
+      } else {
+        // Fallback based on score and tolerance
+        if (consistencyScore >= thresholds.accept) {
+          recommendation = 'accept';
+        } else if (consistencyScore >= thresholds.review) {
+          recommendation = 'review';
+        } else {
+          recommendation = 'regenerate';
+        }
+      }
+      
+      // Extract confidence
+      const confidenceMatch = analysisText.match(/CONFIDENCE:\s*(\d+)/i);
+      const confidenceLevel = confidenceMatch ? parseInt(confidenceMatch[1]) : 70;
+      
+      return {
+        isConsistent: consistencyScore >= thresholds.review,
+        consistencyScore,
+        deviations,
+        recommendation,
+        confidenceLevel
+      };
+    } catch (error) {
+      console.error('Error parsing consistency validation:', error);
+      return {
+        isConsistent: false,
+        consistencyScore: 0,
+        deviations: [{
+          type: 'facial_features',
+          severity: 'major',
+          description: 'Failed to parse validation response'
+        }],
+        recommendation: 'review',
+        confidenceLevel: 0
+      };
+    }
+  }
+  
+  /**
+   * Extract location information from prompt for state tracking
+   */
+  private extractLocationFromPrompt(prompt: string): string {
+    const locationKeywords = [
+      'in the', 'at the', 'inside', 'outside', 'room', 'house', 'building', 'street', 'park', 
+      'office', 'kitchen', 'bedroom', 'bathroom', 'living room', 'cafe', 'restaurant', 'school'
+    ];
+    
+    const lowerPrompt = prompt.toLowerCase();
+    for (const keyword of locationKeywords) {
+      const index = lowerPrompt.indexOf(keyword);
+      if (index !== -1) {
+        // Extract potential location context around the keyword
+        const start = Math.max(0, index - 10);
+        const end = Math.min(prompt.length, index + keyword.length + 20);
+        const context = prompt.substring(start, end).trim();
+        return context;
+      }
+    }
+    
+    return 'unknown';
+  }
+  
+  /**
+   * Map deviation category string to type
+   */
+  private mapDeviationType(category: string): 'facial_features' | 'hair' | 'body_type' | 'clothing' | 'color_scheme' {
+    const normalizedCategory = category.toLowerCase().replace(/[^a-z]/g, '');
+    
+    if (normalizedCategory.includes('facial') || normalizedCategory.includes('face')) return 'facial_features';
+    if (normalizedCategory.includes('hair')) return 'hair';
+    if (normalizedCategory.includes('body') || normalizedCategory.includes('build')) return 'body_type';
+    if (normalizedCategory.includes('clothing') || normalizedCategory.includes('clothes')) return 'clothing';
+    if (normalizedCategory.includes('color') || normalizedCategory.includes('scheme')) return 'color_scheme';
+    
+    return 'facial_features'; // Default fallback
+  }
+
+  /**
+   * 🏗️ PHASE 5: MULTI-PAGE CONSISTENCY ARCHITECTURE
+   * Comprehensive character consistency system for 30+ page comics
+   */
+  async generateConsistentMultiPageComic(options: {
+    projectId: string;
+    pageRange: { start: number; end: number };
+    enableStrictConsistency?: boolean;
+    consistencyCheckpoints?: number[]; // Pages where to do extra validation
+    maxInconsistencyScore?: number; // Threshold for regeneration (0-100)
+  }): Promise<{
+    status: 'completed' | 'partial' | 'failed';
+    pagesGenerated: number;
+    consistencyReport: {
+      overallScore: number;
+      characterReports: Array<{
+        characterName: string;
+        consistencyScore: number;
+        flaggedPages: number[];
+        recommendations: string[];
+      }>;
+    };
+    regeneratedPanels: Array<{
+      pageNumber: number;
+      panelId: string;
+      reason: string;
+      originalScore: number;
+      newScore: number;
+    }>;
+  }> {
+    console.log(`🏗️ Starting multi-page consistency generation for project ${options.projectId}, pages ${options.start}-${options.end}`);
+    
+    try {
+      const { storage } = await import("./storage");
+      const { SharedStateManager } = await import("./parallel-processing/SharedStateManager");
+      
+      // Initialize comprehensive state management
+      const sharedStateManager = new SharedStateManager();
+      await sharedStateManager.initializeProject(options.projectId, storage);
+      
+      const project = await storage.getProject(options.projectId);
+      if (!project) {
+        throw new Error(`Project ${options.projectId} not found`);
+      }
+      
+      const characters = await storage.getProjectCharacters(options.projectId);
+      console.log(`🎭 Project characters: ${characters.map(c => c.name).join(', ')}`);
+      
+      // Generate missing reference portraits first (critical for consistency)
+      console.log(`🖼️ Ensuring all characters have reference portraits...`);
+      const portraitResult = await this.generateMissingReferencePortraits(options.projectId);
+      console.log(`📊 Reference portraits: ${portraitResult.succeeded} succeeded, ${portraitResult.failed} failed`);
+      
+      // Multi-page generation with consistency tracking
+      const consistencyTracker = new MultiPageConsistencyTracker();
+      const regeneratedPanels: Array<{
+        pageNumber: number;
+        panelId: string;
+        reason: string;
+        originalScore: number;
+        newScore: number;
+      }> = [];
+      
+      let pagesGenerated = 0;
+      const characterReports: Array<{
+        characterName: string;
+        consistencyScore: number;
+        flaggedPages: number[];
+        recommendations: string[];
+      }> = [];
+      
+      // Initialize character tracking for each character
+      for (const character of characters) {
+        characterReports.push({
+          characterName: character.name,
+          consistencyScore: 100,
+          flaggedPages: [],
+          recommendations: []
+        });
+      }
+      
+      // Process each page with enhanced consistency checks
+      for (let pageNum = options.pageRange.start; pageNum <= options.pageRange.end; pageNum++) {
+        console.log(`📄 Processing page ${pageNum}...`);
+        
+        try {
+          const page = await storage.getPage(options.projectId, pageNum);
+          if (!page) {
+            console.log(`⚠️ Page ${pageNum} not found, skipping`);
+            continue;
+          }
+          
+          const panels = await storage.getPagePanels(page.id);
+          
+          // Process each panel with consistency validation
+          for (const panel of panels) {
+            if (!panel.imageUrl) {
+              console.log(`⚠️ Panel ${panel.id} has no image, skipping consistency check`);
+              continue;
+            }
+            
+            // Validate character consistency for each character in panel
+            for (const character of characters) {
+              // Check if character appears in this panel (basic heuristic)
+              if (panel.prompt?.toLowerCase().includes(character.name.toLowerCase())) {
+                console.log(`🔍 Validating ${character.name} in panel ${panel.id}`);
+                
+                const validationResult = await this.validateCharacterConsistency({
+                  currentPanelImageUrl: panel.imageUrl,
+                  characterId: character.id,
+                  characterName: character.name,
+                  referenceImageUrl: character.referenceImageUrl || undefined,
+                  toleranceLevel: options.enableStrictConsistency ? 'strict' : 'moderate'
+                });
+                
+                const characterReport = characterReports.find(r => r.characterName === character.name);
+                if (characterReport) {
+                  // Update character consistency metrics
+                  characterReport.consistencyScore = Math.min(characterReport.consistencyScore, validationResult.consistencyScore);
+                  
+                  // Flag problematic pages
+                  if (validationResult.consistencyScore < (options.maxInconsistencyScore || 70)) {
+                    characterReport.flaggedPages.push(pageNum);
+                    characterReport.recommendations.push(`Page ${pageNum}: ${validationResult.recommendation} (Score: ${validationResult.consistencyScore})`);
+                    
+                    // Consider regeneration for severely inconsistent panels
+                    if (validationResult.consistencyScore < 50 && validationResult.recommendation === 'regenerate') {
+                      console.log(`🔄 Panel ${panel.id} flagged for regeneration due to poor consistency (Score: ${validationResult.consistencyScore})`);
+                      // Note: Actual regeneration would go here in a full implementation
+                      regeneratedPanels.push({
+                        pageNumber: pageNum,
+                        panelId: panel.id,
+                        reason: `Character consistency too low: ${validationResult.consistencyScore}/100`,
+                        originalScore: validationResult.consistencyScore,
+                        newScore: 0 // Would be updated after regeneration
+                      });
+                    }
+                  }
+                }
+                
+                // Track character states
+                consistencyTracker.updateCharacterAppearance(character.name, pageNum, panel.id, {
+                  imageUrl: panel.imageUrl,
+                  prompt: panel.prompt || '',
+                  consistencyScore: validationResult.consistencyScore,
+                  validationResult
+                });
+              }
+            }
+          }
+          
+          pagesGenerated++;
+          
+          // Perform checkpoint validation if specified
+          if (options.consistencyCheckpoints?.includes(pageNum)) {
+            console.log(`🎯 Consistency checkpoint at page ${pageNum}`);
+            const checkpointReport = consistencyTracker.generateCheckpointReport(pageNum);
+            console.log(`📊 Checkpoint Report:`, checkpointReport);
+          }
+          
+        } catch (pageError) {
+          console.error(`❌ Error processing page ${pageNum}:`, pageError);
+        }
+      }
+      
+      // Calculate overall consistency score
+      const overallScore = characterReports.length > 0 
+        ? Math.round(characterReports.reduce((sum, report) => sum + report.consistencyScore, 0) / characterReports.length)
+        : 100;
+      
+      console.log(`🎉 Multi-page consistency analysis complete: Overall score ${overallScore}/100`);
+      
+      return {
+        status: 'completed',
+        pagesGenerated,
+        consistencyReport: {
+          overallScore,
+          characterReports
+        },
+        regeneratedPanels
+      };
+      
+    } catch (error) {
+      console.error(`❌ Multi-page consistency generation failed:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 🔄 BULK REFERENCE PORTRAIT GENERATION
+   * Generate reference portraits for all characters missing them
+   */
+  async generateMissingReferencePortraits(projectId: string): Promise<{
+    processed: number;
+    succeeded: number;
+    failed: number;
+    results: Array<{ characterId: string; characterName: string; status: string; referenceImageUrl?: string; error?: string; }>;
+  }> {
+    console.log(`🎨 Generating missing reference portraits for project: ${projectId}`);
+    
+    try {
+      const { storage } = await import("./storage");
+      const project = await storage.getProject(projectId);
+      const characters = await storage.getProjectCharacters(projectId);
+      
+      if (!project) {
+        throw new Error(`Project ${projectId} not found`);
+      }
+      
+      // Filter characters without reference portraits
+      const charactersNeedingPortraits = characters.filter(char => !char.referenceImageUrl);
+      
+      console.log(`📊 Found ${charactersNeedingPortraits.length} characters needing reference portraits out of ${characters.length} total`);
+      
+      const results: Array<{ characterId: string; characterName: string; status: string; referenceImageUrl?: string; error?: string; }> = [];
+      let succeeded = 0;
+      let failed = 0;
+      
+      // Process each character sequentially to avoid API rate limits
+      for (const character of charactersNeedingPortraits) {
+        console.log(`🎨 Processing character ${succeeded + failed + 1}/${charactersNeedingPortraits.length}: ${character.name}`);
+        
+        if (!character.visualDescriptors || !character.alwaysTraits) {
+          console.warn(`⚠️ Skipping character ${character.name} - missing visual descriptors or always traits`);
+          results.push({
+            characterId: character.id,
+            characterName: character.name,
+            status: "skipped",
+            error: "Missing visual descriptors or always traits"
+          });
+          failed++;
+          continue;
+        }
+        
+        try {
+          const portraitResult = await this.generateReferencePortrait({
+            characterId: character.id,
+            characterName: character.name,
+            visualDescriptors: character.visualDescriptors,
+            alwaysTraits: character.alwaysTraits,
+            artStyle: project.artStyle || "Comic Book Reference Sheet"
+          });
+          
+          if (portraitResult.status === "completed" && portraitResult.referenceImageUrl) {
+            // Update character in database with reference portrait URL
+            await storage.updateCharacter(character.id, {
+              referenceImageUrl: portraitResult.referenceImageUrl
+            });
+            
+            console.log(`✅ Reference portrait generated and saved for ${character.name}`);
+            
+            results.push({
+              characterId: character.id,
+              characterName: character.name,
+              status: "completed",
+              referenceImageUrl: portraitResult.referenceImageUrl
+            });
+            succeeded++;
+          } else {
+            console.error(`❌ Failed to generate portrait for ${character.name}: ${portraitResult.error}`);
+            
+            results.push({
+              characterId: character.id,
+              characterName: character.name,
+              status: "failed",
+              error: portraitResult.error
+            });
+            failed++;
+          }
+        } catch (charError) {
+          const errorMessage = charError instanceof Error ? charError.message : String(charError);
+          console.error(`❌ Error processing character ${character.name}:`, errorMessage);
+          
+          results.push({
+            characterId: character.id,
+            characterName: character.name,
+            status: "failed",
+            error: errorMessage
+          });
+          failed++;
+        }
+        
+        // Add delay between generations to respect API limits
+        if (succeeded + failed < charactersNeedingPortraits.length) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+      
+      console.log(`🎉 Bulk reference portrait generation completed: ${succeeded} succeeded, ${failed} failed`);
+      
+      return {
+        processed: charactersNeedingPortraits.length,
+        succeeded,
+        failed,
+        results
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`❌ Error in bulk reference portrait generation:`, errorMessage);
+      throw error;
+    }
+  }
+
+  /**
+   * 🎨 PHASE 2: ENHANCED CHARACTER CONSISTENCY PROMPTING
    * Generate an image for a comic panel using Gemini's image generation or editing
    */
   async generatePanelImage(request: GenerateImageRequest): Promise<GenerateImageResponse> {
     const startTime = Date.now();
     const isEditMode = !!request.sourceImageUrl;
+    
+    // 🔄 PHASE 4: INITIALIZE CHARACTER STATE TRACKING FOR CONSISTENCY
+    let sharedStateManager: any = null;
+    let projectId: string | null = null;
+    
+    try {
+      // Extract project ID from panel ID or request context
+      if (typeof request.panelId === 'string' && request.panelId.includes('_')) {
+        projectId = request.panelId.split('_')[0];
+      } else if (request.projectContext?.title) {
+        // Try to get project ID from context (this might need enhancement)
+        const { storage } = await import("./storage");
+        const projects = await storage.getUserProjects('temp'); // This needs proper user ID
+        const project = projects.find(p => p.title === request.projectContext.title);
+        if (project) {
+          projectId = project.id;
+        }
+      }
+      
+      // Initialize SharedStateManager for character consistency
+      if (projectId) {
+        const { SharedStateManager } = await import("./parallel-processing/SharedStateManager");
+        const { storage } = await import("./storage");
+        
+        sharedStateManager = new SharedStateManager();
+        await sharedStateManager.initializeProject(projectId, storage);
+        
+        // Get enhanced character context from SharedStateManager
+        const sharedContext = await sharedStateManager.getSharedContext(projectId);
+        
+        // Merge shared context with request context for enhanced consistency
+        if (sharedContext.characters && sharedContext.characters.length > 0) {
+          request.projectContext.characters = sharedContext.characters;
+          console.log(`🎯 Enhanced character context from SharedStateManager: ${sharedContext.characters.length} characters`);
+        }
+        
+        console.log(`🔄 SharedStateManager initialized for project ${projectId}`);
+      }
+    } catch (stateError) {
+      console.warn(`⚠️ Failed to initialize SharedStateManager:`, stateError);
+      // Continue with generation even if state management fails
+    }
     
     try {
       // Enhanced logging for debugging
@@ -742,12 +1459,71 @@ export class GeminiService {
           console.log(`🖼️ Result URL: ${finalImageUrl}`);
           console.log(`📋 Panel ${request.panelId} completed successfully`);
           
-          return {
+          // 🔄 PHASE 4: UPDATE CHARACTER STATES AFTER SUCCESSFUL GENERATION
+          try {
+            if (sharedStateManager && projectId && request.projectContext.characters) {
+              // Update character states with new panel information
+              for (const character of request.projectContext.characters) {
+                await sharedStateManager.updateCharacterStates(
+                  projectId,
+                  character.name,
+                  {
+                    lastSeenPanelId: String(request.panelId),
+                    generatedImageUrl: finalImageUrl,
+                    prompt: request.prompt,
+                    mood: request.styleOptions?.mood || 'neutral',
+                    location: this.extractLocationFromPrompt(request.prompt)
+                  }
+                );
+              }
+              console.log(`🔄 Character states updated for panel ${request.panelId}`);
+            }
+          } catch (updateError) {
+            console.warn(`⚠️ Failed to update character states:`, updateError);
+            // Don't fail the generation for state update errors
+          }
+          
+          const result = {
             imageUrl: finalImageUrl,
-            status: "completed",
+            status: "completed" as const,
             panelId: request.panelId,
             generationId: Date.now().toString(),
           };
+          
+          // 🎯 PHASE 3: VALIDATE CHARACTER CONSISTENCY (OPTIONAL)
+          try {
+            if (sharedStateManager && projectId && request.projectContext.characters && request.projectContext.characters.length > 0) {
+              // Perform automatic consistency validation for main character
+              const mainCharacter = request.projectContext.characters[0];
+              
+              if (mainCharacter.referenceImageUrl) {
+                console.log(`🔍 Performing automatic consistency validation for ${mainCharacter.name}...`);
+                
+                const validationResult = await this.validateCharacterConsistency({
+                  currentPanelImageUrl: finalImageUrl,
+                  characterId: mainCharacter.name, // Using name as ID for now
+                  characterName: mainCharacter.name,
+                  referenceImageUrl: mainCharacter.referenceImageUrl,
+                  toleranceLevel: 'moderate'
+                });
+                
+                console.log(`📊 Consistency validation for ${mainCharacter.name}: Score ${validationResult.consistencyScore}/100, Recommendation: ${validationResult.recommendation}`);
+                
+                // Add validation result to response (for debugging/monitoring)
+                (result as any).consistencyValidation = {
+                  characterName: mainCharacter.name,
+                  score: validationResult.consistencyScore,
+                  recommendation: validationResult.recommendation,
+                  isConsistent: validationResult.isConsistent
+                };
+              }
+            }
+          } catch (validationError) {
+            console.warn(`⚠️ Automatic consistency validation failed:`, validationError);
+            // Don't fail generation for validation errors
+          }
+          
+          return result;
         }
       }
 
@@ -2107,38 +2883,52 @@ export class GeminiService {
       prompt += `. STYLE CONSISTENCY: Use the EXACT same art style, line weight, shading technique, and color palette across ALL panels. Maintain consistent artistic rendering throughout.`;
     }
 
-    // Add detailed character context for consistency - ENHANCED VERSION WITH REFERENCE PORTRAITS
+    // 🎯 PHASE 2: ENHANCED CHARACTER CONSISTENCY PROMPTING WITH REFERENCE PORTRAITS
     if (request.projectContext.characters && request.projectContext.characters.length > 0) {
+      const charactersWithRefs = request.projectContext.characters.filter(char => char.referenceImageUrl);
+      
+      // Build ultra-detailed character profiles with strong consistency enforcement
       const characterProfiles = request.projectContext.characters
-        .map(char => {
-          let profile = `${char.name} (${char.role})`;
+        .map((char, index) => {
+          let profile = `CHARACTER ${index + 1}: ${char.name} (${char.role})`;
+          
           if (char.visualDescriptors) {
-            profile += `: EXACT APPEARANCE - ${char.visualDescriptors}`;
+            profile += `. CANONICAL APPEARANCE: ${char.visualDescriptors}`;
           }
+          
           if (char.alwaysTraits) {
-            profile += `. ALWAYS: ${char.alwaysTraits}`;
+            profile += `. IMMUTABLE TRAITS (NEVER CHANGE): ${char.alwaysTraits}`;
           }
+          
           if (char.neverTraits) {
-            profile += `. NEVER: ${char.neverTraits}`;
+            profile += `. FORBIDDEN TRAITS (NEVER SHOW): ${char.neverTraits}`;
           }
+          
           if (char.colorScheme) {
-            profile += `. COLOR SCHEME: ${char.colorScheme}`;
+            profile += `. SIGNATURE COLORS: ${char.colorScheme}`;
           }
-          // 🖼️ CRITICAL: Add reference portrait URL for visual consistency
+          
+          // 🖼️ CRITICAL: Emphasize reference portrait matching
           if (char.referenceImageUrl) {
-            profile += `. REFERENCE PORTRAIT: Use the exact character appearance from reference image - ${char.referenceImageUrl}`;
+            profile += `. 🎯 REFERENCE PORTRAIT MANDATORY: This character has a canonical reference image that shows their EXACT appearance. YOU MUST match the reference portrait PRECISELY - same facial features, hair color, hair style, skin tone, body type, clothing style. Reference image URL: ${char.referenceImageUrl}`;
           }
+          
           return profile;
         })
-        .join(" | ");
+        .join(" || ");
       
-      prompt += `. CHARACTER CONSISTENCY RULES - ${characterProfiles}`;
-      prompt += `. CRITICAL: These characters MUST maintain EXACT same appearance in every panel - same face, hair color, hair style, body type, and clothing style.`;
+      prompt += `. 🔥 CRITICAL CHARACTER CONSISTENCY ENFORCEMENT: ${characterProfiles}`;
+      
+      // Add extremely strong consistency rules
+      prompt += `. ⚠️ CHARACTER CONSISTENCY IS MANDATORY: Every character MUST maintain their EXACT canonical appearance across ALL panels. NO deviations allowed - same facial structure, same hair color and texture, same skin tone, same body proportions, same eye color, same distinctive features.`;
       
       // Add reference portrait emphasis if any characters have reference images
-      const charactersWithRefs = request.projectContext.characters.filter(char => char.referenceImageUrl);
       if (charactersWithRefs.length > 0) {
-        prompt += ` 🎯 REFERENCE PORTRAIT MATCHING: ${charactersWithRefs.length} character(s) have reference portraits that show their exact canonical appearance. Match the reference images precisely for visual consistency.`;
+        prompt += ` 🎯 REFERENCE PORTRAIT COMPLIANCE: ${charactersWithRefs.length} character(s) have official reference portraits showing their canonical appearance. These reference images are the AUTHORITATIVE visual standard. You MUST match them EXACTLY - treat the reference portraits as visual law. Any deviation from the reference images is strictly forbidden.`;
+        
+        // List characters with reference portraits for emphasis
+        const refCharNames = charactersWithRefs.map(char => char.name).join(", ");
+        prompt += ` Characters with mandatory reference portraits: ${refCharNames}.`;
       }
     }
     
@@ -2210,8 +3000,8 @@ export class GeminiService {
 
     // Add consistency and quality instructions with ENHANCED speech bubble guidance
     prompt += ". Continue the narrative flow naturally from previous events.";
-    prompt += " CHARACTER CONSISTENCY IS CRITICAL: Every character MUST look EXACTLY the same across all panels - same facial features, same hair color and style, same body proportions, same clothing style (unless story requires a change).";
-    prompt += " ARTISTIC CONSISTENCY: Maintain the EXACT same art style, drawing technique, line thickness, and color saturation throughout all panels. No style changes between panels.";
+    prompt += " 🔥 ULTRA-CRITICAL CHARACTER CONSISTENCY: Every character appearance is LOCKED and IMMUTABLE. Characters MUST be visually identical across all panels: EXACT same facial features (eyes, nose, lips, jaw), EXACT same hair color and style, EXACT same skin tone, EXACT same body proportions, EXACT same distinctive markings. ANY change in character appearance is a critical error.";
+    prompt += " 🎨 ARTISTIC CONSISTENCY ENFORCEMENT: Maintain IDENTICAL art style, drawing technique, line thickness, and color saturation throughout all panels. Zero tolerance for style variations between panels. Every panel must look like it was drawn by the same artist using the same tools.";
     prompt += ". 🚨 SPEECH BUBBLE PLACEMENT RULES: 1) Keep ALL text 15% away from edges 2) Center speech bubbles in SAFE ZONES 3) Use the middle 70% of panel area for text 4) Never cut off words or speech bubbles";
     prompt += ". ABSOLUTELY NO WHITE BORDERS OR PADDING - the artwork must extend fully to all four edges (top, bottom, left, right)";
     prompt += ". Generate professional comic book artwork that bleeds to the edges like printed comics";

@@ -778,6 +778,406 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 🎨 PHASE 1: REFERENCE PORTRAIT GENERATION ROUTES
+  // Generate reference portrait for a single character
+  app.post('/api/characters/:characterId/generate-reference-portrait',
+    isAuthenticated,
+    requireCredits({
+      operationType: "panel_generation",
+      getResourceId: (req: any) => req.params.characterId,
+      getMetadata: (req) => createOperationMetadata(req, { 
+        characterId: req.params.characterId,
+        action: "reference_portrait_generation"
+      })
+    }),
+    async (req: any, res) => {
+    try {
+      const { characterId } = req.params;
+      const { forceRegenerate = false } = req.body;
+      const userId = getUserId(req.user);
+
+      // Get character data
+      const character = await storage.getCharacter(characterId);
+      if (!character) {
+        return res.status(404).json({ message: "Character not found" });
+      }
+
+      // Get project to verify ownership
+      if (character.projectId) {
+        const project = await storage.getProject(character.projectId);
+        if (!project || project.userId !== userId) {
+          return res.status(403).json({ message: "Unauthorized access to project" });
+        }
+      }
+
+      // Check if character already has reference portrait (unless forcing regeneration)
+      if (character.referenceImageUrl && !forceRegenerate) {
+        return res.status(200).json({
+          status: "completed",
+          referenceImageUrl: character.referenceImageUrl,
+          characterId: character.id,
+          characterName: character.name,
+          message: "Character already has reference portrait"
+        });
+      }
+
+      // Validate character has required data
+      if (!character.visualDescriptors || !character.alwaysTraits) {
+        return res.status(400).json({
+          status: "failed",
+          characterId: character.id,
+          characterName: character.name,
+          error: "Character missing visual descriptors or always traits"
+        });
+      }
+
+      // Generate reference portrait
+      const portraitResult = await geminiService.generateReferencePortrait({
+        characterId: character.id,
+        characterName: character.name,
+        visualDescriptors: character.visualDescriptors,
+        alwaysTraits: character.alwaysTraits,
+        artStyle: character.projectId ? (await storage.getProject(character.projectId))?.artStyle : undefined,
+        forceRegenerate
+      });
+
+      // Update character in database if successful
+      if (portraitResult.status === "completed" && portraitResult.referenceImageUrl) {
+        await storage.updateCharacter(character.id, {
+          referenceImageUrl: portraitResult.referenceImageUrl
+        });
+      }
+
+      res.status(200).json(portraitResult);
+    } catch (error) {
+      console.error("Error generating reference portrait:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate reference portrait";
+      res.status(500).json({ 
+        status: "failed",
+        characterId: req.params.characterId,
+        characterName: "Unknown",
+        error: errorMessage 
+      });
+    }
+  });
+
+  // Generate reference portraits for all characters in a project missing them
+  app.post('/api/projects/:projectId/generate-missing-reference-portraits',
+    isAuthenticated,
+    requireCredits({
+      operationType: "bulk_generation",
+      getResourceId: (req: any) => req.params.projectId,
+      getMetadata: (req) => createOperationMetadata(req, { 
+        projectId: req.params.projectId,
+        action: "bulk_reference_portrait_generation"
+      })
+    }),
+    async (req: any, res) => {
+    try {
+      const { projectId } = req.params;
+      const userId = getUserId(req.user);
+
+      // Verify project ownership
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Generate missing reference portraits
+      const bulkResult = await geminiService.generateMissingReferencePortraits(projectId);
+
+      res.status(200).json({
+        status: "completed",
+        projectId,
+        projectTitle: project.title,
+        ...bulkResult
+      });
+    } catch (error) {
+      console.error("Error generating missing reference portraits:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate missing reference portraits";
+      res.status(500).json({ 
+        status: "failed",
+        projectId: req.params.projectId,
+        error: errorMessage 
+      });
+    }
+  });
+
+  // 🎯 PHASE 3: CROSS-PANEL CHARACTER CONSISTENCY VALIDATION ROUTES
+  // Validate character consistency in a generated panel
+  app.post('/api/panels/:panelId/validate-character-consistency',
+    isAuthenticated,
+    async (req: any, res) => {
+    try {
+      const { panelId } = req.params;
+      const { 
+        characterId, 
+        characterName,
+        currentPanelImageUrl,
+        referenceImageUrl,
+        previousPanelImageUrls = [],
+        toleranceLevel = 'moderate' 
+      } = req.body;
+      const userId = getUserId(req.user);
+
+      // Validate required parameters
+      if (!characterId || !characterName || !currentPanelImageUrl) {
+        return res.status(400).json({
+          message: "Missing required parameters: characterId, characterName, and currentPanelImageUrl are required"
+        });
+      }
+
+      // Get character to verify access
+      const character = await storage.getCharacter(characterId);
+      if (!character) {
+        return res.status(404).json({ message: "Character not found" });
+      }
+
+      // Verify project ownership if character belongs to a project
+      if (character.projectId) {
+        const project = await storage.getProject(character.projectId);
+        if (!project || project.userId !== userId) {
+          return res.status(403).json({ message: "Unauthorized access to project" });
+        }
+      }
+
+      // Perform character consistency validation
+      const validationResult = await geminiService.validateCharacterConsistency({
+        currentPanelImageUrl,
+        characterId,
+        characterName,
+        referenceImageUrl: referenceImageUrl || character.referenceImageUrl || undefined,
+        previousPanelImageUrls,
+        toleranceLevel
+      });
+
+      res.status(200).json({
+        panelId,
+        characterId,
+        characterName,
+        ...validationResult,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error validating character consistency:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to validate character consistency";
+      res.status(500).json({ 
+        message: errorMessage,
+        panelId: req.params.panelId,
+        error: errorMessage 
+      });
+    }
+  });
+
+  // Batch validate character consistency across multiple panels
+  app.post('/api/projects/:projectId/validate-character-consistency-batch',
+    isAuthenticated,
+    async (req: any, res) => {
+    try {
+      const { projectId } = req.params;
+      const { 
+        validationTasks, // Array of { panelId, characterId, characterName, imageUrl }
+        toleranceLevel = 'moderate' 
+      } = req.body;
+      const userId = getUserId(req.user);
+
+      // Verify project ownership
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (!validationTasks || !Array.isArray(validationTasks) || validationTasks.length === 0) {
+        return res.status(400).json({ message: "validationTasks array is required" });
+      }
+
+      const results = [];
+      let overallConsistent = true;
+      let totalScore = 0;
+
+      // Process each validation task
+      for (const task of validationTasks) {
+        try {
+          const character = await storage.getCharacter(task.characterId);
+          if (!character) {
+            results.push({
+              panelId: task.panelId,
+              characterId: task.characterId,
+              status: 'error',
+              error: 'Character not found'
+            });
+            continue;
+          }
+
+          const validationResult = await geminiService.validateCharacterConsistency({
+            currentPanelImageUrl: task.imageUrl,
+            characterId: task.characterId,
+            characterName: task.characterName,
+            referenceImageUrl: character.referenceImageUrl || undefined,
+            toleranceLevel
+          });
+
+          results.push({
+            panelId: task.panelId,
+            characterId: task.characterId,
+            characterName: task.characterName,
+            ...validationResult
+          });
+
+          if (!validationResult.isConsistent) {
+            overallConsistent = false;
+          }
+          totalScore += validationResult.consistencyScore;
+        } catch (taskError) {
+          console.error(`Error validating task for panel ${task.panelId}:`, taskError);
+          results.push({
+            panelId: task.panelId,
+            characterId: task.characterId,
+            status: 'error',
+            error: taskError instanceof Error ? taskError.message : 'Validation failed'
+          });
+        }
+
+        // Add delay between validations to respect API limits
+        if (results.length < validationTasks.length) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      const averageScore = validationTasks.length > 0 ? totalScore / validationTasks.length : 0;
+
+      res.status(200).json({
+        projectId,
+        projectTitle: project.title,
+        overallConsistent,
+        averageConsistencyScore: Math.round(averageScore),
+        totalValidated: validationTasks.length,
+        results,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error in batch character consistency validation:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to perform batch validation";
+      res.status(500).json({ 
+        message: errorMessage,
+        projectId: req.params.projectId 
+      });
+    }
+  });
+
+  // 🏗️ PHASE 5: MULTI-PAGE CONSISTENCY ARCHITECTURE ROUTES
+  // Generate multi-page comic with comprehensive character consistency
+  app.post('/api/projects/:projectId/generate-consistent-multipage',
+    isAuthenticated,
+    requireCredits({
+      operationType: "bulk_generation",
+      getResourceId: (req: any) => req.params.projectId,
+      getMetadata: (req) => createOperationMetadata(req, { 
+        projectId: req.params.projectId,
+        action: "multipage_consistency_generation",
+        pageRange: req.body.pageRange
+      })
+    }),
+    async (req: any, res) => {
+    try {
+      const { projectId } = req.params;
+      const { 
+        pageRange = { start: 1, end: 5 },
+        enableStrictConsistency = true,
+        consistencyCheckpoints = [],
+        maxInconsistencyScore = 70
+      } = req.body;
+      const userId = getUserId(req.user);
+
+      // Verify project ownership
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Validate page range
+      if (!pageRange.start || !pageRange.end || pageRange.start > pageRange.end) {
+        return res.status(400).json({ message: "Invalid page range" });
+      }
+
+      if (pageRange.end - pageRange.start > 50) {
+        return res.status(400).json({ message: "Page range too large. Maximum 50 pages per request." });
+      }
+
+      console.log(`🏗️ Starting multi-page consistency generation for project ${project.title}: pages ${pageRange.start}-${pageRange.end}`);
+
+      // Execute multi-page consistency generation
+      const result = await geminiService.generateConsistentMultiPageComic({
+        projectId,
+        pageRange,
+        enableStrictConsistency,
+        consistencyCheckpoints,
+        maxInconsistencyScore
+      });
+
+      res.status(200).json({
+        projectId,
+        projectTitle: project.title,
+        pageRange,
+        ...result,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error in multi-page consistency generation:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate consistent multi-page comic";
+      res.status(500).json({ 
+        message: errorMessage,
+        projectId: req.params.projectId 
+      });
+    }
+  });
+
+  // Get character consistency trends and analytics
+  app.get('/api/projects/:projectId/character-consistency-analytics',
+    isAuthenticated,
+    async (req: any, res) => {
+    try {
+      const { projectId } = req.params;
+      const userId = getUserId(req.user);
+
+      // Verify project ownership
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Get character consistency analytics
+      const characters = await storage.getProjectCharacters(projectId);
+      const pages = await storage.getProjectPages(projectId);
+      
+      const analytics = {
+        projectId,
+        projectTitle: project.title,
+        totalCharacters: characters.length,
+        totalPages: pages.length,
+        charactersWithReferencePortraits: characters.filter(c => c.referenceImageUrl).length,
+        characterProfiles: characters.map(character => ({
+          id: character.id,
+          name: character.name,
+          hasReferencePortrait: !!character.referenceImageUrl,
+          hasVisualDescriptors: !!character.visualDescriptors,
+          hasConsistencyRules: !!(character.alwaysTraits || character.neverTraits),
+          consistencyReadiness: this.calculateCharacterConsistencyReadiness(character)
+        })),
+        recommendations: this.generateConsistencyRecommendations(characters, pages)
+      };
+
+      res.status(200).json(analytics);
+    } catch (error) {
+      console.error("Error getting character consistency analytics:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to get consistency analytics";
+      res.status(500).json({ 
+        message: errorMessage,
+        projectId: req.params.projectId 
+      });
+    }
+  });
+
   // Character redressing endpoint
   app.post('/api/redress-character',
     isAuthenticated,
