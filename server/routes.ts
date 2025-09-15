@@ -14,10 +14,14 @@ import {
   insertCharacterFromScriptSchema,
   parallelPanelGenerationSchema,
   parallelPageGenerationSchema,
-  parallelBatchGenerationSchema
+  parallelBatchGenerationSchema,
+  scriptValidationRequestSchema,
+  ScriptValidationRequest,
+  ValidationResult
 } from "@shared/schema";
 import { geminiService } from "./gemini";
 import { ParallelGenerationService } from "./parallel-processing";
+import { ScriptValidationService } from "./services/ScriptValidationService";
 import { z } from "zod";
 import { requireCredits, getProjectIdFromParams, getProjectIdFromBody, getPanelIdFromBody, getPageIdFromRequest, createOperationMetadata, calculateParallelCredits } from "./creditMiddleware";
 import { isSocialCrawler, isLinkPreviewRequest } from "./utils/socialCrawlers";
@@ -32,8 +36,9 @@ function getUserId(user: any): string {
   return user.claims?.sub;
 }
 
-// Initialize parallel generation service
+// Initialize services
 const parallelGenerationService = new ParallelGenerationService(storage);
+const scriptValidationService = new ScriptValidationService(storage);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -2890,6 +2895,141 @@ Redress this character in the specified outfit while maintaining their core visu
         success: false, 
         message: "Failed to verify credits" 
       });
+    }
+  });
+
+  // Script Validation API endpoints
+  app.post("/api/projects/:id/validate", 
+    isAuthenticated, 
+    requireCredits({
+      operationType: "script_validation",
+      getResourceId: getProjectIdFromParams,
+      getMetadata: (req) => createOperationMetadata(req, { 
+        validationType: req.body.validationType,
+        categories: req.body.validationCategories
+      })
+    }),
+    async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const projectId = req.params.id;
+      
+      // Verify project ownership
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Parse and validate request
+      const validationRequest = scriptValidationRequestSchema.parse({
+        projectId,
+        ...req.body
+      });
+
+      console.log(`🔍 Starting script validation for project ${projectId}`);
+      
+      // Run validation
+      const result = await scriptValidationService.validateScript(validationRequest);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error validating script:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Invalid validation request", 
+          errors: error.errors 
+        });
+      }
+      res.status(500).json({ message: "Failed to validate script" });
+    }
+  });
+
+  app.get("/api/projects/:id/validation-reports", 
+    isAuthenticated, 
+    async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const projectId = req.params.id;
+      
+      // Verify project ownership
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      const reports = await storage.getProjectValidationReports(projectId);
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching validation reports:", error);
+      res.status(500).json({ message: "Failed to fetch validation reports" });
+    }
+  });
+
+  app.get("/api/validation-reports/:reportId", 
+    isAuthenticated, 
+    async (req: any, res) => {
+    try {
+      const reportId = req.params.reportId;
+      const report = await storage.getValidationReport(reportId);
+      
+      if (!report) {
+        return res.status(404).json({ message: "Validation report not found" });
+      }
+
+      // Verify project ownership
+      const userId = getUserId(req.user);
+      const project = await storage.getProject(report.projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Get detailed issues for this report
+      const issues = await storage.getValidationIssues(reportId);
+      const violations = await storage.getCharacterConsistencyViolations(reportId);
+
+      res.json({
+        ...report,
+        issues,
+        characterViolations: violations
+      });
+    } catch (error) {
+      console.error("Error fetching validation report details:", error);
+      res.status(500).json({ message: "Failed to fetch validation report" });
+    }
+  });
+
+  app.get("/api/characters/:id/consistency", 
+    isAuthenticated, 
+    async (req: any, res) => {
+    try {
+      const characterId = req.params.id;
+      const character = await storage.getCharacter(characterId);
+      
+      if (!character) {
+        return res.status(404).json({ message: "Character not found" });
+      }
+
+      // Verify project ownership if it's a project character
+      if (character.projectId) {
+        const userId = getUserId(req.user);
+        const project = await storage.getProject(character.projectId);
+        if (!project || project.userId !== userId) {
+          return res.status(404).json({ message: "Character not found" });
+        }
+      }
+
+      // Get character consistency data
+      const consistencyData = await storage.validateCharacterConsistency(characterId, character.projectId || 'library');
+      const appearanceHistory = await storage.getCharacterAppearanceHistory(characterId, character.projectId || 'library');
+      
+      res.json({
+        character,
+        consistencyData,
+        appearanceHistory
+      });
+    } catch (error) {
+      console.error("Error fetching character consistency:", error);
+      res.status(500).json({ message: "Failed to fetch character consistency data" });
     }
   });
 

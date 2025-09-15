@@ -19,6 +19,9 @@ export const CREDIT_COSTS = {
   
   // Full page generation (generates multiple panels)
   full_page_generation: 4,
+  
+  // Script validation
+  script_validation: 2,
 } as const;
 
 export type CreditOperationType = keyof typeof CREDIT_COSTS;

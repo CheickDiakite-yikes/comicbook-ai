@@ -44,6 +44,15 @@ import {
   type InsertUserCredits,
   type CreditTransaction,
   type InsertCreditTransaction,
+  type ScriptValidationReport,
+  type InsertScriptValidationReport,
+  type ValidationIssue,
+  type InsertValidationIssue,
+  type CharacterConsistencyViolation,
+  type InsertCharacterConsistencyViolation,
+  type CharacterAppearanceProfile,
+  type CharacterConsistencyRule,
+  type PanelCharacterState,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -70,17 +79,17 @@ export interface IStorage {
   deleteCharacter(id: string): Promise<boolean>;
 
   // Enhanced Character Profile operations
-  createCharacterAppearanceProfile(profile: any): Promise<any>;
-  getCharacterAppearanceProfile(characterId: string): Promise<any | undefined>;
-  updateCharacterAppearanceProfile(characterId: string, updates: any): Promise<any | undefined>;
+  createCharacterAppearanceProfile(profile: Partial<CharacterAppearanceProfile>): Promise<CharacterAppearanceProfile>;
+  getCharacterAppearanceProfile(characterId: string): Promise<CharacterAppearanceProfile | undefined>;
+  updateCharacterAppearanceProfile(characterId: string, updates: Partial<CharacterAppearanceProfile>): Promise<CharacterAppearanceProfile | undefined>;
   
-  createCharacterClothingState(clothingState: any): Promise<any>;
+  createCharacterClothingState(clothingState: Partial<any>): Promise<any>;
   getCharacterClothingStates(characterId: string): Promise<any[]>;
-  updateCharacterClothingState(id: string, updates: any): Promise<any | undefined>;
+  updateCharacterClothingState(id: string, updates: Partial<any>): Promise<any | undefined>;
   
-  createCharacterConsistencyRule(rule: any): Promise<any>;
-  getCharacterConsistencyRules(characterId: string): Promise<any[]>;
-  updateCharacterConsistencyRule(id: string, updates: any): Promise<any | undefined>;
+  createCharacterConsistencyRule(rule: Partial<CharacterConsistencyRule>): Promise<CharacterConsistencyRule>;
+  getCharacterConsistencyRules(characterId: string): Promise<CharacterConsistencyRule[]>;
+  updateCharacterConsistencyRule(id: string, updates: Partial<CharacterConsistencyRule>): Promise<CharacterConsistencyRule | undefined>;
 
   // Page operations
   createPage(page: InsertPage): Promise<Page>;
@@ -133,16 +142,32 @@ export interface IStorage {
   grantBonusCredits(userEmail: string, bonusCredits: number): Promise<{success: boolean, newLimit: number, message: string}>;
   
   // Public projects
-  getPublicProjects(genre?: string): Promise<any[]>;
-  getPublicProject(projectId: string): Promise<any | undefined>;
-  getUserProjectsWithStats(userId: string): Promise<any[]>;
+  getPublicProjects(genre?: string): Promise<Array<Project & { 
+    user: Pick<User, 'id' | 'firstName' | 'lastName'>;
+    likesCount: number;
+    commentsCount: number;
+    isLikedByUser?: boolean;
+  }>>;
+  getPublicProject(projectId: string): Promise<(Project & { 
+    user: Pick<User, 'id' | 'firstName' | 'lastName'>;
+    likesCount: number;
+    commentsCount: number;
+    isLikedByUser?: boolean;
+  }) | undefined>;
+  getUserProjectsWithStats(userId: string): Promise<Array<Project & {
+    likesCount: number;
+    commentsCount: number;
+    isPublic: boolean;
+  }>>;
   
   // Likes
   likeProject(projectId: string, userId: string): Promise<ProjectLike>;
   unlikeProject(projectId: string, userId: string): Promise<boolean>;
   
   // Comments
-  getProjectComments(projectId: string): Promise<any[]>;
+  getProjectComments(projectId: string): Promise<Array<ProjectComment & {
+    user: Pick<User, 'id' | 'firstName' | 'lastName' | 'profileImageUrl'>;
+  }>>;
   createProjectComment(comment: InsertProjectComment): Promise<ProjectComment>;
 
   // Character library operations
@@ -154,6 +179,31 @@ export interface IStorage {
 
   // Script character extraction operations
   getProjectScriptCharacters(projectId: string): Promise<Array<{ name: string; count: number; pageNumbers: number[] }>>;
+
+  // Script Validation operations
+  createValidationReport(report: InsertScriptValidationReport): Promise<ScriptValidationReport>;
+  getValidationReport(reportId: string): Promise<ScriptValidationReport | undefined>;
+  getProjectValidationReports(projectId: string): Promise<ScriptValidationReport[]>;
+  createValidationIssue(issue: InsertValidationIssue): Promise<ValidationIssue>;
+  getValidationIssues(reportId: string): Promise<ValidationIssue[]>;
+  createCharacterConsistencyViolation(violation: InsertCharacterConsistencyViolation): Promise<CharacterConsistencyViolation>;
+  getCharacterConsistencyViolations(reportId: string, characterId?: string): Promise<CharacterConsistencyViolation[]>;
+  
+  // Character consistency operations
+  getPanelCharacterStates(panelId: string): Promise<PanelCharacterState[]>;
+  getCharacterPanelStates(characterId: string): Promise<PanelCharacterState[]>;
+  validateCharacterConsistency(characterId: string, projectId: string): Promise<{
+    characterId: string;
+    projectId: string;
+    consistencyScore: number;
+    issues: ValidationIssue[];
+    lastValidated: Date;
+  }>;
+  getCharacterAppearanceHistory(characterId: string, projectId: string): Promise<Array<{
+    panelId: string;
+    appearance: Partial<PanelCharacterState>;
+    timestamp: Date;
+  }>>;
 }
 
 export class MemStorage implements IStorage {
@@ -162,6 +212,16 @@ export class MemStorage implements IStorage {
   private characters: Map<string, Character> = new Map();
   private pages: Map<string, Page> = new Map();
   private panels: Map<string, Panel> = new Map();
+  
+  // Validation storage
+  private validationReports: Map<string, ScriptValidationReport> = new Map();
+  private validationIssues: Map<string, ValidationIssue[]> = new Map();
+  private characterConsistencyViolations: Map<string, CharacterConsistencyViolation[]> = new Map();
+  
+  // Character consistency storage
+  private characterAppearanceProfiles: Map<string, CharacterAppearanceProfile> = new Map();
+  private characterConsistencyRules: Map<string, CharacterConsistencyRule[]> = new Map();
+  private panelCharacterStates: Map<string, PanelCharacterState[]> = new Map();
 
   // User operations
   async getUser(id: string): Promise<User | undefined> {
@@ -1900,6 +1960,113 @@ export class DatabaseStorage implements IStorage {
       if (b.count !== a.count) return b.count - a.count;
       return a.name.localeCompare(b.name);
     });
+  }
+
+  // Script Validation operations
+  async createValidationReport(reportData: InsertScriptValidationReport): Promise<ScriptValidationReport> {
+    const report: ScriptValidationReport = {
+      id: randomUUID(),
+      ...reportData,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.validationReports.set(report.id, report);
+    return report;
+  }
+
+  async getValidationReport(reportId: string): Promise<ScriptValidationReport | undefined> {
+    return this.validationReports.get(reportId);
+  }
+
+  async getProjectValidationReports(projectId: string): Promise<ScriptValidationReport[]> {
+    return Array.from(this.validationReports.values())
+      .filter(report => report.projectId === projectId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async createValidationIssue(issueData: InsertValidationIssue): Promise<ValidationIssue> {
+    const issue: ValidationIssue = {
+      id: randomUUID(),
+      ...issueData,
+      createdAt: new Date(),
+    };
+    
+    if (!this.validationIssues.has(issue.reportId)) {
+      this.validationIssues.set(issue.reportId, []);
+    }
+    this.validationIssues.get(issue.reportId)!.push(issue);
+    return issue;
+  }
+
+  async getValidationIssues(reportId: string): Promise<ValidationIssue[]> {
+    return this.validationIssues.get(reportId) || [];
+  }
+
+  async createCharacterConsistencyViolation(violationData: InsertCharacterConsistencyViolation): Promise<CharacterConsistencyViolation> {
+    const violation: CharacterConsistencyViolation = {
+      id: randomUUID(),
+      ...violationData,
+      createdAt: new Date(),
+    };
+    
+    if (!this.characterConsistencyViolations.has(violation.reportId)) {
+      this.characterConsistencyViolations.set(violation.reportId, []);
+    }
+    this.characterConsistencyViolations.get(violation.reportId)!.push(violation);
+    return violation;
+  }
+
+  async getCharacterConsistencyViolations(reportId: string, characterId?: string): Promise<CharacterConsistencyViolation[]> {
+    const violations = this.characterConsistencyViolations.get(reportId) || [];
+    if (characterId) {
+      return violations.filter(v => v.characterId === characterId);
+    }
+    return violations;
+  }
+
+  // Character consistency operations
+  async getPanelCharacterStates(panelId: string): Promise<PanelCharacterState[]> {
+    return this.panelCharacterStates.get(panelId) || [];
+  }
+
+  async getCharacterPanelStates(characterId: string): Promise<PanelCharacterState[]> {
+    const allStates: PanelCharacterState[] = [];
+    for (const states of this.panelCharacterStates.values()) {
+      allStates.push(...states.filter(state => state.characterId === characterId));
+    }
+    return allStates.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }
+
+  async validateCharacterConsistency(characterId: string, projectId: string): Promise<any> {
+    // This would implement character consistency validation logic
+    // For now, return placeholder data
+    return {
+      characterId,
+      projectId,
+      consistencyScore: 85,
+      issues: [],
+      lastValidated: new Date(),
+    };
+  }
+
+  async getCharacterAppearanceHistory(characterId: string, projectId: string): Promise<any[]> {
+    // Get all panel states for this character in chronological order
+    const panelStates = await this.getCharacterPanelStates(characterId);
+    return panelStates.map(state => ({
+      panelId: state.panelId,
+      appearance: {
+        emotion: state.emotion,
+        facialExpression: state.facialExpression,
+        bodyLanguage: state.bodyLanguage,
+        position: state.position,
+        pose: state.pose,
+        visibility: state.visibility,
+        lightingCondition: state.lightingCondition,
+        temporaryChanges: state.temporaryChanges,
+        injuriesVisible: state.injuriesVisible,
+      },
+      timestamp: state.createdAt,
+    }));
   }
 }
 

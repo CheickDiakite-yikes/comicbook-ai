@@ -3514,7 +3514,7 @@ ${previousChunkSummary ? `
 PREVIOUS CHUNK CONTEXT:
 - Last Scene: ${previousChunkSummary.lastScene}
 - Plot Progression: ${previousChunkSummary.plotProgression}
-- Character States: ${Object.entries(previousChunkSummary.characterStates).map(([char, state]) => `${char}: ${state}`).join(', ')}
+- Character States: ${Object.entries(previousChunkSummary.characterStates).map(([char, state]) => char + ': ' + state).join(', ')}
 - Unresolved Elements: ${previousChunkSummary.unresolvedElements.join(', ')}
 ` : ''}
 
@@ -3611,7 +3611,7 @@ Create MOVIE-QUALITY detailed panel scripts that utilize the full range of cinem
 
 Generate MOVIE-QUALITY panel scripts with the depth and precision of a professional film storyboard, utilizing every available technical field for maximum visual impact and narrative clarity.
 
-Output in the specified JSON format with ALL enhanced fields completed comprehensively.
+Output in the specified JSON format with ALL enhanced fields completed comprehensively.`;
 
     return prompt;
   }

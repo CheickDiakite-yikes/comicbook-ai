@@ -592,9 +592,147 @@ export const insertCreditTransactionSchema = createInsertSchema(creditTransactio
   createdAt: true,
 });
 
+// Script Validation Tables
+export const scriptValidationReports = pgTable("script_validation_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => projects.id),
+  structuredScriptId: varchar("structured_script_id").references(() => structuredScripts.id),
+  validationType: varchar("validation_type").notNull(), // "full_project", "single_page", "single_panel"
+  overallScore: integer("overall_score").notNull(), // 0-100
+  status: varchar("status").default("completed"), // "pending", "completed", "failed"
+  validationResults: jsonb("validation_results").notNull(), // Detailed validation results
+  recommendationsCount: integer("recommendations_count").default(0),
+  criticalIssuesCount: integer("critical_issues_count").default(0),
+  warningIssuesCount: integer("warning_issues_count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const validationIssues = pgTable("validation_issues", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reportId: varchar("report_id").notNull().references(() => scriptValidationReports.id),
+  issueType: varchar("issue_type").notNull(), // "character_consistency", "story_coherence", "technical_completeness"
+  severity: varchar("severity").notNull(), // "critical", "warning", "suggestion"
+  category: varchar("category").notNull(), // "appearance", "dialogue", "timeline", "missing_field", etc.
+  title: varchar("title").notNull(),
+  description: text("description").notNull(),
+  suggestion: text("suggestion"), // How to fix the issue
+  affectedElements: jsonb("affected_elements"), // Panel IDs, character IDs, etc.
+  confidence: integer("confidence").default(100), // AI confidence in this issue (0-100)
+  isResolved: boolean("is_resolved").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const characterConsistencyViolations = pgTable("character_consistency_violations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reportId: varchar("report_id").notNull().references(() => scriptValidationReports.id),
+  characterId: varchar("character_id").notNull().references(() => characters.id),
+  characterName: varchar("character_name").notNull(), // Add character name for frontend display
+  ruleId: varchar("rule_id").references(() => characterConsistencyRules.id),
+  violationType: varchar("violation_type").notNull(), // "appearance_mismatch", "trait_violation", "clothing_inconsistency"
+  panelIds: text("panel_ids").array(), // Array of panel IDs where violation occurs
+  pageNumber: integer("page_number"), // Add page number for frontend display
+  panelNumber: integer("panel_number"), // Add panel number for frontend display
+  description: text("description").notNull(),
+  expectedValue: text("expected_value"), // What should be there
+  actualValue: text("actual_value"), // What was found instead
+  severity: varchar("severity").notNull(), // "critical", "warning", "minor"
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Validation insert schemas
+export const insertScriptValidationReportSchema = createInsertSchema(scriptValidationReports).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertValidationIssueSchema = createInsertSchema(validationIssues).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCharacterConsistencyViolationSchema = createInsertSchema(characterConsistencyViolations).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Schema for creating characters from script
 export const insertCharacterFromScriptSchema = z.object({
   names: z.array(z.string().min(1)).min(1),
+});
+
+// Validation schema definitions
+export const scriptValidationRequestSchema = z.object({
+  projectId: z.string().uuid(),
+  structuredScriptId: z.string().uuid().optional(),
+  validationType: z.enum(["full_project", "single_page", "single_panel"]),
+  targetId: z.string().uuid().optional(), // Page ID or Panel ID for specific validation
+  validationCategories: z.array(z.enum(["character_consistency", "story_coherence", "technical_completeness"])).optional(),
+  strictMode: z.boolean().default(false), // More rigorous validation
+  generateSuggestions: z.boolean().default(true),
+});
+
+export const validationResultSchema = z.object({
+  id: z.string(), // Add missing id property
+  overallScore: z.number().min(0).max(100),
+  // Add top-level score properties for frontend compatibility
+  characterConsistencyScore: z.number().min(0).max(100).optional(),
+  storyCoherenceScore: z.number().min(0).max(100).optional(),
+  technicalCompletenessScore: z.number().min(0).max(100).optional(),
+  summary: z.object({
+    totalIssues: z.number(),
+    criticalIssues: z.number(),
+    warningIssues: z.number(),
+    suggestions: z.number(),
+  }),
+  categories: z.object({
+    characterConsistency: z.object({
+      score: z.number().min(0).max(100),
+      issues: z.array(z.object({
+        id: z.string(),
+        severity: z.enum(["critical", "warning", "suggestion"]),
+        category: z.string(),
+        title: z.string(),
+        description: z.string(),
+        suggestion: z.string().optional(),
+        affectedElements: z.array(z.string()),
+        confidence: z.number().min(0).max(100),
+      })),
+    }),
+    storyCoherence: z.object({
+      score: z.number().min(0).max(100),
+      issues: z.array(z.object({
+        id: z.string(),
+        severity: z.enum(["critical", "warning", "suggestion"]),
+        category: z.string(),
+        title: z.string(),
+        description: z.string(),
+        suggestion: z.string().optional(),
+        affectedElements: z.array(z.string()),
+        confidence: z.number().min(0).max(100),
+      })),
+    }),
+    technicalCompleteness: z.object({
+      score: z.number().min(0).max(100),
+      issues: z.array(z.object({
+        id: z.string(),
+        severity: z.enum(["critical", "warning", "suggestion"]),
+        category: z.string(),
+        title: z.string(),
+        description: z.string(),
+        suggestion: z.string().optional(),
+        affectedElements: z.array(z.string()),
+        confidence: z.number().min(0).max(100),
+      })),
+    }),
+  }),
+  recommendations: z.array(z.object({
+    title: z.string(),
+    description: z.string(),
+    priority: z.enum(["high", "medium", "low"]),
+    estimatedImpact: z.string(),
+  })),
 });
 
 // Types
@@ -644,6 +782,18 @@ export type UserCredits = typeof userCredits.$inferSelect;
 export type InsertUserCredits = z.infer<typeof insertUserCreditsSchema>;
 export type CreditTransaction = typeof creditTransactions.$inferSelect;
 export type InsertCreditTransaction = z.infer<typeof insertCreditTransactionSchema>;
+
+// Script Validation types
+export type ScriptValidationReport = typeof scriptValidationReports.$inferSelect;
+export type InsertScriptValidationReport = z.infer<typeof insertScriptValidationReportSchema>;
+export type ValidationIssue = typeof validationIssues.$inferSelect;
+export type InsertValidationIssue = z.infer<typeof insertValidationIssueSchema>;
+export type CharacterConsistencyViolation = typeof characterConsistencyViolations.$inferSelect;
+export type InsertCharacterConsistencyViolation = z.infer<typeof insertCharacterConsistencyViolationSchema>;
+
+// Validation request/response types
+export type ScriptValidationRequest = z.infer<typeof scriptValidationRequestSchema>;
+export type ValidationResult = z.infer<typeof validationResultSchema>;
 
 // Composite types for working with structured scripts
 export interface FullStructuredScript extends StructuredScript {
