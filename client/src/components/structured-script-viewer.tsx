@@ -18,7 +18,35 @@ import {
   Clock,
   Volume2,
   Eye,
-  RefreshCw
+  RefreshCw,
+  Home,
+  Building,
+  TreePine,
+  Sun,
+  CloudRain,
+  Wind,
+  Thermometer,
+  Droplets,
+  CloudFog,
+  Play,
+  RotateCcw,
+  Move,
+  Focus,
+  UserCheck,
+  MousePointer,
+  Zap,
+  Sparkles,
+  Music,
+  Mic,
+  VolumeX,
+  Bot,
+  Image,
+  Settings,
+  Lightbulb,
+  Layers,
+  Frame,
+  Brush,
+  Navigation
 } from "lucide-react";
 import type { FullStructuredScript } from "@shared/schema";
 
@@ -312,115 +340,821 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
                               
                               <CollapsibleContent>
                                 <CardContent className="pt-0 px-2 sm:px-6">
-                                  <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-                                    {/* Technical Details */}
-                                    <div className="space-y-3">
-                                      <div>
-                                        <h5 className="text-sm font-medium mb-2 flex items-center gap-1">
-                                          <Camera className="h-3 w-3" />
-                                          Technical Direction
-                                        </h5>
-                                        <div className="space-y-1 text-sm">
-                                          <div className="flex justify-between gap-2">
-                                            <span className="text-muted-foreground flex-shrink-0">Mood:</span>
-                                            <span className="break-words text-right">{panel.mood}</span>
-                                          </div>
-                                          <div className="flex justify-between gap-2">
-                                            <span className="text-muted-foreground flex-shrink-0">Timing:</span>
-                                            <span className="break-words text-right">{panel.timing}</span>
-                                          </div>
-                                        </div>
-                                      </div>
-
-                                      <div>
-                                        <h5 className="text-sm font-medium mb-1">Action:</h5>
-                                        <p className="text-sm text-muted-foreground break-words">
-                                          {panel.action}
-                                        </p>
-                                      </div>
-
-                                      {panel.visualNotes && (
+                                  <div className="space-y-6">
+                                    {/* Core Information */}
+                                    <div className="bg-muted/20 rounded-lg p-3 sm:p-4">
+                                      <h5 className="text-sm font-medium mb-3 flex items-center gap-2">
+                                        <FileText className="h-4 w-4" />
+                                        Core Information
+                                      </h5>
+                                      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
                                         <div>
-                                          <h5 className="text-sm font-medium mb-1">Visual Notes:</h5>
-                                          <p className="text-sm text-muted-foreground break-words">
-                                            {panel.visualNotes}
-                                          </p>
+                                          <span className="text-xs font-medium text-muted-foreground">Action:</span>
+                                          <p className="text-sm mt-1 break-words">{panel.action}</p>
                                         </div>
-                                      )}
-
-                                      {panel.soundEffects && panel.soundEffects.length > 0 && (
-                                        <div>
-                                          <h5 className="text-sm font-medium mb-1 flex items-center gap-1">
-                                            <Volume2 className="h-3 w-3" />
-                                            Sound Effects:
-                                          </h5>
-                                          <div className="flex flex-wrap gap-1">
-                                            {panel.soundEffects.map((sfx, idx) => (
-                                              <Badge key={idx} variant="secondary" className="text-xs break-words">
-                                                {sfx}
-                                              </Badge>
-                                            ))}
+                                        {panel.visualNotes && (
+                                          <div>
+                                            <span className="text-xs font-medium text-muted-foreground">Visual Notes:</span>
+                                            <p className="text-sm mt-1 break-words">{panel.visualNotes}</p>
                                           </div>
-                                        </div>
-                                      )}
+                                        )}
+                                        {panel.mood && (
+                                          <div>
+                                            <span className="text-xs font-medium text-muted-foreground">Mood:</span>
+                                            <p className="text-sm mt-1">{panel.mood}</p>
+                                          </div>
+                                        )}
+                                        {panel.characters && panel.characters.length > 0 && (
+                                          <div className="sm:col-span-2">
+                                            <span className="text-xs font-medium text-muted-foreground">Characters:</span>
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                              {panel.characters.map((char, idx) => (
+                                                <Badge key={idx} variant="outline" className="text-xs">
+                                                  <Users className="h-3 w-3 mr-1" />
+                                                  {char}
+                                                </Badge>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
 
-                                    {/* Character Emotions & Dialogue */}
-                                    <div className="space-y-3">
-                                      {panel.characters && panel.characters.length > 0 && (
-                                        <div>
-                                          <h5 className="text-sm font-medium mb-2 flex items-center gap-1">
-                                            <Users className="h-3 w-3" />
-                                            Characters Present
-                                          </h5>
-                                          <div className="flex flex-wrap gap-1">
-                                            {panel.characters.map((character: string, idx: number) => (
-                                              <Badge key={idx} variant="outline" className="text-xs break-words">
-                                                {character}
-                                              </Badge>
-                                            ))}
+                                    {/* Environmental Details */}
+                                    {(panel.locationSpecifics || panel.interiorExterior || panel.roomType || panel.architecturalStyle || 
+                                      panel.setDressing?.length || panel.props?.length || panel.backgroundElements?.length || 
+                                      panel.atmosphere || panel.environmentalSoundscape?.length) && (
+                                      <Collapsible>
+                                        <CollapsibleTrigger asChild>
+                                          <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-3 sm:p-4 cursor-pointer hover:bg-green-100 dark:hover:bg-green-950/30 transition-colors">
+                                            <h5 className="text-sm font-medium flex items-center gap-2" data-testid="section-environmental-details">
+                                              <Home className="h-4 w-4" />
+                                              Environmental Details
+                                              <ChevronRight className="h-3 w-3 ml-auto" />
+                                            </h5>
                                           </div>
-                                        </div>
-                                      )}
-
-                                      {panel.dialogue && panel.dialogue.length > 0 && (
-                                        <div>
-                                          <h5 className="text-sm font-medium mb-2 flex items-center gap-1">
-                                            <MessageSquare className="h-3 w-3" />
-                                            Dialogue
-                                          </h5>
-                                          <div className="space-y-2">
-                                            {panel.dialogue.map((dialogue, idx) => (
-                                              <div key={idx} className="bg-muted/50 rounded p-2">
-                                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-1">
-                                                  <span className="text-sm font-medium break-words">
-                                                    {dialogue.character}
-                                                  </span>
-                                                  <div className="flex flex-wrap gap-1">
-                                                    {dialogue.tone && (
-                                                      <Badge variant="outline" className="text-xs">
-                                                        {dialogue.tone}
-                                                      </Badge>
-                                                    )}
-                                                    {dialogue.bubbleType && (
-                                                      <Badge variant="outline" className="text-xs">
-                                                        {dialogue.bubbleType}
-                                                      </Badge>
-                                                    )}
-                                                    {dialogue.emotionalState && (
-                                                      <Badge variant="outline" className="text-xs">
-                                                        {dialogue.emotionalState}
-                                                      </Badge>
-                                                    )}
-                                                  </div>
-                                                </div>
-                                                <p className="text-sm break-words">"{dialogue.text}"</p>
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent>
+                                          <div className="mt-2 grid gap-3 grid-cols-1 sm:grid-cols-2 text-sm">
+                                            {panel.locationSpecifics && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Location Specifics:</span>
+                                                <p className="text-sm mt-1 break-words">{panel.locationSpecifics}</p>
                                               </div>
-                                            ))}
+                                            )}
+                                            {panel.interiorExterior && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Interior/Exterior:</span>
+                                                <Badge variant="outline" className="text-xs mt-1 block w-fit">
+                                                  <Building className="h-3 w-3 mr-1" />
+                                                  {panel.interiorExterior}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.roomType && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Room Type:</span>
+                                                <p className="text-sm mt-1">{panel.roomType}</p>
+                                              </div>
+                                            )}
+                                            {panel.architecturalStyle && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Architectural Style:</span>
+                                                <p className="text-sm mt-1">{panel.architecturalStyle}</p>
+                                              </div>
+                                            )}
+                                            {panel.atmosphere && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Atmosphere:</span>
+                                                <Badge variant="secondary" className="text-xs mt-1 block w-fit">
+                                                  <Palette className="h-3 w-3 mr-1" />
+                                                  {panel.atmosphere}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.setDressing && panel.setDressing.length > 0 && (
+                                              <div className="sm:col-span-2">
+                                                <span className="text-xs font-medium text-muted-foreground">Set Dressing:</span>
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {panel.setDressing.map((item, idx) => (
+                                                    <Badge key={idx} variant="outline" className="text-xs">{item}</Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                            {panel.props && panel.props.length > 0 && (
+                                              <div className="sm:col-span-2">
+                                                <span className="text-xs font-medium text-muted-foreground">Props:</span>
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {panel.props.map((prop, idx) => (
+                                                    <Badge key={idx} variant="outline" className="text-xs">{prop}</Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                            {panel.backgroundElements && panel.backgroundElements.length > 0 && (
+                                              <div className="sm:col-span-2">
+                                                <span className="text-xs font-medium text-muted-foreground">Background Elements:</span>
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {panel.backgroundElements.map((element, idx) => (
+                                                    <Badge key={idx} variant="outline" className="text-xs">{element}</Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                            {panel.environmentalSoundscape && panel.environmentalSoundscape.length > 0 && (
+                                              <div className="sm:col-span-2">
+                                                <span className="text-xs font-medium text-muted-foreground">Environmental Soundscape:</span>
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {panel.environmentalSoundscape.map((sound, idx) => (
+                                                    <Badge key={idx} variant="outline" className="text-xs">
+                                                      <Volume2 className="h-3 w-3 mr-1" />
+                                                      {sound}
+                                                    </Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
                                           </div>
+                                        </CollapsibleContent>
+                                      </Collapsible>
+                                    )}
+
+                                    {/* Lighting Conditions */}
+                                    {(panel.primaryLightSource || panel.timeOfDay || panel.lightingMood || panel.lightDirection || 
+                                      panel.shadowIntensity || panel.colorTemperature || panel.lightingEffects?.length || panel.practicalLights?.length) && (
+                                      <Collapsible>
+                                        <CollapsibleTrigger asChild>
+                                          <div className="bg-yellow-50 dark:bg-yellow-950/20 rounded-lg p-3 sm:p-4 cursor-pointer hover:bg-yellow-100 dark:hover:bg-yellow-950/30 transition-colors">
+                                            <h5 className="text-sm font-medium flex items-center gap-2" data-testid="section-lighting-conditions">
+                                              <Lightbulb className="h-4 w-4" />
+                                              Lighting Conditions
+                                              <ChevronRight className="h-3 w-3 ml-auto" />
+                                            </h5>
+                                          </div>
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent>
+                                          <div className="mt-2 grid gap-3 grid-cols-1 sm:grid-cols-2 text-sm">
+                                            {panel.primaryLightSource && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Primary Light Source:</span>
+                                                <Badge variant="secondary" className="text-xs mt-1 block w-fit">
+                                                  <Sun className="h-3 w-3 mr-1" />
+                                                  {panel.primaryLightSource}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.timeOfDay && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Time of Day:</span>
+                                                <Badge variant="outline" className="text-xs mt-1 block w-fit">
+                                                  <Clock className="h-3 w-3 mr-1" />
+                                                  {panel.timeOfDay}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.lightingMood && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Lighting Mood:</span>
+                                                <p className="text-sm mt-1">{panel.lightingMood}</p>
+                                              </div>
+                                            )}
+                                            {panel.lightDirection && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Light Direction:</span>
+                                                <p className="text-sm mt-1">{panel.lightDirection}</p>
+                                              </div>
+                                            )}
+                                            {panel.shadowIntensity && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Shadow Intensity:</span>
+                                                <p className="text-sm mt-1">{panel.shadowIntensity}</p>
+                                              </div>
+                                            )}
+                                            {panel.colorTemperature && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Color Temperature:</span>
+                                                <p className="text-sm mt-1">{panel.colorTemperature}</p>
+                                              </div>
+                                            )}
+                                            {panel.lightingEffects && panel.lightingEffects.length > 0 && (
+                                              <div className="sm:col-span-2">
+                                                <span className="text-xs font-medium text-muted-foreground">Lighting Effects:</span>
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {panel.lightingEffects.map((effect, idx) => (
+                                                    <Badge key={idx} variant="outline" className="text-xs">
+                                                      <Sparkles className="h-3 w-3 mr-1" />
+                                                      {effect}
+                                                    </Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                            {panel.practicalLights && panel.practicalLights.length > 0 && (
+                                              <div className="sm:col-span-2">
+                                                <span className="text-xs font-medium text-muted-foreground">Practical Lights:</span>
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {panel.practicalLights.map((light, idx) => (
+                                                    <Badge key={idx} variant="outline" className="text-xs">
+                                                      <Lightbulb className="h-3 w-3 mr-1" />
+                                                      {light}
+                                                    </Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </CollapsibleContent>
+                                      </Collapsible>
+                                    )}
+
+                                    {/* Weather & Atmospheric Conditions */}
+                                    {(panel.weatherCondition || panel.precipitation || panel.windCondition || panel.temperature || 
+                                      panel.humidity || panel.visibility || panel.atmosphericEffects?.length || panel.seasonalContext) && (
+                                      <Collapsible>
+                                        <CollapsibleTrigger asChild>
+                                          <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-3 sm:p-4 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-950/30 transition-colors">
+                                            <h5 className="text-sm font-medium flex items-center gap-2" data-testid="section-weather-atmospheric">
+                                              <CloudRain className="h-4 w-4" />
+                                              Weather & Atmospheric Conditions
+                                              <ChevronRight className="h-3 w-3 ml-auto" />
+                                            </h5>
+                                          </div>
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent>
+                                          <div className="mt-2 grid gap-3 grid-cols-1 sm:grid-cols-2 text-sm">
+                                            {panel.weatherCondition && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Weather:</span>
+                                                <Badge variant="secondary" className="text-xs mt-1 block w-fit">
+                                                  <CloudRain className="h-3 w-3 mr-1" />
+                                                  {panel.weatherCondition}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.precipitation && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Precipitation:</span>
+                                                <Badge variant="outline" className="text-xs mt-1 block w-fit">
+                                                  <Droplets className="h-3 w-3 mr-1" />
+                                                  {panel.precipitation}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.windCondition && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Wind:</span>
+                                                <Badge variant="outline" className="text-xs mt-1 block w-fit">
+                                                  <Wind className="h-3 w-3 mr-1" />
+                                                  {panel.windCondition}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.temperature && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Temperature:</span>
+                                                <Badge variant="outline" className="text-xs mt-1 block w-fit">
+                                                  <Thermometer className="h-3 w-3 mr-1" />
+                                                  {panel.temperature}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.humidity && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Humidity:</span>
+                                                <p className="text-sm mt-1">{panel.humidity}</p>
+                                              </div>
+                                            )}
+                                            {panel.visibility && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Visibility:</span>
+                                                <Badge variant="outline" className="text-xs mt-1 block w-fit">
+                                                  <Eye className="h-3 w-3 mr-1" />
+                                                  {panel.visibility}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.seasonalContext && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Season:</span>
+                                                <Badge variant="secondary" className="text-xs mt-1 block w-fit">
+                                                  <TreePine className="h-3 w-3 mr-1" />
+                                                  {panel.seasonalContext}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.atmosphericEffects && panel.atmosphericEffects.length > 0 && (
+                                              <div className="sm:col-span-2">
+                                                <span className="text-xs font-medium text-muted-foreground">Atmospheric Effects:</span>
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {panel.atmosphericEffects.map((effect, idx) => (
+                                                    <Badge key={idx} variant="outline" className="text-xs">
+                                                      <CloudFog className="h-3 w-3 mr-1" />
+                                                      {effect}
+                                                    </Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </CollapsibleContent>
+                                      </Collapsible>
+                                    )}
+
+                                    {/* Advanced Cinematography */}
+                                    {(panel.cameraAngle || panel.shotType || panel.cameraMovement || panel.frameComposition || 
+                                      panel.depthOfField || panel.focusPoint || panel.perspectiveType || panel.visualStyle || panel.colorGrading) && (
+                                      <Collapsible>
+                                        <CollapsibleTrigger asChild>
+                                          <div className="bg-purple-50 dark:bg-purple-950/20 rounded-lg p-3 sm:p-4 cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-950/30 transition-colors">
+                                            <h5 className="text-sm font-medium flex items-center gap-2" data-testid="section-cinematography">
+                                              <Camera className="h-4 w-4" />
+                                              Advanced Cinematography
+                                              <ChevronRight className="h-3 w-3 ml-auto" />
+                                            </h5>
+                                          </div>
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent>
+                                          <div className="mt-2 grid gap-3 grid-cols-1 sm:grid-cols-2 text-sm">
+                                            {panel.cameraAngle && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Camera Angle:</span>
+                                                <Badge variant="secondary" className="text-xs mt-1 block w-fit">
+                                                  <Camera className="h-3 w-3 mr-1" />
+                                                  {panel.cameraAngle}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.shotType && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Shot Type:</span>
+                                                <Badge variant="secondary" className="text-xs mt-1 block w-fit">
+                                                  <Eye className="h-3 w-3 mr-1" />
+                                                  {panel.shotType}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.cameraMovement && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Camera Movement:</span>
+                                                <Badge variant="outline" className="text-xs mt-1 block w-fit">
+                                                  <Move className="h-3 w-3 mr-1" />
+                                                  {panel.cameraMovement}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.frameComposition && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Frame Composition:</span>
+                                                <Badge variant="outline" className="text-xs mt-1 block w-fit">
+                                                  <Frame className="h-3 w-3 mr-1" />
+                                                  {panel.frameComposition}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.depthOfField && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Depth of Field:</span>
+                                                <Badge variant="outline" className="text-xs mt-1 block w-fit">
+                                                  <Focus className="h-3 w-3 mr-1" />
+                                                  {panel.depthOfField}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.focusPoint && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Focus Point:</span>
+                                                <p className="text-sm mt-1">{panel.focusPoint}</p>
+                                              </div>
+                                            )}
+                                            {panel.perspectiveType && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Perspective Type:</span>
+                                                <p className="text-sm mt-1">{panel.perspectiveType}</p>
+                                              </div>
+                                            )}
+                                            {panel.visualStyle && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Visual Style:</span>
+                                                <Badge variant="secondary" className="text-xs mt-1 block w-fit">
+                                                  <Brush className="h-3 w-3 mr-1" />
+                                                  {panel.visualStyle}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.colorGrading && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Color Grading:</span>
+                                                <Badge variant="outline" className="text-xs mt-1 block w-fit">
+                                                  <Palette className="h-3 w-3 mr-1" />
+                                                  {panel.colorGrading}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </CollapsibleContent>
+                                      </Collapsible>
+                                    )}
+
+                                    {/* Character Positioning & Interactions */}
+                                    {(panel.characterPositions || panel.proxemics || panel.spatialRelationships?.length || 
+                                      panel.physicalInteractions?.length || panel.characterFocus || panel.eyelineDirections?.length || 
+                                      panel.gestureDescriptions?.length) && (
+                                      <Collapsible>
+                                        <CollapsibleTrigger asChild>
+                                          <div className="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-3 sm:p-4 cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-950/30 transition-colors">
+                                            <h5 className="text-sm font-medium flex items-center gap-2" data-testid="section-character-positioning">
+                                              <UserCheck className="h-4 w-4" />
+                                              Character Positioning & Interactions
+                                              <ChevronRight className="h-3 w-3 ml-auto" />
+                                            </h5>
+                                          </div>
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent>
+                                          <div className="mt-2 grid gap-3 grid-cols-1 sm:grid-cols-2 text-sm">
+                                            {panel.proxemics && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Proxemics:</span>
+                                                <Badge variant="secondary" className="text-xs mt-1 block w-fit">
+                                                  <Users className="h-3 w-3 mr-1" />
+                                                  {panel.proxemics}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.characterFocus && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Character Focus:</span>
+                                                <Badge variant="outline" className="text-xs mt-1 block w-fit">
+                                                  <Focus className="h-3 w-3 mr-1" />
+                                                  {panel.characterFocus}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.characterPositions && (
+                                              <div className="sm:col-span-2">
+                                                <span className="text-xs font-medium text-muted-foreground">Character Positions:</span>
+                                                <div className="text-sm mt-1 p-2 bg-muted/50 rounded text-xs">
+                                                  <pre className="whitespace-pre-wrap font-mono">
+                                                    {JSON.stringify(panel.characterPositions, null, 2) || ''}
+                                                  </pre>
+                                                </div>
+                                              </div>
+                                            )}
+                                            {panel.spatialRelationships && panel.spatialRelationships.length > 0 && (
+                                              <div className="sm:col-span-2">
+                                                <span className="text-xs font-medium text-muted-foreground">Spatial Relationships:</span>
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {panel.spatialRelationships.map((rel, idx) => (
+                                                    <Badge key={idx} variant="outline" className="text-xs">
+                                                      <Navigation className="h-3 w-3 mr-1" />
+                                                      {rel}
+                                                    </Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                            {panel.physicalInteractions && panel.physicalInteractions.length > 0 && (
+                                              <div className="sm:col-span-2">
+                                                <span className="text-xs font-medium text-muted-foreground">Physical Interactions:</span>
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {panel.physicalInteractions.map((interaction, idx) => (
+                                                    <Badge key={idx} variant="outline" className="text-xs">
+                                                      <MousePointer className="h-3 w-3 mr-1" />
+                                                      {interaction}
+                                                    </Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                            {panel.eyelineDirections && panel.eyelineDirections.length > 0 && (
+                                              <div className="sm:col-span-2">
+                                                <span className="text-xs font-medium text-muted-foreground">Eyeline Directions:</span>
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {panel.eyelineDirections.map((eyeline, idx) => (
+                                                    <Badge key={idx} variant="outline" className="text-xs">
+                                                      <Eye className="h-3 w-3 mr-1" />
+                                                      {eyeline}
+                                                    </Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                            {panel.gestureDescriptions && panel.gestureDescriptions.length > 0 && (
+                                              <div className="sm:col-span-2">
+                                                <span className="text-xs font-medium text-muted-foreground">Gesture Descriptions:</span>
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {panel.gestureDescriptions.map((gesture, idx) => (
+                                                    <Badge key={idx} variant="outline" className="text-xs">{gesture}</Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </CollapsibleContent>
+                                      </Collapsible>
+                                    )}
+
+                                    {/* Technical Direction */}
+                                    {(panel.pacing || panel.timing || panel.transitionType || panel.panelBorders || 
+                                      panel.visualEffects?.length || panel.specialEffects?.length || panel.stylizedElements?.length) && (
+                                      <Collapsible>
+                                        <CollapsibleTrigger asChild>
+                                          <div className="bg-gray-50 dark:bg-gray-950/20 rounded-lg p-3 sm:p-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-950/30 transition-colors">
+                                            <h5 className="text-sm font-medium flex items-center gap-2" data-testid="section-technical-direction">
+                                              <Settings className="h-4 w-4" />
+                                              Technical Direction
+                                              <ChevronRight className="h-3 w-3 ml-auto" />
+                                            </h5>
+                                          </div>
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent>
+                                          <div className="mt-2 grid gap-3 grid-cols-1 sm:grid-cols-2 text-sm">
+                                            {panel.pacing && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Pacing:</span>
+                                                <Badge variant="secondary" className="text-xs mt-1 block w-fit">
+                                                  <Play className="h-3 w-3 mr-1" />
+                                                  {panel.pacing}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.timing && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Timing:</span>
+                                                <Badge variant="secondary" className="text-xs mt-1 block w-fit">
+                                                  <Clock className="h-3 w-3 mr-1" />
+                                                  {panel.timing}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.transitionType && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Transition Type:</span>
+                                                <Badge variant="outline" className="text-xs mt-1 block w-fit">
+                                                  <RotateCcw className="h-3 w-3 mr-1" />
+                                                  {panel.transitionType}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.panelBorders && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Panel Borders:</span>
+                                                <Badge variant="outline" className="text-xs mt-1 block w-fit">
+                                                  <Frame className="h-3 w-3 mr-1" />
+                                                  {panel.panelBorders}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.visualEffects && panel.visualEffects.length > 0 && (
+                                              <div className="sm:col-span-2">
+                                                <span className="text-xs font-medium text-muted-foreground">Visual Effects:</span>
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {panel.visualEffects.map((effect, idx) => (
+                                                    <Badge key={idx} variant="outline" className="text-xs">
+                                                      <Zap className="h-3 w-3 mr-1" />
+                                                      {effect}
+                                                    </Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                            {panel.specialEffects && panel.specialEffects.length > 0 && (
+                                              <div className="sm:col-span-2">
+                                                <span className="text-xs font-medium text-muted-foreground">Special Effects:</span>
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {panel.specialEffects.map((effect, idx) => (
+                                                    <Badge key={idx} variant="outline" className="text-xs">
+                                                      <Sparkles className="h-3 w-3 mr-1" />
+                                                      {effect}
+                                                    </Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                            {panel.stylizedElements && panel.stylizedElements.length > 0 && (
+                                              <div className="sm:col-span-2">
+                                                <span className="text-xs font-medium text-muted-foreground">Stylized Elements:</span>
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {panel.stylizedElements.map((element, idx) => (
+                                                    <Badge key={idx} variant="outline" className="text-xs">
+                                                      <Layers className="h-3 w-3 mr-1" />
+                                                      {element}
+                                                    </Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </CollapsibleContent>
+                                      </Collapsible>
+                                    )}
+
+                                    {/* Enhanced Audio & Sound Design */}
+                                    {(panel.soundEffects?.length || panel.detailedSoundEffects || panel.ambientSounds?.length || 
+                                      panel.musicCues || panel.voiceOverText || panel.voiceOverCharacter || panel.dialoguePlacement || 
+                                      panel.silenceEmphasis || panel.soundPerspective) && (
+                                      <Collapsible>
+                                        <CollapsibleTrigger asChild>
+                                          <div className="bg-indigo-50 dark:bg-indigo-950/20 rounded-lg p-3 sm:p-4 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-950/30 transition-colors">
+                                            <h5 className="text-sm font-medium flex items-center gap-2" data-testid="section-audio-sound">
+                                              <Volume2 className="h-4 w-4" />
+                                              Enhanced Audio & Sound Design
+                                              <ChevronRight className="h-3 w-3 ml-auto" />
+                                            </h5>
+                                          </div>
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent>
+                                          <div className="mt-2 grid gap-3 grid-cols-1 sm:grid-cols-2 text-sm">
+                                            {panel.soundEffects && panel.soundEffects.length > 0 && (
+                                              <div className="sm:col-span-2">
+                                                <span className="text-xs font-medium text-muted-foreground">Sound Effects:</span>
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {panel.soundEffects.map((sfx, idx) => (
+                                                    <Badge key={idx} variant="secondary" className="text-xs">
+                                                      <Volume2 className="h-3 w-3 mr-1" />
+                                                      {sfx}
+                                                    </Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                            {panel.ambientSounds && panel.ambientSounds.length > 0 && (
+                                              <div className="sm:col-span-2">
+                                                <span className="text-xs font-medium text-muted-foreground">Ambient Sounds:</span>
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {panel.ambientSounds.map((sound, idx) => (
+                                                    <Badge key={idx} variant="outline" className="text-xs">
+                                                      <Volume2 className="h-3 w-3 mr-1" />
+                                                      {sound}
+                                                    </Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                            {panel.musicCues && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Music Cues:</span>
+                                                <Badge variant="secondary" className="text-xs mt-1 block w-fit">
+                                                  <Music className="h-3 w-3 mr-1" />
+                                                  {panel.musicCues}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.soundPerspective && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Sound Perspective:</span>
+                                                <p className="text-sm mt-1">{panel.soundPerspective}</p>
+                                              </div>
+                                            )}
+                                            {panel.dialoguePlacement && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Dialogue Placement:</span>
+                                                <p className="text-sm mt-1">{panel.dialoguePlacement}</p>
+                                              </div>
+                                            )}
+                                            {panel.silenceEmphasis && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Silence Emphasis:</span>
+                                                <Badge variant="outline" className="text-xs mt-1 block w-fit">
+                                                  <VolumeX className="h-3 w-3 mr-1" />
+                                                  Emphasized
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            {panel.voiceOverText && (
+                                              <div className="sm:col-span-2">
+                                                <span className="text-xs font-medium text-muted-foreground">Voice Over:</span>
+                                                <div className="mt-1 p-2 bg-muted/50 rounded">
+                                                  {panel.voiceOverCharacter && (
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                      <Badge variant="outline" className="text-xs">
+                                                        <Mic className="h-3 w-3 mr-1" />
+                                                        {panel.voiceOverCharacter}
+                                                      </Badge>
+                                                    </div>
+                                                  )}
+                                                  <p className="text-sm italic">"{panel.voiceOverText}"</p>
+                                                </div>
+                                              </div>
+                                            )}
+                                            {panel.detailedSoundEffects && (
+                                              <div className="sm:col-span-2">
+                                                <span className="text-xs font-medium text-muted-foreground">Detailed Sound Effects:</span>
+                                                <div className="text-sm mt-1 p-2 bg-muted/50 rounded text-xs">
+                                                  <pre className="whitespace-pre-wrap font-mono">
+                                                    {JSON.stringify(panel.detailedSoundEffects, null, 2) || ''}
+                                                  </pre>
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </CollapsibleContent>
+                                      </Collapsible>
+                                    )}
+
+                                    {/* AI Generation Metadata */}
+                                    {(panel.generationPrompt || panel.negativePrompt || panel.promptWeight || 
+                                      panel.consistencyNotes || panel.referenceImages?.length) && (
+                                      <Collapsible>
+                                        <CollapsibleTrigger asChild>
+                                          <div className="bg-slate-50 dark:bg-slate-950/20 rounded-lg p-3 sm:p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-950/30 transition-colors">
+                                            <h5 className="text-sm font-medium flex items-center gap-2" data-testid="section-ai-metadata">
+                                              <Bot className="h-4 w-4" />
+                                              AI Generation Metadata
+                                              <ChevronRight className="h-3 w-3 ml-auto" />
+                                            </h5>
+                                          </div>
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent>
+                                          <div className="mt-2 space-y-3 text-sm">
+                                            {panel.generationPrompt && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Generation Prompt:</span>
+                                                <div className="text-sm mt-1 p-2 bg-muted/50 rounded">
+                                                  <p className="whitespace-pre-wrap">{panel.generationPrompt}</p>
+                                                </div>
+                                              </div>
+                                            )}
+                                            {panel.negativePrompt && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Negative Prompt:</span>
+                                                <div className="text-sm mt-1 p-2 bg-red-50 dark:bg-red-950/30 rounded">
+                                                  <p className="whitespace-pre-wrap">{panel.negativePrompt}</p>
+                                                </div>
+                                              </div>
+                                            )}
+                                            {panel.consistencyNotes && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Consistency Notes:</span>
+                                                <p className="text-sm mt-1 break-words">{panel.consistencyNotes}</p>
+                                              </div>
+                                            )}
+                                            {panel.promptWeight && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Prompt Weights:</span>
+                                                <div className="text-sm mt-1 p-2 bg-muted/50 rounded text-xs">
+                                                  <pre className="whitespace-pre-wrap font-mono">
+                                                    {JSON.stringify(panel.promptWeight, null, 2) || ''}
+                                                  </pre>
+                                                </div>
+                                              </div>
+                                            )}
+                                            {panel.referenceImages && panel.referenceImages.length > 0 && (
+                                              <div>
+                                                <span className="text-xs font-medium text-muted-foreground">Reference Images:</span>
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                  {panel.referenceImages.map((image, idx) => (
+                                                    <Badge key={idx} variant="outline" className="text-xs">
+                                                      <Image className="h-3 w-3 mr-1" />
+                                                      {image}
+                                                    </Badge>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </CollapsibleContent>
+                                      </Collapsible>
+                                    )}
+
+                                    {/* Dialogue Section */}
+                                    {panel.dialogue && panel.dialogue.length > 0 && (
+                                      <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-3 sm:p-4">
+                                        <h5 className="text-sm font-medium mb-3 flex items-center gap-2" data-testid="section-dialogue">
+                                          <MessageSquare className="h-4 w-4" />
+                                          Dialogue
+                                        </h5>
+                                        <div className="space-y-2">
+                                          {panel.dialogue.map((dialogue, idx) => (
+                                            <div key={idx} className="bg-white dark:bg-gray-800 rounded p-3 border">
+                                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                                                <span className="text-sm font-medium break-words">
+                                                  {dialogue.character}
+                                                </span>
+                                                <div className="flex flex-wrap gap-1">
+                                                  {dialogue.tone && (
+                                                    <Badge variant="outline" className="text-xs">
+                                                      {dialogue.tone}
+                                                    </Badge>
+                                                  )}
+                                                  {dialogue.bubbleType && (
+                                                    <Badge variant="outline" className="text-xs">
+                                                      {dialogue.bubbleType}
+                                                    </Badge>
+                                                  )}
+                                                  {dialogue.emotionalState && (
+                                                    <Badge variant="outline" className="text-xs">
+                                                      {dialogue.emotionalState}
+                                                    </Badge>
+                                                  )}
+                                                </div>
+                                              </div>
+                                              <p className="text-sm break-words">"{dialogue.text}"</p>
+                                            </div>
+                                          ))}
                                         </div>
-                                      )}
-                                    </div>
+                                      </div>
+                                    )}
                                   </div>
                                 </CardContent>
                               </CollapsibleContent>
