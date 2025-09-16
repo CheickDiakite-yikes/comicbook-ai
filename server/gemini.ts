@@ -2235,6 +2235,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
                           mood: { type: "string" },
                           characterEmotions: { 
                             type: "object",
+                            properties: {},
                             additionalProperties: { type: "string" }
                           },
                           visualNotes: { type: "string" },
@@ -3936,6 +3937,7 @@ Use ONLY the character names provided: ${characterNames.join(', ')}.`;
                         mood: { type: "string" },
                         characterEmotions: { 
                           type: "object",
+                          properties: {},
                           additionalProperties: { type: "string" }
                         },
                         visualNotes: { type: "string" },
