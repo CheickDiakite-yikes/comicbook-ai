@@ -35,12 +35,12 @@ export class CharacterNameService {
         female: [
           "Anastasia", "Beatrice", "Camille", "Delphine", "Eleanor", "Francesca", "Genevieve", "Helena", 
           "Isabella", "Josephine", "Katherine", "Lillian", "Margaret", "Natalie", "Ophelia", "Penelope", 
-          "Rosalind", "Sophia", "Teresa", "Veronica", "Winifred", "Ximena", "Yvonne", "Zara",
+          "Rosalind", "Sophia", "Teresa", "Veronica", "Winifred", "Ximena", "Yvonne", "Zelda",
           "Cordelia", "Evangeline", "Persephone", "Valentina", "Octavia", "Celeste", "Isadora", "Vivienne"
         ],
         neutral: [
           "Alex", "Cameron", "Dakota", "Emery", "Finley", "Gray", "Harper", "Indigo", "Jordan", "Kit", 
-          "Lane", "Morgan", "Nova", "Onyx", "Phoenix", "Quinn", "River", "Sage", "Taylor", "Val"
+          "Lane", "Morgan", "Peyton", "Onyx", "Rowan", "Casey", "River", "Sage", "Taylor", "Val"
         ]
       },
       lastNames: [
@@ -89,7 +89,7 @@ export class CharacterNameService {
         female: [
           "Aadhya", "Ananya", "Diya", "Kavya", "Meera", "Priya", "Riya", "Shreya", "Tara", "Veda",
           "Aditi", "Bhavya", "Deepika", "Isha", "Jyoti", "Kiara", "Lakshmi", "Maya", "Nisha", "Pooja",
-          "Rashika", "Sanya", "Tanvi", "Uma", "Vidya", "Zara", "Aisha", "Divya", "Gitika", "Hema"
+          "Rashika", "Sanya", "Tanvi", "Uma", "Vidya", "Sunita", "Aisha", "Divya", "Gitika", "Hema"
         ],
         neutral: [
           "Arya", "Dev", "Kiran", "Neel", "Rae", "Sai", "Tanu", "Ved", "Yash", "Zen"

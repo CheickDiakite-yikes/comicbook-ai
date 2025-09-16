@@ -3670,23 +3670,33 @@ REQUIREMENTS:
 - Art Style: ${request.artStyle}
 - Tones: ${request.tones.join(" + ")} (blend these emotional elements)
 
+🚨 CRITICAL CHARACTER ISOLATION RULES:
+- NEVER use character names from existing franchises, books, movies, TV shows, or games
+- NEVER use names like: Lyra, Aria, Zara, Kai, Luna, Nova, Phoenix, Raven, or other common fantasy/fiction names
+- CREATE COMPLETELY ORIGINAL character names that are unique to this specific story
+- Use fresh, creative names that don't appear in popular culture or literature
+- Ensure character names are thematically appropriate for the genre but entirely new
+- Each character name must be original and not borrowed from any existing media
+
 CREATE A COMPLETE STORY PACKAGE INCLUDING:
 
 1. TITLE: Creative, memorable title that captures the genre blend
 2. BLENDED GENRE: How the ${request.genres.join(" and ")} elements work together
 3. STORY DESCRIPTION: 2-3 paragraph compelling synopsis that hooks readers
-4. MAIN CHARACTERS: 3-4 well-developed characters with:
-   - Name and role
+4. MAIN CHARACTERS: 3-4 well-developed characters with COMPLETELY ORIGINAL NAMES:
+   - ORIGINAL name (never used in fiction before) and role
    - Personality and background
    - Visual description (appearance, clothing, distinctive features)
    - Character motivations and goals
+   - VERIFY each name is unique and not from existing media
 
 5. COMPLETE STRUCTURED SCRIPT: ${pageCount} pages of detailed comic script with:
    - Page-by-page breakdown
    - Panel descriptions (2-5 panels per page)
-   - Character dialogue with emotion
+   - Character dialogue with emotion (using ONLY the original character names)
    - Visual notes and camera angles
    - Sound effects where appropriate
+   - STRICT NAME CONSISTENCY: Only use the original character names created above
 
 STORYTELLING GUIDELINES:
 - Create compelling character arcs and conflicts
@@ -3695,8 +3705,16 @@ STORYTELLING GUIDELINES:
 - Design for ${request.artStyle} visual style
 - Ensure ${pageCount} pages tell a complete, satisfying story
 - Include strong opening, development, climax, and resolution
+- MAINTAIN STRICT CHARACTER NAME ISOLATION - no borrowed names from any existing media
 
-Generate a professional-quality story concept that comic creators would be excited to produce.`;
+CHARACTER NAME VALIDATION:
+Before finalizing, verify that EVERY character name is:
+1. Completely original and not from any existing franchise
+2. Not a common fantasy/sci-fi name used in popular culture
+3. Unique to this specific story concept
+4. Thematically appropriate but entirely new
+
+Generate a professional-quality story concept with 100% original character names that comic creators would be excited to produce.`;
 
       console.log("🎨 Generating complete story with Gemini Pro...");
 
@@ -3791,6 +3809,51 @@ Generate a professional-quality story concept that comic creators would be excit
       console.log("✅ Complete story generated successfully");
       const parsedStory = JSON.parse(completeStory);
       
+      // 🚨 CHARACTER CONTAMINATION VALIDATION: Check for phantom characters
+      console.log("🔍 Validating character names for contamination...");
+      const generatedCharacterNames = parsedStory.characters?.map((char: any) => char.name) || [];
+      
+      // List of known phantom character names that should never appear
+      const forbiddenNames = [
+        'lyra', 'aria', 'zara', 'kai', 'luna', 'nova', 'phoenix', 'raven', 
+        'sage', 'quinn', 'alex', 'blake', 'jamie', 'casey', 'riley', 'taylor',
+        'ember', 'storm', 'cloud', 'rain', 'sky', 'dawn', 'dusk', 'shadow',
+        'blade', 'hunter', 'wolf', 'fox', 'crow', 'sparrow', 'falcon',
+        'iris', 'ruby', 'jade', 'pearl', 'diamond', 'crystal', 'sapphire',
+        'rose', 'lily', 'violet', 'daisy', 'holly', 'ivy', 'jasmine',
+        'neo', 'matrix', 'cipher', 'echo', 'ghost', 'phantom', 'viper',
+        'axel', 'blaze', 'frost', 'steel', 'iron', 'chrome', 'titan'
+      ];
+      
+      // Check for forbidden names
+      const contaminatedNames = generatedCharacterNames.filter((name: string) =>
+        forbiddenNames.includes(name.toLowerCase())
+      );
+      
+      if (contaminatedNames.length > 0) {
+        console.error(`🚨 CHARACTER CONTAMINATION DETECTED: Found forbidden names: ${contaminatedNames.join(', ')}`);
+        throw new Error(`Character contamination detected. Forbidden character names found: ${contaminatedNames.join(', ')}. Please regenerate with completely original names.`);
+      }
+      
+      // Additional validation: Check if names are too similar to common fantasy/sci-fi names
+      const suspiciousPatterns = [
+        /^[A-Z][aeiou]+[rn]a?$/i, // Lyra, Aria, Luna pattern
+        /^[A-Z][aeiou]*x[aeiou]*$/i, // Names ending with x
+        /^[A-Z][aeiou]*th[aeiou]*$/i, // Names with 'th' 
+        /^[A-Z][aeiou]*iel?$/i, // Angel-like names
+        /^[A-Z][aeiou]*yn[ae]?$/i // Fantasy-like endings
+      ];
+      
+      const suspiciousNames = generatedCharacterNames.filter((name: string) =>
+        suspiciousPatterns.some(pattern => pattern.test(name))
+      );
+      
+      if (suspiciousNames.length > 0) {
+        console.warn(`⚠️ SUSPICIOUS CHARACTER NAMES: ${suspiciousNames.join(', ')} - may be too similar to common fantasy names`);
+      }
+      
+      console.log(`✅ Character validation passed for names: ${generatedCharacterNames.join(', ')}`);
+      
       // 🎨 CHARACTER CANON PASS: Enhance characters with diverse names and detailed descriptions
       const enhancedStory = await this.applyCharacterCanonPass(parsedStory);
       
@@ -3837,17 +3900,33 @@ REQUIREMENTS:
 - Art Style: ${request.artStyle}
 - Tones: ${request.tones.join(" + ")} (blend these emotional elements)
 
+🚨 CRITICAL CHARACTER ISOLATION RULES:
+- NEVER use character names from existing franchises, books, movies, TV shows, or games
+- NEVER use names like: Lyra, Aria, Zara, Kai, Luna, Nova, Phoenix, Raven, or other common fantasy/fiction names
+- CREATE COMPLETELY ORIGINAL character names that are unique to this specific story
+- Use fresh, creative names that don't appear in popular culture or literature
+- Ensure character names are thematically appropriate for the genre but entirely new
+- Each character name must be original and not borrowed from any existing media
+
 GENERATE ONLY:
 1. TITLE: Creative, memorable title that captures the genre blend
 2. BLENDED GENRE: How the ${request.genres.join(" and ")} elements work together
 3. STORY DESCRIPTION: 2-3 paragraph compelling synopsis that hooks readers
-4. MAIN CHARACTERS: 3-4 well-developed characters with:
-   - Name and role
+4. MAIN CHARACTERS: 3-4 well-developed characters with COMPLETELY ORIGINAL NAMES:
+   - ORIGINAL name (never used in fiction before) and role
    - Personality and background
    - Visual description (appearance, clothing, distinctive features)
    - Character motivations and goals
+   - VERIFY each name is unique and not from existing media
 
-NO SCRIPT - Just the concept foundation for a ${totalPages}-page story.`;
+CHARACTER NAME VALIDATION:
+Before finalizing, verify that EVERY character name is:
+1. Completely original and not from any existing franchise
+2. Not a common fantasy/sci-fi name used in popular culture
+3. Unique to this specific story concept
+4. Thematically appropriate but entirely new
+
+NO SCRIPT - Just the concept foundation for a ${totalPages}-page story with 100% original character names.`;
 
     console.log("🎨 Step 1: Generating story concept and characters...");
 
@@ -3888,6 +3967,34 @@ NO SCRIPT - Just the concept foundation for a ${totalPages}-page story.`;
 
     const storyConcept = JSON.parse(storyConceptText);
     console.log(`✅ Story concept generated: "${storyConcept.title}"`);
+
+    // 🚨 CHARACTER CONTAMINATION VALIDATION: Check for phantom characters in chunked generation
+    console.log("🔍 Validating character names for contamination in chunked story...");
+    const generatedCharacterNames = storyConcept.characters?.map((char: any) => char.name) || [];
+    
+    // List of known phantom character names that should never appear
+    const forbiddenNames = [
+      'lyra', 'aria', 'zara', 'kai', 'luna', 'nova', 'phoenix', 'raven', 
+      'sage', 'quinn', 'alex', 'blake', 'jamie', 'casey', 'riley', 'taylor',
+      'ember', 'storm', 'cloud', 'rain', 'sky', 'dawn', 'dusk', 'shadow',
+      'blade', 'hunter', 'wolf', 'fox', 'crow', 'sparrow', 'falcon',
+      'iris', 'ruby', 'jade', 'pearl', 'diamond', 'crystal', 'sapphire',
+      'rose', 'lily', 'violet', 'daisy', 'holly', 'ivy', 'jasmine',
+      'neo', 'matrix', 'cipher', 'echo', 'ghost', 'phantom', 'viper',
+      'axel', 'blaze', 'frost', 'steel', 'iron', 'chrome', 'titan'
+    ];
+    
+    // Check for forbidden names
+    const contaminatedNames = generatedCharacterNames.filter((name: string) =>
+      forbiddenNames.includes(name.toLowerCase())
+    );
+    
+    if (contaminatedNames.length > 0) {
+      console.error(`🚨 CHARACTER CONTAMINATION DETECTED IN CHUNKED STORY: Found forbidden names: ${contaminatedNames.join(', ')}`);
+      throw new Error(`Character contamination detected in chunked story. Forbidden character names found: ${contaminatedNames.join(', ')}. Please regenerate with completely original names.`);
+    }
+    
+    console.log(`✅ Chunked story character validation passed for names: ${generatedCharacterNames.join(', ')}`);
 
     // 🚀 PARALLEL GENERATION: Generate script chunks simultaneously for speed
     const chunkSize = 5; // Reduced chunk size for better parallelization
