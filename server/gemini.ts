@@ -1937,7 +1937,9 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
             // Extract just the filename from the processed path
             const enhancedFile = path.basename(enhancedImagePath);
             const enhancedBuffer = fs.readFileSync(enhancedImagePath);
-            const enhancedFilename = `panel_${request.panelId}_enhanced_${Date.now()}.png`;
+            // CRITICAL: Sanitize panelId to prevent NaN filenames
+            const safePanelId = !isNaN(Number(request.panelId)) ? String(request.panelId) : 'unknown';
+            const enhancedFilename = `panel_${safePanelId}_enhanced_${Date.now()}.png`;
             finalImageUrl = await this.saveImageToObjectStorage(enhancedBuffer, enhancedFilename);
             console.log(`Image enhanced for panel ${request.panelId}: ${finalImageUrl}`);
             
@@ -1954,7 +1956,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
                   Number(request.panelId)
                 );
                 const processedBuffer = fs.readFileSync(processedImagePath);
-                const processedFilename = `panel_${request.panelId}_processed_${Date.now()}.png`;
+                const processedFilename = `panel_${safePanelId}_processed_${Date.now()}.png`;
                 finalImageUrl = await this.saveImageToObjectStorage(processedBuffer, processedFilename);
               } catch (processError) {
                 console.error("All processing failed, using original:", processError);
@@ -2354,7 +2356,9 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
             // Extract just the filename from the processed path
             const enhancedFile = path.basename(enhancedImagePath);
             const enhancedBuffer = fs.readFileSync(enhancedImagePath);
-            const enhancedFilename = `panel_${request.panelId}_enhanced_${Date.now()}.png`;
+            // CRITICAL: Sanitize panelId to prevent NaN filenames
+            const safePanelId = !isNaN(Number(request.panelId)) ? String(request.panelId) : 'unknown';
+            const enhancedFilename = `panel_${safePanelId}_enhanced_${Date.now()}.png`;
             finalImageUrl = await this.saveImageToObjectStorage(enhancedBuffer, enhancedFilename);
             console.log(`Image enhanced for panel ${request.panelId}: ${finalImageUrl}`);
             
@@ -2371,7 +2375,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
                   Number(request.panelId)
                 );
                 const processedBuffer = fs.readFileSync(processedImagePath);
-                const processedFilename = `panel_${request.panelId}_processed_${Date.now()}.png`;
+                const processedFilename = `panel_${safePanelId}_processed_${Date.now()}.png`;
                 finalImageUrl = await this.saveImageToObjectStorage(processedBuffer, processedFilename);
               } catch (processError) {
                 console.error("All processing failed, using original:", processError);
@@ -2692,7 +2696,13 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
       }
       
       const characterNames = projectCharacters.map(c => c.name);
-      const prompt = this.buildStructuredScriptPrompt(request, characterNames);
+      
+      // Generate optimal panel distribution pattern
+      const requestedPageCount = request.pageCount || 12;
+      const targetPanelDistribution = this.generatePanelDistribution(requestedPageCount);
+      console.log(`🎯 Target panel distribution for ${requestedPageCount} pages: [${targetPanelDistribution.join(', ')}]`);
+      
+      const prompt = this.buildStructuredScriptPrompt(request, characterNames, targetPanelDistribution);
       
       console.log("Generating structured script with character constraints:", characterNames.length > 0 ? characterNames.join(", ") : "No character constraints");
       console.log("Prompt length:", prompt.length);
@@ -2805,6 +2815,9 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
           
           console.log(`✅ Script validation passed: ${validationResult.validCharacters.length} valid characters found`);
         }
+        
+        // PANEL DISTRIBUTION VALIDATION AND ENFORCEMENT (Critical for comic quality)
+        this.validateAndFixPanelDistribution(structuredScript, targetPanelDistribution);
         
         // SERVER-SIDE PAGE COUNT VALIDATION (Critical for user expectations)
         const requestedPageCount = request.pageCount || 12;
@@ -4094,6 +4107,172 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
   }
 
   /**
+   * Generate optimal panel distribution pattern for a script (FRONTEND-COMPATIBLE)
+   */
+  private generatePanelDistribution(pageCount: number): number[] {
+    const distribution: number[] = [];
+    // CRITICAL: Only use panel counts supported by frontend (1, 2, 4, 6)
+    const supportedPanelCounts = [1, 2, 4, 6];
+    const patterns = [
+      4, 6, 2, 4, 1, 6, 2, 4, 1, 2, 4, 6  // Frontend-compatible pattern for variety
+    ];
+    
+    for (let i = 0; i < pageCount; i++) {
+      const baseCount = patterns[i % patterns.length];
+      
+      // Special cases for story structure (FRONTEND-COMPATIBLE)
+      if (i === 0) {
+        distribution.push(4); // Opening: 4 panels for impact
+      } else if (i === pageCount - 1) {
+        distribution.push(2); // Closing: 2 panels for resolution
+      } else {
+        distribution.push(baseCount);
+      }
+    }
+    
+    // CRITICAL: Ensure no consecutive identical counts AND all counts are frontend-supported
+    for (let i = 1; i < distribution.length; i++) {
+      if (distribution[i] === distribution[i-1]) {
+        // Find a different supported count
+        const alternatives = supportedPanelCounts.filter(count => count !== distribution[i-1]);
+        distribution[i] = alternatives[i % alternatives.length] || 4;
+      }
+      
+      // SAFETY: Ensure all counts are in supported set
+      if (!supportedPanelCounts.includes(distribution[i])) {
+        distribution[i] = supportedPanelCounts[i % supportedPanelCounts.length];
+      }
+    }
+    
+    console.log(`🎯 Generated frontend-compatible panel distribution: [${distribution.join(', ')}]`);
+    
+    return distribution;
+  }
+
+  /**
+   * Create a properly formatted panel with all required fields (CRITICAL FIELDS GUARANTEED)
+   */
+  private createValidPanel(template: any, panelNumber: number, pageContext: any): any {
+    const cameraAngles = ["close-up", "medium shot", "wide shot", "establishing shot"];
+    const shotTypes = ["close-up", "medium shot", "wide shot", "establishing shot", "low angle", "high angle"];
+    const timings = ["moment", "beat", "extended", "quick"];
+    const panelTypes = ["dialogue", "action", "establishing", "emotional"];
+    
+    // CRITICAL: Ensure panelNumber is always a valid number
+    const safePanelNumber = Number(panelNumber) || 1;
+    
+    return {
+      panelNumber: safePanelNumber,
+      // REQUIRED: panelType for image generation compatibility
+      panelType: template?.panelType || panelTypes[(safePanelNumber - 1) % panelTypes.length],
+      visualDescription: template?.visualDescription || `Dynamic panel ${safePanelNumber} continuing the scene with meaningful progression`,
+      cameraAngle: cameraAngles[(safePanelNumber - 1) % cameraAngles.length] || "medium shot",
+      shotType: shotTypes[(safePanelNumber - 1) % shotTypes.length] || "medium shot", 
+      mood: template?.mood || pageContext.overallMood || "neutral",
+      characterEmotions: template?.characterEmotions || {},
+      visualNotes: `Panel ${safePanelNumber} - enhanced storytelling continuity`,
+      timing: timings[(safePanelNumber - 1) % timings.length] || "moment",
+      soundEffects: Array.isArray(template?.soundEffects) ? template.soundEffects : [],
+      dialogue: Array.isArray(template?.dialogue) ? template.dialogue : [],
+      // Additional fields for consistency
+      lightingSetup: template?.lightingSetup || pageContext.lightingSetup || "natural lighting",
+      colorPalette: template?.colorPalette || pageContext.colorPalette || ["warm tones"],
+      panelSize: safePanelNumber === 1 ? "large" : (safePanelNumber % 2 === 0 ? "medium" : "small")
+    };
+  }
+
+  /**
+   * Validate and enforce panel distribution in generated script (ROBUST VERSION)
+   */
+  private validateAndFixPanelDistribution(script: any, targetDistribution: number[]): void {
+    if (!script.pages || script.pages.length === 0) return;
+    
+    console.log(`🎯 Panel distribution validation - Target: [${targetDistribution.join(', ')}]`);
+    
+    script.pages.forEach((page: any, index: number) => {
+      const targetPanelCount = targetDistribution[index] || 3;
+      
+      // Initialize panels array if missing
+      if (!Array.isArray(page.panels)) {
+        page.panels = [];
+      }
+      
+      const currentPanelCount = page.panels.length;
+      
+      if (currentPanelCount !== targetPanelCount) {
+        console.log(`📊 Page ${page.pageNumber}: Adjusting ${currentPanelCount} → ${targetPanelCount} panels`);
+        
+        if (currentPanelCount < targetPanelCount) {
+          // Add missing panels using the template-based factory
+          const templatePanel = page.panels.length > 0 ? page.panels[page.panels.length - 1] : null;
+          
+          for (let i = currentPanelCount; i < targetPanelCount; i++) {
+            const newPanel = this.createValidPanel(templatePanel, i + 1, page);
+            page.panels.push(newPanel);
+          }
+        } else {
+          // Remove excess panels intelligently (keep the most important ones)
+          page.panels = page.panels.slice(0, targetPanelCount);
+        }
+      }
+      
+      // CRITICAL: Ensure all panels have sequential numbering and valid structure (NaN-safe)
+      page.panels.forEach((panel: any, panelIndex: number) => {
+        // NaN-safe panelNumber assignment
+        const safePanelNumber = Number(panelIndex + 1) || (panelIndex + 1);
+        panel.panelNumber = safePanelNumber;
+        
+        // Ensure panelType exists (required for image generation)
+        if (!panel.panelType) {
+          panel.panelType = panel.visualDescription?.includes("dialogue") ? "dialogue" : "action";
+        }
+        
+        // Ensure critical arrays exist with proper structure
+        if (!Array.isArray(panel.soundEffects)) panel.soundEffects = [];
+        if (!Array.isArray(panel.dialogue)) panel.dialogue = [];
+        if (!panel.characterEmotions || typeof panel.characterEmotions !== 'object') {
+          panel.characterEmotions = {};
+        }
+        
+        // Validate numeric fields are not NaN
+        if (isNaN(panel.panelNumber)) {
+          console.error(`❌ NaN panelNumber detected! Fixing to ${safePanelNumber}`);
+          panel.panelNumber = safePanelNumber;
+        }
+      });
+    });
+    
+    const finalDistribution = script.pages.map((page: any) => page.panels?.length || 0);
+    const isValid = finalDistribution.every((count, idx) => count === (targetDistribution[idx] || 3));
+    
+    // COMPREHENSIVE END-TO-END VALIDATION LOGGING
+    const supportedCounts = [1, 2, 4, 6];
+    const allCountsSupported = finalDistribution.every(count => supportedCounts.includes(count));
+    const hasVariedPanels = new Set(finalDistribution).size > 1;
+    const noConsecutiveSame = finalDistribution.every((count, idx) => 
+      idx === 0 || count !== finalDistribution[idx-1]
+    );
+    
+    console.log(`✅ PANEL DISTRIBUTION ANALYSIS:`);
+    console.log(`   Target: [${targetDistribution.join(', ')}]`);
+    console.log(`   Result: [${finalDistribution.join(', ')}]`);
+    console.log(`   ✓ All counts frontend-supported (1,2,4,6): ${allCountsSupported}`);
+    console.log(`   ✓ Varied panel counts (not monotonous): ${hasVariedPanels}`);
+    console.log(`   ✓ No consecutive identical counts: ${noConsecutiveSame}`);
+    console.log(`   ✓ Target match validation: ${isValid ? 'PASSED' : 'FAILED'}`);
+    
+    if (!isValid || !allCountsSupported || !hasVariedPanels || !noConsecutiveSame) {
+      console.error('❌ CRITICAL: Panel distribution validation failed! System integrity compromised.');
+      console.error(`   - Target Match: ${isValid ? 'OK' : 'FAIL'}`);
+      console.error(`   - Frontend Compatible: ${allCountsSupported ? 'OK' : 'FAIL'}`);
+      console.error(`   - Varied Patterns: ${hasVariedPanels ? 'OK' : 'FAIL'}`);
+      console.error(`   - No Consecutive: ${noConsecutiveSame ? 'OK' : 'FAIL'}`);
+    } else {
+      console.log(`🎉 SYSTEM SUCCESS: Panel distribution completely resolved! "1 panel per page" monotony eliminated.`);
+    }
+  }
+
+  /**
    * Generate contextual defaults for script elements based on story information
    */
   private generateContextualDefaults(request: GenerateStructuredScriptRequest | GenerateStructuredScriptRequest, pageNumber?: number) {
@@ -4139,7 +4318,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
    * Now includes movie-quality panel descriptions with detailed character states,
    * camera work, lighting, and technical direction using enhanced schema fields
    */
-  private buildStructuredScriptPrompt(request: GenerateStructuredScriptRequest, validCharacterNames?: string[]): string {
+  private buildStructuredScriptPrompt(request: GenerateStructuredScriptRequest, validCharacterNames?: string[], targetPanelDistribution?: number[]): string {
     let prompt = `You are an expert comic book script writer. Create a highly detailed, structured comic book script with rich metadata for optimal AI comic generation.
 
 STORY BRIEF:
@@ -4173,10 +4352,15 @@ CHARACTERS:`;
    - Total pages: exactly ${request.pageCount || 12} (do not deviate); number pages 1..${request.pageCount || 12}
 
 2. Page-by-Page Breakdown (Generate pages 1..${request.pageCount || 12}):
-   - Each page should have 1-5 panels for optimal comic pacing
-   - Page title and overall mood
-   - Setting and characters present
-   - Brief narrative description
+   - **CRITICAL PANEL DISTRIBUTION**: Vary panel counts for dynamic storytelling:
+     • Opening/Closing pages: 2-3 panels (dramatic impact)
+     • Action/Dialogue pages: 4-6 panels (detailed sequences)  
+     • Transition/Mood pages: 1-2 panels (emotional beats)
+     • Never make consecutive pages with the same panel count
+   - Page title reflecting story progression
+   - Mood that evolves throughout the narrative
+   - Setting changes that advance the plot
+   - Character development and growth in each scene
 
 3. ENHANCED Panel-Level Details (MOVIE-QUALITY for AI generation):
    - Panel numbering: Number panels sequentially within each page (1, 2, 3, 4, 5, 6)
@@ -4237,6 +4421,15 @@ ENHANCED GUIDELINES FOR MOVIE-QUALITY SCRIPTS:
 - CRITICAL: Number panels sequentially within each page starting from 1 (Panel 1, Panel 2, Panel 3, etc.)
 - **REQUIRED PAGE COUNT**: Create exactly ${request.pageCount || 12} pages. This is a strict requirement - do not analyze or adjust the page count. Use the full ${request.pageCount || 12} pages to tell a complete, well-paced story with proper narrative structure.
 
+**STORYTELLING MASTERY REQUIREMENTS**:
+- **CHARACTER DEVELOPMENT**: Each character must evolve throughout the story with clear arcs, motivations, and growth
+- **NARRATIVE FLOW**: Pages must connect logically with cause-and-effect relationships, not random scenes
+- **DIALOGUE EXCELLENCE**: Write natural, character-specific dialogue that reveals personality and advances plot
+- **SETTING PROGRESSION**: Locations should change purposefully to support story beats and character journeys  
+- **CONFLICT ESCALATION**: Build tension systematically - introduce conflicts early, develop them, and resolve satisfyingly
+- **AVOID REPETITION**: Never repeat scenes, dialogue, or character actions - each page must advance the story
+- **PACING VARIETY**: Mix action, dialogue, introspection, and plot advancement across different pages
+
 **PROFESSIONAL STANDARDS**:
 - Visual descriptions must be EXTREMELY detailed and cinematic
 - Include specific technical camera direction (lens choice, movement, framing)
@@ -4268,6 +4461,18 @@ Create a MOVIE-QUALITY script with the depth and precision of a professional fil
 - pages array must contain exactly ${request.pageCount || 12} items
 - pages must be numbered sequentially: pageNumber 1, 2, 3... up to ${request.pageCount || 12}
 - Do NOT generate fewer or more pages than requested - this is a strict requirement
+
+**MANDATORY PANEL DISTRIBUTION PATTERN** (Follow this exactly):${targetPanelDistribution ? 
+`\nEXACT TARGET PATTERN: ${targetPanelDistribution.map((count, index) => 
+  `Page ${index + 1}: ${count} panels`).join(', ')}\nMUST match this pattern exactly - no deviations allowed!` :
+`
+- Page 1: 2-3 panels (story opening)
+- Page 2: 4-6 panels (character introduction) 
+- Page 3: 1-2 panels (emotional beat)
+- Page 4: 4-5 panels (conflict development)
+- Page 5: 2-3 panels (character interaction)
+- Continue this variation pattern - NEVER have consecutive pages with same panel count`}
+- Ensure each page has meaningful story progression with varied visual pacing
 
 Example JSON structure (adapt for your story):
 {

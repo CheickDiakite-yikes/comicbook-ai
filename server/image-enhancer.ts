@@ -105,7 +105,9 @@ export class ImageEnhancer {
   ): Promise<string> {
     const timestamp = Date.now();
     const outputDir = path.dirname(inputPath);
-    const outputPath = path.join(outputDir, `panel_${panelNumber}_enhanced_${timestamp}.png`);
+    // CRITICAL: Ensure panelNumber is safe for filename generation (prevent NaN) 
+    const safePanelNumber = !isNaN(Number(panelNumber)) ? String(panelNumber) : 'unknown';
+    const outputPath = path.join(outputDir, `panel_${safePanelNumber}_enhanced_${timestamp}.png`);
     
     try {
       console.log(`Enhancing panel ${panelNumber}: ${panelWidth}x${panelHeight}`);
