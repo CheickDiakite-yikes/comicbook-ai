@@ -1189,6 +1189,36 @@ export default function PanelEditor({
                   )}
                 </label>
                 <div className="flex items-center space-x-2">
+                  {/* Enhance Characters Button */}
+                  {selectedPanel && projectCharacters.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const enhancedPrompt = enhanceTextWithCharacterDetails(prompt, projectCharacters);
+                        if (enhancedPrompt !== prompt) {
+                          setPrompt(enhancedPrompt);
+                          setHasUserEditedPrompt(true);
+                          setIsPromptFromScript(false);
+                          toast({
+                            title: "Characters enhanced",
+                            description: "Character details added to prompt text.",
+                          });
+                        } else {
+                          toast({
+                            title: "No changes needed",
+                            description: "Character details are already included or no characters detected in prompt.",
+                          });
+                        }
+                      }}
+                      className="h-6 px-2 text-xs text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300"
+                      title="Add character appearance details directly to prompt text"
+                      data-testid="button-enhance-characters"
+                    >
+                      <Users className="h-3 w-3 mr-1" />
+                      Enhance Characters
+                    </Button>
+                  )}
                   {hasUserEditedPrompt && selectedPanel && (
                     <Button
                       variant="ghost"
