@@ -212,6 +212,39 @@ export async function validateScriptCharacters(
 /**
  * Validate character names before panel generation
  */
+/**
+ * Extract character names from free text prompts
+ */
+function extractCharacterNamesFromPrompt(prompt: string, validCharacterNames: string[]): string[] {
+  const foundCharacters = new Set<string>();
+  
+  if (!prompt || typeof prompt !== 'string') {
+    return [];
+  }
+  
+  // Create case-insensitive search patterns for each character
+  for (const characterName of validCharacterNames) {
+    // Create regex patterns to match character names in various contexts
+    const patterns = [
+      // Exact name match (word boundaries)
+      new RegExp(`\\b${characterName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'),
+      // Possessive form (name's)
+      new RegExp(`\\b${characterName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'s\\b`, 'gi'),
+      // With titles (Mr./Ms./Dr. etc.)
+      new RegExp(`\\b(?:Mr|Ms|Mrs|Dr|Captain|Professor)\\.?\\s+${characterName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')
+    ];
+    
+    // Check if any pattern matches
+    const hasMatch = patterns.some(pattern => pattern.test(prompt));
+    
+    if (hasMatch) {
+      foundCharacters.add(characterName);
+    }
+  }
+  
+  return Array.from(foundCharacters);
+}
+
 export async function validatePanelCharacters(
   panelData: any,
   projectId: string,
@@ -226,7 +259,16 @@ export async function validatePanelCharacters(
     const characterNames = new Set<string>();
     const errors: CharacterValidationError[] = [];
     
-    // Extract character names from panel dialogue
+    // 🔍 NEW: Extract character names from free text prompt
+    if (panelData.prompt && typeof panelData.prompt === 'string') {
+      const promptCharacters = extractCharacterNamesFromPrompt(panelData.prompt, validCharacterNames);
+      promptCharacters.forEach(charName => {
+        characterNames.add(charName);
+        console.log(`🎯 Found character "${charName}" in prompt text`);
+      });
+    }
+    
+    // Extract character names from panel dialogue (existing logic)
     if (panelData.dialogue && Array.isArray(panelData.dialogue)) {
       panelData.dialogue.forEach((dialogue: any, index: number) => {
         if (dialogue.characterName) {
@@ -248,7 +290,7 @@ export async function validatePanelCharacters(
       });
     }
     
-    // Extract from character emotions
+    // Extract from character emotions (existing logic)
     if (panelData.characterEmotions && typeof panelData.characterEmotions === 'object') {
       Object.keys(panelData.characterEmotions).forEach(charName => {
         characterNames.add(charName);
@@ -268,6 +310,16 @@ export async function validatePanelCharacters(
       });
     }
     
+    // 🎯 CRITICAL FIX: Be more permissive - if we have project characters available
+    // and no explicit character validation errors, allow the generation to proceed
+    // This prevents the "0 valid characters found" issue from blocking generations
+    if (characterNames.size === 0 && projectCharacters.length > 0) {
+      console.log(`🔄 No explicit characters found in request, but ${projectCharacters.length} project characters available - allowing generation to proceed with all project characters`);
+      
+      // Add all project characters as "available" for the prompt enhancer
+      validCharacterNames.forEach(name => characterNames.add(name));
+    }
+    
     const validCharacters = Array.from(characterNames).filter(name => 
       characterMap.has(normalizeCharacterName(name))
     );
@@ -275,6 +327,8 @@ export async function validatePanelCharacters(
     const unknownCharacters = Array.from(characterNames).filter(name => 
       !characterMap.has(normalizeCharacterName(name))
     );
+    
+    console.log(`🎯 Panel validation results: ${validCharacters.length} valid, ${unknownCharacters.length} unknown, ${projectCharacters.length} total project characters`);
     
     return {
       isValid: errors.length === 0,
