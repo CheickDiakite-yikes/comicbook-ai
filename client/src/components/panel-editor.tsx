@@ -343,27 +343,56 @@ export default function PanelEditor({
     
     let enhancedText = text;
     
+    // Helper to safely get string field with fallbacks
+    const getStringField = (obj: any, ...fieldNames: string[]) => {
+      for (const fieldName of fieldNames) {
+        const value = obj?.[fieldName];
+        if (typeof value === 'string' && value.trim()) {
+          return value.trim();
+        }
+      }
+      return '';
+    };
+    
     // For each character in the project, look for their name in the text and embed appearance details
     availableCharacters.forEach((char: any) => {
-      if (!char.name || !char.visualDescriptors) return;
+      if (!char?.name) return;
       
       // Create regex to find character name mentions (case insensitive, word boundaries)
       const nameRegex = new RegExp(`\\b(${char.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'gi');
       
-      // Build compact appearance description
+      // Build compact appearance description with multiple fallback fields
       const appearanceDetails = [];
       
-      // Add visual descriptors (physical appearance)
-      if (char.visualDescriptors && char.visualDescriptors.trim()) {
-        appearanceDetails.push(char.visualDescriptors.trim());
+      // Try multiple possible field names for visual appearance
+      const visualAppearance = getStringField(char, 
+        'visualDescriptors', 'visual_descriptors', 'visualDescription', 'visual_description',
+        'appearance', 'appearanceDetails', 'visual', 'description'
+      );
+      
+      if (visualAppearance) {
+        appearanceDetails.push(visualAppearance);
       }
       
-      // Add clothing/outfit information from alwaysTraits if it contains clothing info
-      if (char.alwaysTraits && char.alwaysTraits.trim()) {
+      // Add clothing/outfit information from alwaysTraits with fallbacks
+      const alwaysTraits = getStringField(char, 'alwaysTraits', 'always_traits', 'traits');
+      if (alwaysTraits) {
         const clothingTerms = ['wearing', 'outfit', 'clothing', 'shirt', 'pants', 'dress', 'jacket', 'boots', 'shoes', 'hat', 'uniform', 'costume'];
-        const alwaysTraitsLower = char.alwaysTraits.toLowerCase();
+        const alwaysTraitsLower = alwaysTraits.toLowerCase();
         if (clothingTerms.some(term => alwaysTraitsLower.includes(term))) {
-          appearanceDetails.push(char.alwaysTraits.trim());
+          appearanceDetails.push(alwaysTraits);
+        }
+      }
+      
+      // If no specific appearance fields, try bio as fallback
+      if (appearanceDetails.length === 0) {
+        const bio = getStringField(char, 'bio', 'biography', 'background');
+        if (bio) {
+          // Use first sentence or first 100 chars of bio as appearance fallback
+          const bioSnippet = bio.split(/[.!?]/)[0].substring(0, 100);
+          if (bioSnippet.length > 10) { // Only use if substantial
+            appearanceDetails.push(bioSnippet);
+          }
         }
       }
       
