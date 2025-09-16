@@ -286,14 +286,18 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
               : "Script Breakdown"
             }
           </h2>
-          {currentPageNumber && (
+          {structuredScript.pages && structuredScript.pages.length > 1 && (
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowAllPages(!showAllPages)}
               className="text-xs"
+              data-testid="button-toggle-pages-view"
             >
-              {showAllPages ? "Focus on Current Page" : "View All Pages"}
+              {showAllPages 
+                ? (currentPageNumber ? "Focus on Current Page" : "View One Page")
+                : "View All Pages"
+              }
             </Button>
           )}
         </div>
@@ -301,9 +305,14 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
         <ScrollArea className="h-[600px] w-full border rounded-md p-2 sm:p-4">
           <div className="space-y-4 min-w-0">
             {structuredScript.pages?.filter(page => {
-              // If we have a current page and not showing all pages, only show current page
-              if (currentPageNumber && !showAllPages) {
-                return page.pageNumber === currentPageNumber;
+              // If not showing all pages, show either current page or first page
+              if (!showAllPages) {
+                if (currentPageNumber) {
+                  return page.pageNumber === currentPageNumber;
+                } else {
+                  // If no current page specified, show first page only
+                  return page.pageNumber === 1;
+                }
               }
               // Otherwise show all pages
               return true;
