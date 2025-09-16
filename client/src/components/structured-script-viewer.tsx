@@ -90,6 +90,31 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
     });
   };
 
+  const handleFixScript = async () => {
+    try {
+      console.log("🚨 Attempting to fix corrupted script data...");
+      const response = await fetch(`/api/projects/${projectId}/fix-script`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      const result = await response.json();
+      console.log("🚨 Fix script result:", result);
+      
+      if (result.success) {
+        console.log(`✅ Script recovered! Found ${result.pages} pages`);
+        // Refresh the data
+        queryClient.invalidateQueries({ 
+          queryKey: ["/api/projects", projectId] 
+        });
+      } else {
+        console.log("❌ No script data found to recover");
+      }
+    } catch (error) {
+      console.error("🚨 Error fixing script:", error);
+    }
+  };
+
   // Auto-expand current page when in focused mode
   useEffect(() => {
     if (structuredScript && currentPageNumber && !showAllPages) {
@@ -250,16 +275,25 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
           <p className="text-muted-foreground mb-4">
             This project doesn't have a structured script yet. Generate one to see the detailed breakdown here.
           </p>
-          <Button 
-            onClick={handleRefreshScript} 
-            variant="outline" 
-            size="sm"
-            className="mt-2"
-            data-testid="button-refresh-script"
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh Script Data
-          </Button>
+          <div className="flex gap-2 mt-2">
+            <Button 
+              onClick={handleRefreshScript} 
+              variant="outline" 
+              size="sm"
+              data-testid="button-refresh-script"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh Script Data
+            </Button>
+            <Button 
+              onClick={handleFixScript} 
+              variant="default" 
+              size="sm"
+              data-testid="button-fix-script"
+            >
+              🚨 Fix Script
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );

@@ -2693,6 +2693,57 @@ Redress this character in the specified outfit while maintaining their core visu
     }
   });
 
+  // EMERGENCY SCRIPT RECOVERY: Fix corrupted project.script fields
+  app.post("/api/projects/:projectId/fix-script", isAuthenticated, async (req: any, res) => {
+    try {
+      const { projectId } = req.params;
+      const userId = getUserId(req.user);
+      
+      console.log(`🚨 SCRIPT RECOVERY: Attempting to fix script for project ${projectId}`);
+      
+      // Verify user owns the project
+      const project = await storage.getProject(projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      
+      console.log(`🚨 SCRIPT RECOVERY: Current script data:`, project.script ? "EXISTS" : "MISSING");
+      
+      // Check if there's a structured script we can recover from
+      const structuredScript = await storage.getProjectStructuredScript(projectId);
+      
+      if (structuredScript && structuredScript.pages && structuredScript.pages.length > 0) {
+        console.log(`🚨 SCRIPT RECOVERY: Found structured script with ${structuredScript.pages.length} pages - recovering...`);
+        
+        // Restore the script data to project.script field
+        const scriptData = JSON.stringify({
+          title: structuredScript.title,
+          logline: structuredScript.logline,
+          pages: structuredScript.pages || []
+        });
+        
+        await storage.updateProject(projectId, { script: scriptData });
+        console.log(`🚨 SCRIPT RECOVERY: Successfully restored script to project.script field!`);
+        
+        res.json({ 
+          success: true, 
+          message: "Script recovered successfully",
+          pages: structuredScript.pages.length 
+        });
+      } else {
+        console.log(`🚨 SCRIPT RECOVERY: No structured script found - user needs to regenerate`);
+        res.json({ 
+          success: false, 
+          message: "No script data found to recover. You'll need to generate a new script.",
+          needsRegeneration: true
+        });
+      }
+    } catch (error) {
+      console.error("🚨 SCRIPT RECOVERY: Error during script recovery:", error);
+      res.status(500).json({ message: "Failed to recover script" });
+    }
+  });
+
   // Create script panel
   app.post("/api/script-pages/:pageId/panels", isAuthenticated, async (req: any, res) => {
     try {
