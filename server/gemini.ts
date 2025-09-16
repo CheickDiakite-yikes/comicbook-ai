@@ -141,7 +141,7 @@ export interface GenerateStructuredScriptResponse {
       cameraAngle: string;
       shotType: string;
       mood: string;
-      characterEmotions: { [character: string]: string };
+      characterEmotions: { [character: string]: string } | Array<{characterName: string, emotion: string}>;
       visualNotes: string;
       timing: string;
       soundEffects: string[];
@@ -2233,10 +2233,17 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
                           cameraAngle: { type: "string" },
                           shotType: { type: "string" },
                           mood: { type: "string" },
-                          characterEmotions: { 
-                            type: "object",
-                            properties: {},
-                            additionalProperties: { type: "string" }
+                          characterEmotions: {
+                            type: "array",
+                            description: "Character to emotion assignments for this panel",
+                            items: {
+                              type: "object",
+                              properties: {
+                                characterName: { type: "string" },
+                                emotion: { type: "string" }
+                              },
+                              required: ["characterName", "emotion"]
+                            }
                           },
                           visualNotes: { type: "string" },
                           timing: { type: "string" },
@@ -2320,7 +2327,9 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
             cameraAngle: panel.cameraAngle || "medium shot",
             shotType: panel.shotType || "establishing shot",
             mood: panel.mood || "neutral",
-            characterEmotions: panel.characterEmotions || {},
+            characterEmotions: Array.isArray(panel.characterEmotions) 
+              ? Object.fromEntries(panel.characterEmotions.map((e: any) => [e.characterName, e.emotion]))
+              : panel.characterEmotions || {},
             visualNotes: panel.visualNotes || "",
             timing: panel.timing || "moment",
             soundEffects: panel.soundEffects || [],
@@ -2353,7 +2362,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
               cameraAngle: "wide shot",
               shotType: "establishing shot",
               mood: "neutral",
-              characterEmotions: {},
+              characterEmotions: [],
               visualNotes: "Clear establishing shot",
               timing: "moment",
               soundEffects: [],
@@ -2738,6 +2747,21 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
       }
 
       const scriptChunk: ChunkedScriptResponse = JSON.parse(responseText);
+      
+      // Convert characterEmotions arrays to objects for compatibility
+      if (scriptChunk.pages) {
+        scriptChunk.pages.forEach((page: any) => {
+          if (page.panels) {
+            page.panels.forEach((panel: any) => {
+              if (Array.isArray(panel.characterEmotions)) {
+                panel.characterEmotions = Object.fromEntries(
+                  panel.characterEmotions.map((e: any) => [e.characterName, e.emotion])
+                );
+              }
+            });
+          }
+        });
+      }
       
       // Validate essential structure
       if (!scriptChunk.pages || scriptChunk.pages.length === 0) {
@@ -3935,10 +3959,17 @@ Use ONLY the character names provided: ${characterNames.join(', ')}.`;
                         cameraAngle: { type: "string" },
                         shotType: { type: "string" },
                         mood: { type: "string" },
-                        characterEmotions: { 
-                          type: "object",
-                          properties: {},
-                          additionalProperties: { type: "string" }
+                        characterEmotions: {
+                          type: "array",
+                          description: "Character to emotion assignments for this panel",
+                          items: {
+                            type: "object",
+                            properties: {
+                              characterName: { type: "string" },
+                              emotion: { type: "string" }
+                            },
+                            required: ["characterName", "emotion"]
+                          }
                         },
                         visualNotes: { type: "string" },
                         timing: { type: "string" },
@@ -3977,6 +4008,21 @@ Use ONLY the character names provided: ${characterNames.join(', ')}.`;
     }
 
     const parsedScript = JSON.parse(responseText);
+    
+    // Convert characterEmotions arrays to objects for compatibility
+    if (parsedScript.pages) {
+      parsedScript.pages.forEach((page: any) => {
+        if (page.panels) {
+          page.panels.forEach((panel: any) => {
+            if (Array.isArray(panel.characterEmotions)) {
+              panel.characterEmotions = Object.fromEntries(
+                panel.characterEmotions.map((e: any) => [e.characterName, e.emotion])
+              );
+            }
+          });
+        }
+      });
+    }
     
     // Validate character names in script
     if (request.projectId) {
