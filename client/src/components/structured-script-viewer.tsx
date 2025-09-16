@@ -68,7 +68,15 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
   });
   
   // Parse the script from project.script field (same source as Preview)
-  const structuredScript = project?.script ? JSON.parse(project.script) : null;
+  const structuredScript = (() => {
+    if (!project?.script) return null;
+    try {
+      return JSON.parse(project.script);
+    } catch (error) {
+      console.error("Failed to parse project script:", error);
+      return null;
+    }
+  })();
   const isLoading = !project;
 
   const { data: characters = [] } = useQuery<Character[]>({
