@@ -48,7 +48,7 @@ import {
   Brush,
   Navigation
 } from "lucide-react";
-import type { FullStructuredScript } from "@shared/schema";
+import type { FullStructuredScript, Character } from "@shared/schema";
 
 interface StructuredScriptViewerProps {
   projectId: string;
@@ -63,6 +63,11 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
 
   const { data: structuredScript, isLoading } = useQuery<FullStructuredScript | null>({
     queryKey: ["/api/projects", projectId, "structured-script"],
+    retry: false,
+  });
+
+  const { data: characters = [] } = useQuery<Character[]>({
+    queryKey: ["/api/projects", projectId, "characters"],
     retry: false,
   });
 
@@ -100,6 +105,110 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
       newExpanded.add(panelId);
     }
     setExpandedPanels(newExpanded);
+  };
+
+  // Function to detect characters mentioned in panel content
+  const detectCharactersInPanel = (panel: any): Character[] => {
+    if (!characters || characters.length === 0) return [];
+    
+    const panelContent = [
+      panel.sceneDescription || '',
+      panel.action || '',
+      panel.visualNotes || '',
+      ...(panel.dialogue?.map((d: any) => d.text || '') || []),
+      ...(panel.characters || [])
+    ].join(' ').toLowerCase();
+    
+    const detectedCharacters: Character[] = [];
+    
+    for (const character of characters) {
+      const characterName = character.name.toLowerCase();
+      const nameParts = characterName.split(' ');
+      
+      // Check for full name or any part of the name
+      const isInContent = nameParts.some(part => 
+        part.length > 2 && panelContent.includes(part)
+      ) || panelContent.includes(characterName);
+      
+      if (isInContent && !detectedCharacters.find(c => c.id === character.id)) {
+        detectedCharacters.push(character);
+      }
+    }
+    
+    return detectedCharacters;
+  };
+
+  // Component to render characters in panel
+  const CharactersInPanelContent = ({ panel }: { panel: any }) => {
+    const detectedCharacters = detectCharactersInPanel(panel);
+    
+    if (detectedCharacters.length === 0) {
+      return (
+        <div className="text-sm text-muted-foreground italic p-3">
+          No characters detected in this panel.
+        </div>
+      );
+    }
+    
+    return (
+      <div className="space-y-4">
+        {detectedCharacters.map((character) => (
+          <div key={character.id} className="bg-muted/10 rounded-lg p-3 border">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Users className="h-4 w-4 text-primary" />
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-2">
+                  <h6 className="font-medium text-sm" data-testid={`character-name-${character.id}`}>
+                    {character.name}
+                  </h6>
+                  {character.role && (
+                    <Badge variant="secondary" className="text-xs">
+                      {character.role}
+                    </Badge>
+                  )}
+                </div>
+                
+                {character.visualDescriptors && (
+                  <div className="mb-2">
+                    <span className="text-xs font-medium text-muted-foreground block mb-1">Appearance:</span>
+                    <p className="text-sm text-muted-foreground break-words" data-testid={`character-appearance-${character.id}`}>
+                      {character.visualDescriptors}
+                    </p>
+                  </div>
+                )}
+                
+                {character.bio && (
+                  <div className="mb-2">
+                    <span className="text-xs font-medium text-muted-foreground block mb-1">Bio:</span>
+                    <p className="text-sm text-muted-foreground break-words" data-testid={`character-bio-${character.id}`}>
+                      {character.bio}
+                    </p>
+                  </div>
+                )}
+                
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {character.alwaysTraits && (
+                    <Badge variant="outline" className="text-xs">
+                      Always: {character.alwaysTraits}
+                    </Badge>
+                  )}
+                  {character.colorScheme && (
+                    <Badge variant="outline" className="text-xs">
+                      <Palette className="h-3 w-3 mr-1" />
+                      {character.colorScheme}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   if (isLoading) {
@@ -379,6 +488,24 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
                                         )}
                                       </div>
                                     </div>
+
+                                    {/* Characters in Panel */}
+                                    <Collapsible>
+                                      <CollapsibleTrigger asChild>
+                                        <div className="bg-purple-50 dark:bg-purple-950/20 rounded-lg p-3 sm:p-4 cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-950/30 transition-colors">
+                                          <h5 className="text-sm font-medium flex items-center gap-2" data-testid="section-characters-in-panel">
+                                            <Users className="h-4 w-4" />
+                                            Characters in Panel
+                                            <ChevronRight className="h-3 w-3 ml-auto" />
+                                          </h5>
+                                        </div>
+                                      </CollapsibleTrigger>
+                                      <CollapsibleContent>
+                                        <div className="mt-2">
+                                          <CharactersInPanelContent panel={panel} />
+                                        </div>
+                                      </CollapsibleContent>
+                                    </Collapsible>
 
                                     {/* Environmental Details */}
                                     {(panel.locationSpecifics || panel.interiorExterior || panel.roomType || panel.architecturalStyle || 
@@ -795,7 +922,7 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
                                                 <span className="text-xs font-medium text-muted-foreground">Character Positions:</span>
                                                 <div className="text-sm mt-1 p-2 bg-muted/50 rounded text-xs">
                                                   <pre className="whitespace-pre-wrap font-mono">
-                                                    {JSON.stringify(panel.characterPositions, null, 2) || ''}
+                                                    {String(panel.characterPositions || '')}
                                                   </pre>
                                                 </div>
                                               </div>
@@ -1042,7 +1169,7 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
                                                 <span className="text-xs font-medium text-muted-foreground">Detailed Sound Effects:</span>
                                                 <div className="text-sm mt-1 p-2 bg-muted/50 rounded text-xs">
                                                   <pre className="whitespace-pre-wrap font-mono">
-                                                    {JSON.stringify(panel.detailedSoundEffects, null, 2) || ''}
+                                                    {String(panel.detailedSoundEffects || '')}
                                                   </pre>
                                                 </div>
                                               </div>
@@ -1094,7 +1221,7 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
                                                 <span className="text-xs font-medium text-muted-foreground">Prompt Weights:</span>
                                                 <div className="text-sm mt-1 p-2 bg-muted/50 rounded text-xs">
                                                   <pre className="whitespace-pre-wrap font-mono">
-                                                    {JSON.stringify(panel.promptWeight, null, 2) || ''}
+                                                    {String(panel.promptWeight || '')}
                                                   </pre>
                                                 </div>
                                               </div>
