@@ -82,6 +82,7 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
   const queryClient = useQueryClient();
   const [selectedArtStyle, setSelectedArtStyle] = useState<string>("");
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+  const [scriptGenerationStep, setScriptGenerationStep] = useState<string>("");
   const [generatedStructuredScript, setGeneratedStructuredScript] = useState<any>(null);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [isGeneratingCharacterBio, setIsGeneratingCharacterBio] = useState<number | null>(null);
@@ -93,6 +94,11 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
     { name: "Captain Thunder", role: "Main Hero", bio: "A powerful superhero with lightning abilities, tall with silver hair and a blue cape. Always confident and protective of civilians.", visualDescriptors: "", referenceImageUrl: "", shouldGeneratePortrait: false }
   ]);
   const [showGenerationCompleteBanner, setShowGenerationCompleteBanner] = useState(false);
+  
+  // 🎯 NEW: User control options for amazing script generation
+  const [scriptLength, setScriptLength] = useState<string>("12");
+  const [scriptTone, setScriptTone] = useState<string>("balanced");
+  const [userInstructions, setUserInstructions] = useState<string>("");
   
   const { state: generationState, clearGeneration } = useBackgroundGeneration();
 
@@ -431,17 +437,76 @@ The complete structured script with full character details has been generated an
   const handleGenerateScript = async () => {
     try {
       setIsGeneratingScript(true);
+      setScriptGenerationStep("🔍 Validating your story details...");
       const formValues = form.getValues();
       
-      if (!formValues.title || !formValues.description) {
+      // 🔍 ENHANCED: Comprehensive validation with helpful suggestions
+      const validationErrors = [];
+      const suggestions = [];
+      
+      if (!formValues.title?.trim()) {
+        validationErrors.push("Comic title is required");
+        suggestions.push("💡 Add a catchy title like 'Heroes of Metro City' or 'The Lightning Chronicles'");
+      }
+      
+      if (!formValues.description?.trim()) {
+        validationErrors.push("Story description is required");
+        suggestions.push("💡 Describe your story's world, main character, or central conflict in 2-3 sentences");
+      } else if (formValues.description.trim().length < 20) {
+        validationErrors.push("Story description is too brief");
+        suggestions.push("💡 Add more detail about your story's setting, characters, or plot for better AI generation");
+      }
+      
+      // Check if we have at least one character with meaningful data
+      const validCharacters = characters.filter(char => 
+        char.name?.trim() && char.role?.trim()
+      );
+      
+      if (validCharacters.length === 0) {
+        validationErrors.push("At least one character is needed");
+        suggestions.push("💡 Add a main character with a name and role like 'Hero', 'Villain', or 'Sidekick'");
+      } else {
+        // Check for character quality
+        const charactersWithBios = validCharacters.filter(char => char.bio?.trim());
+        if (charactersWithBios.length === 0) {
+          suggestions.push("💡 Adding character bios will create richer, more detailed scripts");
+        }
+      }
+      
+      // Genre suggestion (optional but helpful)
+      if (!formValues.genre) {
+        suggestions.push("💡 Selecting a genre will help tailor the script's tone and style");
+      }
+      
+      // Art style suggestion (optional but helpful)  
+      if (!selectedArtStyle) {
+        suggestions.push("💡 Choosing an art style will optimize visual descriptions in your script");
+      }
+      
+      if (validationErrors.length > 0) {
+        const errorMessage = validationErrors.join(", ");
+        const suggestionText = suggestions.length > 0 ? "\n\n" + suggestions.join("\n") : "";
+        
         toast({
-          title: "Missing Information",
-          description: "Please fill in title and description before generating a script.",
+          title: "Almost Ready! 🎯",
+          description: errorMessage + suggestionText,
           variant: "destructive",
+          duration: 8000,
         });
         return;
       }
-
+      
+      // 🎉 Show encouraging message if everything looks good
+      if (suggestions.length > 0) {
+        toast({
+          title: "Looking Great! 📝",
+          description: "Your project has all the essentials. " + suggestions.slice(0, 2).join(" "),
+          duration: 4000,
+        });
+      }
+      
+      setScriptGenerationStep("📚 Preparing character data and project settings...");
+      
       // Build character data for structured generation
       const characterData = characters
         .filter(char => char.name && char.role)
@@ -452,44 +517,66 @@ The complete structured script with full character details has been generated an
           visualDescriptors: char.visualDescriptors || ""
         }));
       
-      // Create a temporary project to generate structured script
-      const tempProjectResponse = await apiRequest("POST", "/api/projects", {
-        title: formValues.title + " (Preview)",
-        genre: formValues.genre,
-        description: formValues.description,
-        artStyle: selectedArtStyle,
-        script: "",
-        settings: [{ name: "Metro City", description: "A bustling metropolis with towering skyscrapers and busy streets." }],
-      });
-      const tempProject = await tempProjectResponse.json() as Project;
+      setScriptGenerationStep("🛠️ Setting up temporary workspace for AI generation...");
+      
+      // 🔒 ENHANCED: Better cleanup scope for temporary projects
+      let tempProject: Project | null = null;
       
       try {
-        // Generate structured script (minimum 6 pages for all scripts)
+        // Create a temporary project to generate structured script
+        tempProject = await apiRequest("POST", "/api/projects", {
+          title: formValues.title + " (Preview)",
+          genre: formValues.genre,
+          description: formValues.description,
+          artStyle: selectedArtStyle,
+          script: "",
+          settings: [{ name: "Metro City", description: "A bustling metropolis with towering skyscrapers and busy streets." }],
+        }) as Project;
+        // 🎯 ENHANCED: Use user-controlled script parameters with robust parsing
+        const n = Number(scriptLength);
+        const requestedPages = scriptLength === "custom" ? 12 : (Number.isFinite(n) ? n : 12);
         const MIN_PAGES = 6;
-        const DEFAULT_PAGES = 12;
-        const pageCount = Math.max(MIN_PAGES, DEFAULT_PAGES);
+        const pageCount = Math.max(MIN_PAGES, requestedPages);
         
-        const structuredResponse = await fetch(`/api/projects/${tempProject.id}/generate-structured-script`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: formValues.title,
-            description: formValues.description,
-            genre: formValues.genre,
-            characters: characterData,
-            settings: [{ name: "Metro City", description: "A bustling metropolis with towering skyscrapers and busy streets." }],
-            pageCount: pageCount,
-            tone: formValues.genre,
-            logline: formValues.description
-          }),
+        // Build enhanced tone description
+        const toneMap: Record<string, string> = {
+          "action-packed": "Fast-paced with dynamic action sequences and exciting panel-to-panel progression",
+          "balanced": "Well-balanced mix of action, dialogue, and character development",
+          "dialogue-heavy": "Character-driven with rich dialogue and emotional depth",
+          "cinematic": "Visually striking with dramatic camera angles and cinematic storytelling",
+          "character-driven": "Focus on character development, relationships, and internal conflicts",
+          "mysterious": "Atmospheric with suspense, hidden clues, and gradual revelation"
+        };
+        
+        const enhancedTone = toneMap[scriptTone] || toneMap["balanced"];
+        
+        // Combine genre tone with script tone
+        const combinedTone = formValues.genre 
+          ? `${formValues.genre} with ${enhancedTone.toLowerCase()}` 
+          : enhancedTone;
+        
+        setScriptGenerationStep(`🤖 AI is crafting your ${pageCount}-page ${scriptTone} script...`);
+        
+        // 🔧 ENHANCED: Use consistent apiRequest for all HTTP calls
+        const structuredScript = await apiRequest("POST", `/api/projects/${tempProject.id}/generate-structured-script`, {
+          title: formValues.title,
+          description: formValues.description,
+          genre: formValues.genre,
+          characters: characterData,
+          settings: [{ name: "Metro City", description: "A bustling metropolis with towering skyscrapers and busy streets." }],
+          pageCount: pageCount,
+          tone: combinedTone,
+          logline: formValues.description,
+          // 🎯 NEW: User control parameters
+          userInstructions: userInstructions.trim() || undefined,
+          scriptTone: scriptTone,
+          requestedLength: scriptLength
         });
         
-        if (!structuredResponse.ok) {
-          throw new Error("Failed to generate structured script");
-        }
-        
-        const structuredScript = await structuredResponse.json();
+        setScriptGenerationStep("✨ Processing your amazing new script...");
         setGeneratedStructuredScript(structuredScript);
+        
+        setScriptGenerationStep("🎉 Finalizing script preview...");
         
         // Also set a preview text in the form field
         const previewText = `# ${formValues.title} - Structured Script Generated!
@@ -509,18 +596,46 @@ The full structured script is available for preview below and will be automatica
           description: "A structured script with rich metadata has been created for your comic.",
         });
       } finally {
-        // Clean up the temporary project
-        await apiRequest("DELETE", `/api/projects/${tempProject.id}`);
+        setScriptGenerationStep("🧹 Cleaning up workspace...");
+        // 🔒 BULLETPROOF: Clean up the temporary project with error handling
+        if (tempProject?.id) {
+          try {
+            await apiRequest("DELETE", `/api/projects/${tempProject.id}`);
+          } catch (cleanupError) {
+            console.warn("Failed to cleanup temporary project:", cleanupError);
+            // Don't throw - prioritize user-facing error from main operation
+          }
+        }
       }
     } catch (error) {
       console.error("Error generating script:", error);
+      setScriptGenerationStep("❌ Generation failed");
+      
+      // 🎯 ENHANCED: Better error messages based on error type
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      let userFriendlyMessage = "Failed to generate structured script. Please try again.";
+      let suggestions = [];
+      
+      if (errorMessage.includes("Failed to fetch") || errorMessage.includes("network")) {
+        userFriendlyMessage = "Network connection issue. Please check your internet and try again.";
+        suggestions.push("💡 Try again in a few seconds");
+      } else if (errorMessage.includes("timeout")) {
+        userFriendlyMessage = "Generation took too long. Try a shorter script or simpler requirements.";
+        suggestions.push("💡 Try reducing script length or simplifying character details");
+      } else if (errorMessage.includes("validation")) {
+        userFriendlyMessage = "There was an issue with your story details.";
+        suggestions.push("💡 Check that all required fields are filled correctly");
+      }
+      
       toast({
-        title: "Generation Failed",
-        description: "Failed to generate structured script. Please try again.",
+        title: "Generation Failed 🔄",
+        description: userFriendlyMessage + (suggestions.length > 0 ? "\n\n" + suggestions.join("\n") : ""),
         variant: "destructive",
+        duration: 8000,
       });
     } finally {
       setIsGeneratingScript(false);
+      setScriptGenerationStep("");
     }
   };
 
@@ -1023,6 +1138,57 @@ Create a visual description that fits the ${selectedArtStyle || 'comic-book'} ar
             {/* Script Section */}
             <div>
               <h3 className="text-lg font-semibold mb-4">Script (Optional)</h3>
+              
+              {/* 🎯 ENHANCED: User Control Options */}
+              <div className="grid md:grid-cols-3 gap-4 mb-6 p-4 bg-muted/50 rounded-lg border">
+                <div>
+                  <FormLabel className="text-sm font-medium mb-2 block">Script Length</FormLabel>
+                  <Select value={scriptLength} onValueChange={setScriptLength}>
+                    <SelectTrigger className="h-9" data-testid="select-script-length">
+                      <SelectValue placeholder="Choose length" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="6">Short (6 pages)</SelectItem>
+                      <SelectItem value="12">Standard (12 pages)</SelectItem>
+                      <SelectItem value="20">Extended (20 pages)</SelectItem>
+                      <SelectItem value="custom">Custom length...</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">More pages = richer story development</p>
+                </div>
+                
+                <div>
+                  <FormLabel className="text-sm font-medium mb-2 block">Script Tone</FormLabel>
+                  <Select value={scriptTone} onValueChange={setScriptTone}>
+                    <SelectTrigger className="h-9" data-testid="select-script-tone">
+                      <SelectValue placeholder="Choose tone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="action-packed">Action-Packed ⚡</SelectItem>
+                      <SelectItem value="balanced">Balanced 📖</SelectItem>
+                      <SelectItem value="dialogue-heavy">Dialogue-Heavy 💬</SelectItem>
+                      <SelectItem value="cinematic">Cinematic 🎬</SelectItem>
+                      <SelectItem value="character-driven">Character-Driven 👥</SelectItem>
+                      <SelectItem value="mysterious">Mysterious 🔍</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">Affects pacing and story focus</p>
+                </div>
+                
+                <div>
+                  <FormLabel className="text-sm font-medium mb-2 block">Special Instructions</FormLabel>
+                  <Textarea 
+                    value={userInstructions}
+                    onChange={(e) => setUserInstructions(e.target.value)}
+                    placeholder="e.g., 'Focus on character development', 'Include a plot twist', 'Emphasize humor'..."
+                    className="h-9 resize-none text-xs"
+                    rows={2}
+                    data-testid="textarea-user-instructions"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Guide the AI with your specific needs</p>
+                </div>
+              </div>
+              
               <div className="flex space-x-4 mb-4">
                 <Button 
                   type="button" 
@@ -1034,7 +1200,7 @@ Create a visual description that fits the ${selectedArtStyle || 'comic-book'} ar
                   {isGeneratingScript ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Generating...
+                      {scriptGenerationStep || "Generating..."}
                     </>
                   ) : (
                     <>
