@@ -92,6 +92,7 @@ export interface GenerateReferencePortraitRequest {
   alwaysTraits: string;
   artStyle?: string;
   forceRegenerate?: boolean;
+  projectId: string; // Required for security validation
 }
 
 export interface GenerateReferencePortraitResponse {
@@ -616,6 +617,7 @@ export class GeminiService {
       const portraitResult = await this.generatePanelImage({
         prompt: portraitPrompt,
         panelId: `ref_${request.characterId}`,
+        projectId: request.projectId, // Required for security validation
         projectContext: {
           title: "Character Reference",
           artStyle: request.artStyle || "Professional Character Reference Sheet",
@@ -1210,7 +1212,8 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
             characterName: character.name,
             visualDescriptors: character.visualDescriptors,
             alwaysTraits: character.alwaysTraits,
-            artStyle: project.artStyle || "Comic Book Reference Sheet"
+            artStyle: project.artStyle || "Comic Book Reference Sheet",
+            projectId: projectId
           });
           
           if (portraitResult.status === "completed" && portraitResult.referenceImageUrl) {
@@ -1284,9 +1287,34 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
     // 🔒 RUNTIME CHARACTER VALIDATION GUARD: Validate characters before panel generation
     const { projectId } = request; // SECURITY FIX: Use authenticated projectId from route params, not derived from panelId
     
+    // 📊 ENHANCED ERROR LOGGING: Log detailed request context for debugging
+    console.log(`🎯 === PANEL GENERATION REQUEST DETAILS ===`);
+    console.log(`📋 Panel ID: ${request.panelId}`);
+    console.log(`🏗️ Project ID: ${projectId || 'MISSING'}`);
+    console.log(`🎬 Project: ${request.projectContext?.title || 'Unknown'}`);
+    console.log(`🎭 Genre: ${request.projectContext?.genre || 'Not specified'}`);
+    console.log(`🎨 Art Style: ${request.styleOptions?.artStyle || request.projectContext?.artStyle || 'Default'}`);
+    console.log(`📝 Prompt Length: ${request.prompt?.length || 0} characters`);
+    console.log(`🎭 Characters in Request: ${request.projectContext?.characters?.length || 0}`);
+    if (request.projectContext?.characters?.length) {
+      console.log(`👥 Character Names: ${request.projectContext.characters.map(c => c.name).join(', ')}`);
+    }
+    console.log(`📐 Panel Context: ${request.panelContext ? 'Present' : 'Missing'}`);
+    if (request.panelContext) {
+      console.log(`📏 Dimensions: ${request.panelContext.dimensions?.width || 'Unknown'}x${request.panelContext.dimensions?.height || 'Unknown'}`);
+      console.log(`📊 Aspect Ratio: ${request.panelContext.aspectRatio || 'Unknown'}`);
+      console.log(`🏷️ Panel Type: ${request.panelContext.panelType || 'Unknown'}`);
+    }
+    console.log(`🖼️ Source Image: ${request.sourceImageUrl ? 'Present (Edit Mode)' : 'None (Generation Mode)'}`);
+    console.log(`🔄 Previous Context: ${request.previousPanelsContext?.length || 0} previous panels`);
+    console.log(`📚 Cross-Page Context: ${request.crossPageContext?.length || 0} pages`);
+    
     // SECURITY ENFORCEMENT: ProjectId is required - fail fast if missing
     if (!projectId) {
-      console.error(`🚫 SECURITY VIOLATION: Missing required projectId for panel ${request.panelId}`);
+      console.error(`🚫 === SECURITY VIOLATION ===`);
+      console.error(`❌ Missing required projectId for panel ${request.panelId}`);
+      console.error(`📋 Request Source: This request must come from a valid authenticated project route`);
+      console.error(`🔒 Security Context: ProjectId is required for all panel generation operations`);
       return {
         imageUrl: "",
         status: "failed",
@@ -1306,19 +1334,41 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
         );
         
         if (!validationResult.isValid) {
+          console.error(`🚫 === CHARACTER VALIDATION FAILURE ===`);
+          console.error(`📋 Panel ID: ${request.panelId}`);
+          console.error(`🏗️ Project ID: ${projectId}`);
+          console.error(`❌ Validation Status: FAILED`);
+          console.error(`🔍 Total Errors: ${validationResult.errors.length}`);
+          console.error(`✅ Valid Characters Found: ${validationResult.validCharacters.length}`);
+          console.error(`❓ Unknown Characters: ${validationResult.unknownCharacters.length}`);
+          
+          validationResult.errors.forEach((error, index) => {
+            console.error(`🚨 Error ${index + 1}:`);
+            console.error(`   Character: "${error.characterName}"`);
+            console.error(`   Location: ${error.location}`);
+            console.error(`   Normalized: "${error.normalizedName}"`);
+            if (error.suggestions?.length) {
+              console.error(`   Suggestions: ${error.suggestions.join(', ')}`);
+            }
+          });
+          
+          if (validationResult.validCharacters.length > 0) {
+            console.error(`✅ Valid Characters in Project: ${validationResult.validCharacters.join(', ')}`);
+          }
+          
           const errorDetails = validationResult.errors.map(e => 
             `Unknown character "${e.characterName}" in ${e.location}${
               e.suggestions?.length ? ` (suggestions: ${e.suggestions.join(", ")})` : ""
             }`
           ).join("; ");
           
-          console.error(`🚫 PANEL GENERATION BLOCKED: ${errorDetails}`);
+          console.error(`📋 Error Summary: ${errorDetails}`);
           
           return {
             imageUrl: "",
             status: "failed",
             panelId: request.panelId,
-            error: `Panel generation blocked - unknown characters detected: ${errorDetails}. Only these characters are allowed in project.`
+            error: `Panel generation blocked - unknown characters detected: ${errorDetails}. Only these characters are allowed in project: ${validationResult.validCharacters.join(', ')}.`
           };
         }
         
@@ -1422,13 +1472,42 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
 
         } catch (error) {
           lastError = error;
-          console.log(`⚠️ Generation attempt ${attempt} failed for panel ${request.panelId}:`, (error as Error).message);
+          console.error(`⚠️ === GENERATION ATTEMPT ${attempt} FAILED ===`);
+          console.error(`📋 Panel ID: ${request.panelId}`);
+          console.error(`🔄 Attempt: ${attempt}/${maxRetries}`);
+          console.error(`⏱️ Timestamp: ${new Date().toISOString()}`);
+          console.error(`🚨 Error Type: ${error?.constructor?.name || 'Unknown'}`);
+          console.error(`📝 Error Message: ${(error as Error).message}`);
+          
+          // Enhanced error details based on error type
+          if (error && typeof error === 'object') {
+            if ('status' in error) {
+              console.error(`🔢 HTTP Status: ${(error as any).status}`);
+            }
+            if ('code' in error) {
+              console.error(`🔧 Error Code: ${(error as any).code}`);
+            }
+            if ('response' in error) {
+              console.error(`📡 API Response: ${JSON.stringify((error as any).response, null, 2)}`);
+            }
+          }
+          
+          // Log request context for failed attempts
+          console.error(`📋 Request Context at Failure:`);
+          console.error(`   Model: gemini-2.5-flash-image-preview`);
+          console.error(`   Content Parts: ${contentParts.length}`);
+          console.error(`   Has Image Input: ${contentParts.some(p => p.inlineData)}`);
+          console.error(`   Prompt Length: ${contextualPrompt?.length || 0}`);
           
           if (attempt < maxRetries) {
             console.log(`🔄 Retrying in ${retryDelay}ms... (${maxRetries - attempt} attempts remaining)`);
             await new Promise(resolve => setTimeout(resolve, retryDelay));
           } else {
-            console.log(`❌ All ${maxRetries} attempts failed for panel ${request.panelId}`);
+            console.error(`❌ === ALL GENERATION ATTEMPTS EXHAUSTED ===`);
+            console.error(`📋 Panel ID: ${request.panelId}`);
+            console.error(`🔄 Total Attempts: ${maxRetries}`);
+            console.error(`⏱️ Total Duration: ${Date.now() - startTime}ms`);
+            console.error(`🚨 Final Error: ${(lastError as Error).message}`);
             throw lastError;
           }
         }
@@ -1590,9 +1669,40 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
     } catch (error) {
       const duration = Date.now() - startTime;
       console.error(`❌ === GEMINI IMAGE ${isEditMode ? 'EDITING' : 'GENERATION'} FAILED ===`);
-      console.error(`⏱️ Duration: ${duration}ms`);
-      console.error(`📋 Panel: ${request.panelId}`);
-      console.error(`🚨 Error:`, error);
+      console.error(`📋 Panel ID: ${request.panelId}`);
+      console.error(`🏗️ Project ID: ${projectId}`);
+      console.error(`🎬 Project: ${request.projectContext?.title || 'Unknown'}`);
+      console.error(`⏱️ Total Duration: ${duration}ms`);
+      console.error(`🔄 Mode: ${isEditMode ? 'IMAGE_EDITING' : 'TEXT_TO_IMAGE'}`);
+      console.error(`⏰ Timestamp: ${new Date().toISOString()}`);
+      
+      // Enhanced error classification and logging
+      const errorType = error?.constructor?.name || 'UnknownError';
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      console.error(`🚨 === ERROR DETAILS ===`);
+      console.error(`🏷️ Error Type: ${errorType}`);
+      console.error(`📝 Error Message: ${errorMessage}`);
+      
+      // Log full error object for debugging
+      if (error && typeof error === 'object') {
+        console.error(`🔍 Full Error Object:`);
+        console.error(JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+      }
+      
+      // Log request state at time of failure
+      console.error(`📋 === REQUEST STATE AT FAILURE ===`);
+      console.error(`🎭 Character Count: ${request.projectContext?.characters?.length || 0}`);
+      console.error(`📐 Panel Dimensions: ${request.panelContext?.dimensions?.width || 'Unknown'}x${request.panelContext?.dimensions?.height || 'Unknown'}`);
+      console.error(`📝 Prompt Length: ${request.prompt?.length || 0}`);
+      console.error(`🖼️ Source Image: ${request.sourceImageUrl ? 'Present' : 'None'}`);
+      console.error(`🔄 Previous Panels: ${request.previousPanelsContext?.length || 0}`);
+      
+      // Log system state
+      console.error(`💻 === SYSTEM STATE ===`);
+      console.error(`🧠 Memory Usage: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`);
+      console.error(`⏱️ Uptime: ${Math.round(process.uptime())}s`);
+      console.error(`🔧 Node Version: ${process.version}`);
       
       // If image editing failed due to Gemini API error, try fallback to text-to-image generation
       if (isEditMode && error && typeof error === 'object' && 'status' in error && error.status === 500) {
@@ -1618,12 +1728,50 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
         }
       }
       
-      const errorMessage = error instanceof Error ? error.message : "Failed to generate image";
+      // Enhanced error response with categorization
+      let errorCategory = 'unknown';
+      let userFriendlyMessage = "Failed to generate image";
+      
+      if (error instanceof Error) {
+        const errorMsg = error.message.toLowerCase();
+        
+        if (errorMsg.includes('quota') || errorMsg.includes('limit')) {
+          errorCategory = 'quota_exceeded';
+          userFriendlyMessage = 'API quota exceeded. Please try again later or contact support.';
+        } else if (errorMsg.includes('timeout') || errorMsg.includes('deadline')) {
+          errorCategory = 'timeout';
+          userFriendlyMessage = 'Request timed out. The image generation took too long. Please try again.';
+        } else if (errorMsg.includes('invalid') || errorMsg.includes('malformed')) {
+          errorCategory = 'invalid_request';
+          userFriendlyMessage = 'Invalid request format. Please check your prompt and try again.';
+        } else if (errorMsg.includes('character') || errorMsg.includes('validation')) {
+          errorCategory = 'character_validation';
+          userFriendlyMessage = 'Character validation failed. Please check your character names and project setup.';
+        } else if (errorMsg.includes('network') || errorMsg.includes('connection')) {
+          errorCategory = 'network_error';
+          userFriendlyMessage = 'Network connection failed. Please check your internet connection and try again.';
+        } else {
+          userFriendlyMessage = error.message;
+        }
+      }
+      
+      console.error(`🏷️ Error Category: ${errorCategory}`);
+      console.error(`👤 User Message: ${userFriendlyMessage}`);
+      console.error(`📋 Returning failed response for panel ${request.panelId}`);
+      
       return {
         imageUrl: "",
         status: "failed",
         panelId: request.panelId,
-        error: errorMessage,
+        error: userFriendlyMessage,
+        errorCategory,
+        debugInfo: {
+          originalError: error instanceof Error ? error.message : String(error),
+          timestamp: new Date().toISOString(),
+          duration: duration,
+          projectId: projectId,
+          panelId: request.panelId
+        }
       };
     }
   }
@@ -1755,6 +1903,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
   }
 
   async generateFullPage(
+    projectId: string,
     projectContext: GenerateImageRequest["projectContext"],
     pageScript: string,
     panelLayout: Array<{ 
@@ -1789,6 +1938,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
         const request: GenerateImageRequest = {
           prompt: panel.description,
           panelId: panel.panelNumber,
+          projectId: projectId,
           projectContext,
           panelContext: panel.panelContext, // Pass the panel dimensions and aspect ratio!
           previousPanelsContext: results.map((r, index) => ({
@@ -4022,6 +4172,7 @@ Ensure story continuity and ${request.tones.join(" + ")} tones.`;
           const portraitResult = await this.generatePanelImage({
             prompt: portraitPrompt,
             panelId: `char_ref_${index}`,
+            projectId: projectId || 'fallback-project-id', // Add required projectId for security validation
             projectContext: {
               title: storyData.title,
               genre: storyData.genre,

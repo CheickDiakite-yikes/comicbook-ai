@@ -51,6 +51,8 @@ export default function PanelEditor({
   const [isLoadingScriptContent, setIsLoadingScriptContent] = useState(false);
   const [isPromptFromScript, setIsPromptFromScript] = useState(false);
   const [hasUserEditedPrompt, setHasUserEditedPrompt] = useState(false);
+  const [currentSceneContext, setCurrentSceneContext] = useState<string>("");
+  const [isLoadingSceneContext, setIsLoadingSceneContext] = useState(false);
 
   // Fetch existing panels for the current page
   const { data: existingPanels = [], isLoading: panelsLoading } = useQuery<Panel[]>({
@@ -105,6 +107,78 @@ export default function PanelEditor({
       setDialogueText("");
     }
   }, [selectedPanel, currentPanelData, panelsLoading, project, currentPage]);
+
+  // Load current scene context when page or panel changes
+  useEffect(() => {
+    const loadSceneContext = async () => {
+      if (!project?.id || !currentPage || !selectedPanel) {
+        setCurrentSceneContext("");
+        return;
+      }
+      
+      setIsLoadingSceneContext(true);
+      
+      try {
+        console.log(`🎬 Loading scene context for page ${currentPage.pageNumber}, panel ${selectedPanel}`);
+        
+        // Get script context for current panel/page
+        const scriptContext = await getPanelScriptContext(selectedPanel);
+        
+        if (scriptContext) {
+          // Build scene context from script data
+          let sceneInfo = "";
+          
+          // Get page-level context first
+          const structuredScript = await apiRequest("GET", `/api/projects/${project.id}/structured-script`);
+          const scriptPage = structuredScript?.pages?.find((p: any) => p.pageNumber === currentPage.pageNumber);
+          
+          if (scriptPage) {
+            if (scriptPage.setting) {
+              sceneInfo += `📍 Location: ${scriptPage.setting}\n`;
+            }
+            if (scriptPage.overallMood) {
+              sceneInfo += `🎭 Mood: ${scriptPage.overallMood}\n`;
+            }
+            if (scriptPage.characters?.length > 0) {
+              sceneInfo += `👥 Characters: ${scriptPage.characters.join(", ")}\n`;
+            }
+            if (scriptPage.narrative) {
+              sceneInfo += `📚 Scene: ${scriptPage.narrative.slice(0, 150)}${scriptPage.narrative.length > 150 ? "..." : ""}`;
+            }
+          }
+          
+          // Add panel-specific context
+          if (scriptContext.sceneDescription || scriptContext.visualDescription) {
+            sceneInfo += `\n\n🎯 Panel ${selectedPanel}: ${scriptContext.sceneDescription || scriptContext.visualDescription}`;
+          }
+          
+          // Add dialogue context if available
+          if (scriptContext.dialogue?.length > 0) {
+            const dialogueText = scriptContext.dialogue.map((d: any) => 
+              d.character ? `${d.character}: "${d.text}"` : d.text
+            ).join(", ");
+            sceneInfo += `\n💬 Dialogue: ${dialogueText}`;
+          }
+          
+          setCurrentSceneContext(sceneInfo || "Scene context loading...");
+          console.log(`✅ Loaded scene context:`, sceneInfo);
+        } else {
+          // Fallback to page-level information
+          const fallbackContext = `📖 Page ${currentPage.pageNumber} of ${project.title || "Untitled Comic"}\n\n${project.description || "No scene description available. Add a script or project description for better context."}`;
+          setCurrentSceneContext(fallbackContext);
+          console.log(`⚠️ No script context found, using fallback`);
+        }
+      } catch (error) {
+        console.error("❌ Failed to load scene context:", error);
+        const errorContext = `📖 Page ${currentPage.pageNumber} of ${project.title || "Untitled Comic"}\n\n${project.description || "Unable to load scene context. Please check your project script."}`;
+        setCurrentSceneContext(errorContext);
+      } finally {
+        setIsLoadingSceneContext(false);
+      }
+    };
+    
+    loadSceneContext();
+  }, [project?.id, currentPage?.pageNumber, currentPage?.id, selectedPanel]);
 
   // Populate prompt with script content for the selected panel
   const populatePromptFromScript = async (panelNumber: number) => {
@@ -479,7 +553,7 @@ export default function PanelEditor({
           ...panel,
           imageUrl: panel.imageUrl || undefined
         }))
-      });
+      }, project.id);
       
       return response;
     },
@@ -535,12 +609,80 @@ export default function PanelEditor({
       });
       queryClient.invalidateQueries({ queryKey: ["/api/pages", currentPage?.id, "panels"] });
     },
-    onError: (error) => {
-      console.error("Panel generation failed:", error);
+    onError: (error: any) => {
+      console.error("=== PANEL GENERATION FAILURE - FRONTEND ===\n");
+      console.error("🕐 Timestamp:", new Date().toISOString());
+      console.error("📋 Panel:", selectedPanel);
+      console.error("🎬 Project:", project?.title || 'Unknown');
+      console.error("📄 Page:", currentPage?.pageNumber || 'Unknown');
+      console.error("🚨 Error Object:", error);
+      
+      // Enhanced error message based on backend error categorization
+      let userMessage = "Failed to generate panel. Please try again.";
+      let title = "Generation failed";
+      let helpText = "";
+      
+      if (error?.response?.data) {
+        const errorData = error.response.data;
+        console.error("🔍 Server Error Details:", errorData);
+        
+        // Use backend error categorization for better user messages
+        switch (errorData.error) {
+          case 'quota_exceeded':
+            title = "Generation Limit Reached";
+            userMessage = "You've reached your generation limit. Please upgrade your plan or try again later.";
+            helpText = "💡 Tip: Consider upgrading to Core plan for unlimited generations.";
+            break;
+          case 'timeout_error':
+            title = "Request Timed Out";
+            userMessage = "The generation process took too long. Please try again with a simpler prompt.";
+            helpText = "💡 Tip: Try shorter, more focused prompts for faster generation.";
+            break;
+          case 'validation_error':
+            title = "Character Validation Failed";
+            userMessage = "There's an issue with your character setup. Please check your character definitions.";
+            helpText = "💡 Tip: Ensure all characters in your prompt are properly created in the Characters section.";
+            break;
+          case 'authorization_error':
+            title = "Access Denied";
+            userMessage = "You don't have permission to edit this project.";
+            helpText = "💡 Tip: Make sure you're the owner of this project.";
+            break;
+          case 'network_error':
+            title = "Connection Error";
+            userMessage = "Network connection failed. Please check your internet and try again.";
+            helpText = "💡 Tip: Ensure you have a stable internet connection.";
+            break;
+          case 'project_not_found':
+            title = "Project Error";
+            userMessage = "Project not found. Please refresh the page and try again.";
+            helpText = "💡 Tip: Try refreshing the page or navigating back to your projects list.";
+            break;
+          default:
+            if (errorData.message) {
+              userMessage = errorData.message;
+            }
+            if (errorData.error && errorData.error !== 'unknown_error') {
+              helpText = `💡 Error code: ${errorData.error}`;
+            }
+        }
+      } else if (error?.message) {
+        console.error("🔍 Client Error Message:", error.message);
+        userMessage = error.message;
+      }
+      
+      // Log helpful debugging info
+      console.error("📊 Generation Context:");
+      console.error("  Prompt length:", prompt.length, "characters");
+      console.error("  Project characters:", project?.id ? '✅ Available' : '❌ Missing');
+      console.error("  Panel context:", panelContext ? '✅ Present' : '❌ Missing');
+      console.error("  Style options:", styleOptions ? '✅ Present' : '❌ Missing');
+      
       toast({
-        title: "Generation failed",
-        description: "Failed to generate panel. Please try again.",
+        title,
+        description: helpText ? `${userMessage}\n\n${helpText}` : userMessage,
         variant: "destructive",
+        duration: 8000, // Longer duration for helpful error messages
       });
     },
   });
@@ -702,7 +844,7 @@ export default function PanelEditor({
           ...panel,
           imageUrl: panel.imageUrl || undefined
         }))
-      });
+      }, project.id);
       
       return response;
     },
@@ -757,12 +899,59 @@ export default function PanelEditor({
       });
       queryClient.invalidateQueries({ queryKey: ["/api/pages", currentPage?.id, "panels"] });
     },
-    onError: (error) => {
-      console.error("Panel regeneration failed:", error);
+    onError: (error: any) => {
+      console.error("=== PANEL REGENERATION FAILURE - FRONTEND ===\n");
+      console.error("🕐 Timestamp:", new Date().toISOString());
+      console.error("📋 Panel:", selectedPanel);
+      console.error("🎬 Project:", project?.title || 'Unknown');
+      console.error("📄 Page:", currentPage?.pageNumber || 'Unknown');
+      console.error("🚨 Error Object:", error);
+      
+      // Enhanced error message for regeneration failures
+      let userMessage = "Failed to regenerate panel. Please try again.";
+      let title = "Regeneration failed";
+      let helpText = "";
+      
+      if (error?.response?.data) {
+        const errorData = error.response.data;
+        console.error("🔍 Server Error Details:", errorData);
+        
+        // Use same categorization as generation errors
+        switch (errorData.error) {
+          case 'quota_exceeded':
+            title = "Generation Limit Reached";
+            userMessage = "You've reached your regeneration limit. Please upgrade your plan or try again later.";
+            helpText = "💡 Tip: Each regeneration counts toward your usage limit.";
+            break;
+          case 'timeout_error':
+            title = "Regeneration Timed Out";
+            userMessage = "The regeneration process took too long. Please try again.";
+            helpText = "💡 Tip: Try regenerating with different style options.";
+            break;
+          case 'validation_error':
+            title = "Character Validation Failed";
+            userMessage = "There's an issue with your character setup for regeneration.";
+            helpText = "💡 Tip: Ensure all characters are properly configured before regenerating.";
+            break;
+          default:
+            if (errorData.message) {
+              userMessage = errorData.message;
+            }
+        }
+      } else if (error?.message) {
+        userMessage = error.message;
+      }
+      
+      // Log regeneration context
+      console.error("📊 Regeneration Context:");
+      console.error("  Original image URL:", existingPanel?.imageUrl ? '✅ Present' : '❌ Missing');
+      console.error("  Regeneration attempt:", 'User-initiated');
+      
       toast({
-        title: "Regeneration failed",
-        description: "Failed to regenerate panel. Please try again.",
+        title,
+        description: helpText ? `${userMessage}\n\n${helpText}` : userMessage,
         variant: "destructive",
+        duration: 8000,
       });
     },
   });
@@ -788,12 +977,44 @@ export default function PanelEditor({
       queryClient.invalidateQueries({ queryKey: ["/api/projects", project?.id, "characters"] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects", project?.id, "script-characters"] });
     },
-    onError: (error) => {
-      console.error("Failed to create characters from script:", error);
+    onError: (error: any) => {
+      console.error("=== CHARACTER CREATION FROM SCRIPT FAILURE - FRONTEND ===\n");
+      console.error("🕐 Timestamp:", new Date().toISOString());
+      console.error("🎬 Project:", project?.title || 'Unknown');
+      console.error("🚨 Error Object:", error);
+      
+      let userMessage = "There was an error creating characters from the script.";
+      let title = "Failed to create characters";
+      let helpText = "";
+      
+      if (error?.response?.data) {
+        const errorData = error.response.data;
+        console.error("🔍 Server Error Details:", errorData);
+        
+        if (errorData.message) {
+          userMessage = errorData.message;
+        }
+        
+        // Add specific help for character creation errors
+        if (errorData.error === 'validation_error') {
+          helpText = "💡 Tip: Check that your script contains valid character names and descriptions.";
+        } else if (errorData.error === 'quota_exceeded') {
+          title = "Character Creation Limit Reached";
+          userMessage = "You've reached your character creation limit.";
+          helpText = "💡 Tip: Consider upgrading your plan for unlimited character creation.";
+        }
+      }
+      
+      // Log script context for debugging
+      console.error("📊 Script Context:");
+      console.error("  Script available:", project?.script ? '✅ Present' : '❌ Missing');
+      console.error("  Characters suggested:", suggestedCharacters.length);
+      
       toast({
-        title: "Failed to create characters",
-        description: "There was an error creating characters from the script.",
+        title,
+        description: helpText ? `${userMessage}\n\n${helpText}` : userMessage,
         variant: "destructive",
+        duration: 8000,
       });
     },
   });
@@ -1056,10 +1277,21 @@ export default function PanelEditor({
           <div className="space-y-2 text-sm">
             <Card className="border-border">
               <CardContent className="p-3">
-                <p className="font-medium mb-1">Current Scene</p>
-                <p className="text-muted-foreground">
-                  {project.description || "The story is just beginning. Define your scene by adding a description to your project."}
-                </p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="font-medium">Current Scene</p>
+                  {isLoadingSceneContext && (
+                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                  )}
+                </div>
+                {isLoadingSceneContext ? (
+                  <div className="text-muted-foreground text-xs">
+                    Loading scene context...
+                  </div>
+                ) : (
+                  <div className="text-muted-foreground text-xs whitespace-pre-line">
+                    {currentSceneContext || project.description || "No scene information available. Select a panel and add a script for detailed context."}
+                  </div>
+                )}
               </CardContent>
             </Card>
             <Card className="border-border">

@@ -849,9 +849,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(result);
     } catch (error) {
-      console.error("Error generating image:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to generate image";
-      res.status(500).json({ message: errorMessage });
+      console.error(`❌ === PANEL GENERATION API ENDPOINT FAILURE ===`);
+      console.error(`🕒 Timestamp: ${new Date().toISOString()}`);
+      console.error(`🔗 Route: POST /api/projects/:projectId/generate-image`);
+      
+      // Log detailed request context
+      console.error(`📋 === REQUEST DETAILS ===`);
+      console.error(`🏗️ Project ID: ${req.params.projectId}`);
+      console.error(`👤 User ID: ${getUserId(req.user)}`);
+      
+      if (req.body) {
+        console.error(`📝 Panel ID: ${req.body.panelId || 'Unknown'}`);
+        console.error(`📄 Page ID: ${req.body.currentPageId || 'None'}`);
+        console.error(`🎯 Panel Number: ${req.body.selectedPanelNumber || 'None'}`);
+        console.error(`📏 Prompt Length: ${req.body.prompt?.length || 0} characters`);
+        console.error(`🎨 Art Style: ${req.body.styleOptions?.artStyle || req.body.projectContext?.artStyle || 'Default'}`);
+        console.error(`🎭 Characters Count: ${req.body.projectContext?.characters?.length || 0}`);
+        
+        if (req.body.projectContext?.characters?.length > 0) {
+          console.error(`👥 Character Names: ${req.body.projectContext.characters.map((c: any) => c.name || 'Unnamed').join(', ')}`);
+        }
+        
+        if (req.body.panelContext) {
+          console.error(`📐 Panel Dimensions: ${req.body.panelContext.dimensions?.width || 'Unknown'}x${req.body.panelContext.dimensions?.height || 'Unknown'}`);
+          console.error(`📊 Aspect Ratio: ${req.body.panelContext.aspectRatio || 'Unknown'}`);
+          console.error(`🏷️ Panel Type: ${req.body.panelContext.panelType || 'Unknown'}`);
+        }
+        
+        console.error(`🔄 Previous Context: ${req.body.previousPanelsContext?.length || 0} panels`);
+        console.error(`📚 Cross-page Context: ${req.body.crossPageContext?.length || 0} pages`);
+      }
+      
+      // Log detailed error information
+      console.error(`🚨 === ERROR ANALYSIS ===`);
+      const errorType = error?.constructor?.name || 'UnknownError';
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`🏷️ Error Type: ${errorType}`);
+      console.error(`📝 Error Message: ${errorMessage}`);
+      
+      // Enhanced error categorization for API response
+      let httpStatus = 500;
+      let userFriendlyMessage = "Failed to generate image";
+      let errorCategory = 'unknown_error';
+      
+      if (error instanceof Error) {
+        const errorMsg = error.message.toLowerCase();
+        
+        if (errorMsg.includes('unauthorized') || errorMsg.includes('access denied')) {
+          httpStatus = 403;
+          errorCategory = 'authorization_error';
+          userFriendlyMessage = 'Access denied. Please check your project permissions.';
+        } else if (errorMsg.includes('quota') || errorMsg.includes('limit') || errorMsg.includes('credit')) {
+          httpStatus = 429;
+          errorCategory = 'quota_exceeded';
+          userFriendlyMessage = 'Generation limit reached. Please upgrade your plan or try again later.';
+        } else if (errorMsg.includes('timeout') || errorMsg.includes('deadline')) {
+          httpStatus = 408;
+          errorCategory = 'timeout_error';
+          userFriendlyMessage = 'Request timed out. The generation process took too long. Please try again.';
+        } else if (errorMsg.includes('character') || errorMsg.includes('validation')) {
+          httpStatus = 400;
+          errorCategory = 'validation_error';
+          userFriendlyMessage = 'Character validation failed. Please check your character setup and try again.';
+        } else if (errorMsg.includes('invalid') || errorMsg.includes('malformed') || errorMsg.includes('parse')) {
+          httpStatus = 400;
+          errorCategory = 'invalid_request';
+          userFriendlyMessage = 'Invalid request. Please check your input and try again.';
+        } else if (errorMsg.includes('network') || errorMsg.includes('connection') || errorMsg.includes('fetch')) {
+          httpStatus = 503;
+          errorCategory = 'network_error';
+          userFriendlyMessage = 'Network error occurred. Please check your connection and try again.';
+        } else if (errorMsg.includes('project') && errorMsg.includes('not found')) {
+          httpStatus = 404;
+          errorCategory = 'project_not_found';
+          userFriendlyMessage = 'Project not found. Please refresh the page and try again.';
+        } else {
+          userFriendlyMessage = errorMessage;
+        }
+      }
+      
+      console.error(`📊 HTTP Status: ${httpStatus}`);
+      console.error(`🏷️ Error Category: ${errorCategory}`);
+      console.error(`👤 User Message: ${userFriendlyMessage}`);
+      
+      // Log full error object for debugging
+      if (error && typeof error === 'object') {
+        console.error(`🔍 === FULL ERROR DETAILS ===`);
+        console.error(JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+      }
+      
+      // Log system state for debugging
+      console.error(`💻 === SYSTEM STATE ===`);
+      console.error(`🧠 Memory Usage: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`);
+      console.error(`⏱️ Process Uptime: ${Math.round(process.uptime())}s`);
+      console.error(`📊 Active Handles: ${(process as any)._getActiveHandles?.().length || 'Unknown'}`);
+      
+      // Enhanced error response with debugging info
+      res.status(httpStatus).json({ 
+        message: userFriendlyMessage,
+        error: errorCategory,
+        timestamp: new Date().toISOString(),
+        debugInfo: {
+          projectId: req.params.projectId,
+          panelId: req.body?.panelId,
+          errorType: errorType,
+          originalError: errorMessage
+        }
+      });
     }
   });
 
@@ -909,13 +1013,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Generate reference portrait
+      const projectId = character.projectId || req.params.projectId;
+      if (!projectId) {
+        return res.status(400).json({
+          status: "failed",
+          characterId: character.id,
+          characterName: character.name,
+          error: "Character must be associated with a project to generate reference portrait"
+        });
+      }
+      
       const portraitResult = await geminiService.generateReferencePortrait({
         characterId: character.id,
         characterName: character.name,
         visualDescriptors: character.visualDescriptors,
         alwaysTraits: character.alwaysTraits,
         artStyle: character.projectId ? (await storage.getProject(character.projectId))?.artStyle : undefined,
-        forceRegenerate
+        forceRegenerate,
+        projectId: projectId
       });
 
       // Update character in database if successful

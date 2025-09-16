@@ -613,7 +613,7 @@ export default function Editor() {
               artStyle: enhancedProjectContext.artStyle
             },
             panelContext: panelData.panelContext
-          });
+          }, project.id);
           
           console.log(`✅ Panel ${panelNumber} generation result:`, result);
           
@@ -852,7 +852,7 @@ export default function Editor() {
           artStyle: projectContext.artStyle
         },
         panelContext: panelContext
-      });
+      }, project.id);
       
       if (result.status === "completed" && result.imageUrl) {
         // Update local state immediately

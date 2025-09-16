@@ -97,16 +97,16 @@ class AIService {
   /**
    * Generate an image for a specific comic panel using AI
    */
-  async generatePanelImage(request: GenerateImageRequest): Promise<GenerateImageResponse> {
+  async generatePanelImage(request: GenerateImageRequest, projectId: string): Promise<GenerateImageResponse> {
     try {
       // Construct context-aware prompt
       const contextualPrompt = this.buildContextualPrompt(request);
       
-      // CRITICAL FIX: apiRequest already returns parsed JSON, don't parse again
-      const jsonData = await apiRequest("POST", `${this.baseUrl}/generate-image`, {
+      // SECURITY FIX: Use secure project-based route with projectId in URL
+      const jsonData = await apiRequest("POST", `${this.baseUrl}/projects/${projectId}/generate-image`, {
         prompt: contextualPrompt,
         panelId: request.panelId,
-        projectContext: request.projectContext,
+        // Note: projectId removed from body since it's now in URL path
         characterContext: request.characterContext,
         styleOptions: request.styleOptions,
         panelContext: request.panelContext,
@@ -123,6 +123,7 @@ class AIService {
    * Generate a full page of comic panels at once
    */
   async generateFullPage(
+    projectId: string,
     projectContext: GenerateImageRequest["projectContext"],
     pageScript: string,
     panelLayout: Array<{ 
@@ -135,13 +136,13 @@ class AIService {
     layoutId?: string
   ): Promise<Array<GenerateImageResponse>> {
     try {
-      // CRITICAL FIX: apiRequest already returns parsed JSON, don't parse again
-      const jsonData = await apiRequest("POST", `${this.baseUrl}/generate-full-page`, {
-        projectContext,
+      // SECURITY FIX: Use secure project-based route with projectId in URL
+      const jsonData = await apiRequest("POST", `${this.baseUrl}/projects/${projectId}/parallel/pages`, {
         pageScript,
         panelLayout,
         currentPageId,
         layoutId,
+        // Note: projectContext removed from body since project data is available on backend via projectId
       });
       
       console.log("Full page response:", jsonData); // Debug logging
@@ -174,10 +175,10 @@ class AIService {
   /**
    * Generate a comic script based on story outline
    */
-  async generateScript(request: GenerateScriptRequest): Promise<GenerateScriptResponse> {
+  async generateScript(request: GenerateScriptRequest, projectId: string): Promise<GenerateScriptResponse> {
     try {
-      // CRITICAL FIX: apiRequest already returns parsed JSON, don't parse again  
-      const jsonData = await apiRequest("POST", `${this.baseUrl}/generate-script`, request);
+      // SECURITY FIX: Use secure project-based route with projectId in URL
+      const jsonData = await apiRequest("POST", `${this.baseUrl}/projects/${projectId}/generate-script`, request);
       return jsonData as GenerateScriptResponse;
     } catch (error) {
       console.error("Failed to generate script:", error);
