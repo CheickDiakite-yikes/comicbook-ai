@@ -2832,9 +2832,12 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
             for (let i = actualPageCount + 1; i <= requestedPageCount; i++) {
               const defaults = this.generateContextualDefaults(request, i);
               
+              // CRITICAL: Generate contextual titles instead of generic "Page X"
+              const contextualTitle = this.generateContextualPageTitle(request, i, structuredScript);
+              
               structuredScript.pages.push({
                 pageNumber: i,
-                title: `Page ${i}`,
+                title: contextualTitle,
                 overallMood: defaults.mood,
                 setting: defaults.setting,
                 characters: request.characters?.map(c => c.name) || [],
@@ -4104,6 +4107,48 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
     prompt += `- 2:3 aspect ratio (portrait orientation) optimized composition `;
     
     return prompt;
+  }
+
+  /**
+   * Generate contextual page title instead of generic "Page X" 
+   */
+  private generateContextualPageTitle(request: GenerateStructuredScriptRequest, pageNumber: number, structuredScript: any): string {
+    const genre = request.genre?.toLowerCase() || 'adventure';
+    const isEarlyPage = pageNumber <= 3;
+    const isMidPage = pageNumber > 3 && pageNumber <= 8;
+    const isLatePage = pageNumber > 8;
+    
+    // Generate story-appropriate titles based on page position and genre
+    const titlePatterns = {
+      romantic: {
+        early: ["First Glances", "Meeting Fate", "Unexpected Encounters", "Hearts Awakening"],
+        mid: ["Growing Closer", "Shared Moments", "Hidden Feelings", "The Confession", "Tender Promises"],
+        late: ["True Love", "Forever Together", "Happy Endings", "Wedding Bells", "New Beginnings"]
+      },
+      adventure: {
+        early: ["The Journey Begins", "First Challenges", "Into the Unknown", "Call to Adventure"],
+        mid: ["Facing Danger", "New Allies", "The Quest", "Hidden Secrets", "Major Discovery"],
+        late: ["Final Confrontation", "Victory Achieved", "The Return", "New Horizons", "Journey's End"]
+      },
+      comedy: {
+        early: ["Hilarious Start", "Comic Mishaps", "Funny Business", "Laughs Begin"],
+        mid: ["Comedy of Errors", "Silly Situations", "Unexpected Laughs", "Comic Relief", "Funny Twists"],
+        late: ["Grand Finale", "Comedy Gold", "Happy Chaos", "Laughing Together", "Comic Resolution"]
+      },
+      scifi: {
+        early: ["Future Vision", "Tech Discovery", "Space Odyssey", "Digital Dawn"],
+        mid: ["System Override", "Quantum Leap", "Cyber Chase", "Tech Revolution", "Future Shock"],
+        late: ["Final Protocol", "New Reality", "Digital Victory", "Future Hope", "Tomorrow's Promise"]
+      }
+    };
+    
+    const genrePatterns = titlePatterns[genre as keyof typeof titlePatterns] || titlePatterns.adventure;
+    const phasePatterns = isEarlyPage ? genrePatterns.early : isMidPage ? genrePatterns.mid : genrePatterns.late;
+    
+    // Use page number to select from patterns consistently
+    const selectedTitle = phasePatterns[(pageNumber - 1) % phasePatterns.length];
+    
+    return selectedTitle;
   }
 
   /**
