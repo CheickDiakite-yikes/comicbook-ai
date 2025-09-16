@@ -104,6 +104,19 @@ export interface IStorage {
   updatePanel(id: string, updates: Partial<InsertPanel>): Promise<Panel | undefined>;
   deletePanel(id: string): Promise<boolean>;
 
+  // Global panel operations
+  getProjectPanels(projectId: string): Promise<Panel[]>; // Get all panels for a project ordered by global panel number
+  calculateNextGlobalPanelNumber(projectId: string): Promise<number>; // Calculate the next global panel number
+  recalculateGlobalPanelNumbers(projectId: string): Promise<void>; // Recalculate all global panel numbers for a project
+  updatePanelGlobalNumber(panelId: string, globalPanelNumber: number): Promise<Panel | undefined>; // Update specific panel's global number
+  
+  // Data migration operations
+  backfillGlobalPanelNumbers(projectId?: string): Promise<{
+    projectsProcessed: number;
+    panelsUpdated: number;
+    errors: Array<{ projectId: string; error: string }>;
+  }>; // Backfill globalPanelNumber for existing projects
+
   // Structured Script operations
   createStructuredScript(script: InsertStructuredScript): Promise<StructuredScript>;
   getProjectStructuredScript(projectId: string): Promise<FullStructuredScript | undefined>;
@@ -408,25 +421,56 @@ export class MemStorage implements IStorage {
     const page = this.pages.get(id);
     if (!page) return undefined;
 
+    // Check if pageNumber changed
+    const pageOrderChanged = updates.pageNumber !== undefined && updates.pageNumber !== page.pageNumber;
+
     const updatedPage: Page = {
       ...page,
       ...updates,
       updatedAt: new Date(),
     };
     this.pages.set(id, updatedPage);
+    
+    // Trigger recalculation if page order changed
+    if (pageOrderChanged) {
+      await this.recalculateGlobalPanelNumbers(updatedPage.projectId);
+    }
+    
     return updatedPage;
   }
 
   async deletePage(id: string): Promise<boolean> {
-    return this.pages.delete(id);
+    const page = this.pages.get(id);
+    if (!page) return false;
+    
+    const projectId = page.projectId;
+    
+    // Delete all panels associated with this page
+    const panelsToDelete = Array.from(this.panels.values()).filter(p => p.pageId === id);
+    panelsToDelete.forEach(panel => this.panels.delete(panel.id));
+    
+    // Delete the page
+    const success = this.pages.delete(id);
+    
+    // Trigger recalculation if deletion was successful
+    if (success) {
+      await this.recalculateGlobalPanelNumbers(projectId);
+    }
+    
+    return success;
   }
 
   // Panel operations
   async createPanel(panelData: InsertPanel): Promise<Panel> {
+    // Calculate global panel number for this project
+    const page = this.pages.get(panelData.pageId);
+    const globalPanelNumber = page ? await this.calculateNextGlobalPanelNumber(page.projectId) : null;
+    
     const panel: Panel = {
       id: randomUUID(),
       pageId: panelData.pageId,
       panelNumber: panelData.panelNumber,
+      globalPanelNumber,
       prompt: panelData.prompt || null,
       imageUrl: panelData.imageUrl || null,
       speechBubbles: panelData.speechBubbles || null,
@@ -436,6 +480,12 @@ export class MemStorage implements IStorage {
       updatedAt: new Date(),
     };
     this.panels.set(panel.id, panel);
+    
+    // Trigger full resequencing to maintain chronological order
+    if (page) {
+      await this.recalculateGlobalPanelNumbers(page.projectId);
+    }
+    
     return panel;
   }
 
@@ -449,17 +499,237 @@ export class MemStorage implements IStorage {
     const panel = this.panels.get(id);
     if (!panel) return undefined;
 
+    // Check if panelNumber or pageId changed
+    const panelOrderChanged = (
+      updates.panelNumber !== undefined && updates.panelNumber !== panel.panelNumber
+    ) || (
+      updates.pageId !== undefined && updates.pageId !== panel.pageId
+    );
+
     const updatedPanel: Panel = {
       ...panel,
       ...updates,
       updatedAt: new Date(),
     };
     this.panels.set(id, updatedPanel);
+    
+    // Trigger recalculation if panel order changed
+    if (panelOrderChanged) {
+      const page = this.pages.get(updatedPanel.pageId);
+      if (page) {
+        await this.recalculateGlobalPanelNumbers(page.projectId);
+      }
+    }
+    
     return updatedPanel;
   }
 
   async deletePanel(id: string): Promise<boolean> {
-    return this.panels.delete(id);
+    const panel = this.panels.get(id);
+    if (!panel) return false;
+    
+    const page = this.pages.get(panel.pageId);
+    const success = this.panels.delete(id);
+    
+    // Trigger recalculation if deletion was successful
+    if (success && page) {
+      await this.recalculateGlobalPanelNumbers(page.projectId);
+    }
+    
+    return success;
+  }
+
+  // Global panel operations
+  async getProjectPanels(projectId: string): Promise<Panel[]> {
+    const projectPages = Array.from(this.pages.values()).filter(p => p.projectId === projectId);
+    const pageIds = new Set(projectPages.map(p => p.id));
+    
+    return Array.from(this.panels.values())
+      .filter(p => pageIds.has(p.pageId))
+      .sort((a, b) => {
+        // Deterministic sort: null globalPanelNumbers go to end using Infinity
+        const aGlobal = a.globalPanelNumber ?? Infinity;
+        const bGlobal = b.globalPanelNumber ?? Infinity;
+        
+        if (aGlobal !== bGlobal) {
+          return aGlobal - bGlobal;
+        }
+        
+        // Stable secondary sort by page number, then panel number
+        const pageA = this.pages.get(a.pageId);
+        const pageB = this.pages.get(b.pageId);
+        if (pageA && pageB && pageA.pageNumber !== pageB.pageNumber) {
+          return pageA.pageNumber - pageB.pageNumber;
+        }
+        return a.panelNumber - b.panelNumber;
+      });
+  }
+
+  async calculateNextGlobalPanelNumber(projectId: string): Promise<number> {
+    try {
+      const projectPanels = await this.getProjectPanels(projectId);
+      
+      // Handle empty projects safely
+      if (projectPanels.length === 0) {
+        return 1;
+      }
+      
+      // Filter out null values and find max
+      const validNumbers = projectPanels
+        .map(p => p.globalPanelNumber)
+        .filter((num): num is number => num !== null);
+      
+      const maxGlobalNumber = validNumbers.length > 0 ? Math.max(...validNumbers) : 0;
+      return maxGlobalNumber + 1;
+    } catch (error) {
+      console.error(`MemStorage: Error calculating next global panel number for project ${projectId}:`, error);
+      return 1; // Safe fallback
+    }
+  }
+
+  async recalculateGlobalPanelNumbers(projectId: string): Promise<void> {
+    try {
+      // Get project pages for sorting reference
+      const projectPages = Array.from(this.pages.values()).filter(p => p.projectId === projectId);
+      const pageIds = new Set(projectPages.map(p => p.id));
+      
+      // Get panels and sort deterministically by page number, then panel number
+      const projectPanels = Array.from(this.panels.values())
+        .filter(p => pageIds.has(p.pageId))
+        .map(panel => {
+          const page = this.pages.get(panel.pageId);
+          if (!page) {
+            throw new Error(`Page not found for panel ${panel.id}`);
+          }
+          return { panel, page };
+        })
+        .sort((a, b) => {
+          if (a.page.pageNumber !== b.page.pageNumber) {
+            return a.page.pageNumber - b.page.pageNumber;
+          }
+          return a.panel.panelNumber - b.panel.panelNumber;
+        });
+
+      // Assign sequential global panel numbers (1..N)
+      for (let i = 0; i < projectPanels.length; i++) {
+        const { panel } = projectPanels[i];
+        const updatedPanel: Panel = {
+          ...panel,
+          globalPanelNumber: i + 1,
+          updatedAt: new Date(),
+        };
+        this.panels.set(panel.id, updatedPanel);
+      }
+    } catch (error) {
+      console.error(`MemStorage: Error recalculating global panel numbers for project ${projectId}:`, error);
+      throw error; // Re-throw to ensure calling code knows about the failure
+    }
+  }
+
+  async updatePanelGlobalNumber(panelId: string, globalPanelNumber: number): Promise<Panel | undefined> {
+    const panel = this.panels.get(panelId);
+    if (!panel) return undefined;
+
+    const updatedPanel: Panel = {
+      ...panel,
+      globalPanelNumber,
+      updatedAt: new Date(),
+    };
+    this.panels.set(panelId, updatedPanel);
+    
+    // Trigger full re-sequencing to maintain 1..N contiguity
+    const page = this.pages.get(panel.pageId);
+    if (page) {
+      await this.recalculateGlobalPanelNumbers(page.projectId);
+    }
+    
+    return updatedPanel;
+  }
+
+  // Data migration operations for MemStorage
+  async backfillGlobalPanelNumbers(projectId?: string): Promise<{
+    projectsProcessed: number;
+    panelsUpdated: number;
+    errors: Array<{ projectId: string; error: string }>;
+  }> {
+    const errors: Array<{ projectId: string; error: string }> = [];
+    let projectsProcessed = 0;
+    let panelsUpdated = 0;
+
+    try {
+      // Get all projects or just the specified one
+      const projectsToProcess = projectId
+        ? Array.from(this.projects.values()).filter(p => p.id === projectId)
+        : Array.from(this.projects.values());
+
+      console.log(`🔄 MemStorage: Starting global panel number backfill for ${projectsToProcess.length} projects...`);
+
+      for (const project of projectsToProcess) {
+        try {
+          console.log(`🔄 MemStorage: Processing project ${project.id} (${project.title})`);
+          
+          // Get all panels for this project ordered by page number, then panel number
+          const projectPages = Array.from(this.pages.values()).filter(p => p.projectId === project.id);
+          const pageIds = new Set(projectPages.map(p => p.id));
+          
+          const projectPanels = Array.from(this.panels.values())
+            .filter(p => pageIds.has(p.pageId))
+            .map(panel => {
+              const page = this.pages.get(panel.pageId)!;
+              return { panel, page };
+            })
+            .sort((a, b) => {
+              if (a.page.pageNumber !== b.page.pageNumber) {
+                return a.page.pageNumber - b.page.pageNumber;
+              }
+              return a.panel.panelNumber - b.panel.panelNumber;
+            });
+
+          if (projectPanels.length === 0) {
+            console.log(`  ⚠️  MemStorage: No panels found for project ${project.id}`);
+            continue;
+          }
+
+          // Update each panel with sequential global panel numbers
+          let updateCount = 0;
+          for (let i = 0; i < projectPanels.length; i++) {
+            const { panel } = projectPanels[i];
+            const newGlobalNumber = i + 1;
+            
+            // Only update if the number is different to avoid unnecessary operations
+            if (panel.globalPanelNumber !== newGlobalNumber) {
+              const updatedPanel: Panel = {
+                ...panel,
+                globalPanelNumber: newGlobalNumber,
+                updatedAt: new Date(),
+              };
+              this.panels.set(panel.id, updatedPanel);
+              updateCount++;
+            }
+          }
+          
+          console.log(`  ✅ MemStorage: Updated ${updateCount}/${projectPanels.length} panels for project ${project.id}`);
+          panelsUpdated += updateCount;
+          projectsProcessed++;
+          
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.error(`  ❌ MemStorage: Error processing project ${project.id}:`, errorMessage);
+          errors.push({ projectId: project.id, error: errorMessage });
+        }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`MemStorage: Critical error during backfill: ${errorMessage}`);
+    }
+
+    console.log(`🎉 MemStorage: Backfill completed. Processed ${projectsProcessed} projects, updated ${panelsUpdated} panels, ${errors.length} errors`);
+    
+    return {
+      projectsProcessed,
+      panelsUpdated,
+      errors,
+    };
   }
 
   // Structured Script operations - Not implemented in MemStorage
@@ -665,6 +935,155 @@ export class MemStorage implements IStorage {
 
   async updateCharacterConsistencyRule(id: string, updates: any): Promise<any | undefined> {
     return undefined;
+  }
+
+  // Script Validation operations - MemStorage implementation
+  async createValidationReport(reportData: InsertScriptValidationReport): Promise<ScriptValidationReport> {
+    const report: ScriptValidationReport = {
+      id: randomUUID(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      status: reportData.status || null,
+      projectId: reportData.projectId,
+      structuredScriptId: reportData.structuredScriptId || null,
+      validationType: reportData.validationType,
+      overallScore: reportData.overallScore,
+      validationResults: reportData.validationResults || null,
+      recommendationsCount: reportData.recommendationsCount || null,
+      criticalIssuesCount: reportData.criticalIssuesCount || null,
+      warningIssuesCount: reportData.warningIssuesCount || null,
+    };
+    this.validationReports.set(report.id, report);
+    return report;
+  }
+
+  async getValidationReport(reportId: string): Promise<ScriptValidationReport | undefined> {
+    return this.validationReports.get(reportId);
+  }
+
+  async getProjectValidationReports(projectId: string): Promise<ScriptValidationReport[]> {
+    return Array.from(this.validationReports.values())
+      .filter(report => report.projectId === projectId)
+      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+  }
+
+  async createValidationIssue(issueData: InsertValidationIssue): Promise<ValidationIssue> {
+    const issue: ValidationIssue = {
+      id: randomUUID(),
+      createdAt: new Date(),
+      title: issueData.title,
+      description: issueData.description,
+      reportId: issueData.reportId,
+      issueType: issueData.issueType,
+      severity: issueData.severity,
+      category: issueData.category,
+      suggestion: issueData.suggestion || null,
+      affectedElements: issueData.affectedElements || null,
+      confidence: issueData.confidence || null,
+      isResolved: issueData.isResolved || null,
+    };
+    
+    if (!this.validationIssues.has(issue.reportId)) {
+      this.validationIssues.set(issue.reportId, []);
+    }
+    this.validationIssues.get(issue.reportId)!.push(issue);
+    return issue;
+  }
+
+  async getValidationIssues(reportId: string): Promise<ValidationIssue[]> {
+    return this.validationIssues.get(reportId) || [];
+  }
+
+  async createCharacterConsistencyViolation(violationData: InsertCharacterConsistencyViolation): Promise<CharacterConsistencyViolation> {
+    const violation: CharacterConsistencyViolation = {
+      id: randomUUID(),
+      createdAt: new Date(),
+      description: violationData.description,
+      characterId: violationData.characterId,
+      pageNumber: violationData.pageNumber || null,
+      panelNumber: violationData.panelNumber || null,
+      reportId: violationData.reportId,
+      severity: violationData.severity,
+      characterName: violationData.characterName,
+      ruleId: violationData.ruleId || null,
+      violationType: violationData.violationType,
+      panelIds: violationData.panelIds || null,
+      expectedValue: violationData.expectedValue || null,
+      actualValue: violationData.actualValue || null,
+    };
+    
+    if (!this.characterConsistencyViolations.has(violation.reportId)) {
+      this.characterConsistencyViolations.set(violation.reportId, []);
+    }
+    this.characterConsistencyViolations.get(violation.reportId)!.push(violation);
+    return violation;
+  }
+
+  async getCharacterConsistencyViolations(reportId: string, characterId?: string): Promise<CharacterConsistencyViolation[]> {
+    const violations = this.characterConsistencyViolations.get(reportId) || [];
+    if (characterId) {
+      return violations.filter(v => v.characterId === characterId);
+    }
+    return violations;
+  }
+
+  // Character consistency operations
+  async getPanelCharacterStates(panelId: string): Promise<PanelCharacterState[]> {
+    return this.panelCharacterStates.get(panelId) || [];
+  }
+
+  async getCharacterPanelStates(characterId: string): Promise<PanelCharacterState[]> {
+    const allStates: PanelCharacterState[] = [];
+    for (const states of Array.from(this.panelCharacterStates.values())) {
+      allStates.push(...states.filter((state: PanelCharacterState) => state.characterId === characterId));
+    }
+    return allStates.sort((a, b) => {
+      const aTime = a.createdAt?.getTime() || 0;
+      const bTime = b.createdAt?.getTime() || 0;
+      return aTime - bTime;
+    });
+  }
+
+  async validateCharacterConsistency(characterId: string, projectId: string): Promise<{
+    characterId: string;
+    projectId: string;
+    consistencyScore: number;
+    issues: ValidationIssue[];
+    lastValidated: Date;
+  }> {
+    // This would implement character consistency validation logic
+    // For now, return placeholder data
+    return {
+      characterId,
+      projectId,
+      consistencyScore: 85,
+      issues: [],
+      lastValidated: new Date(),
+    };
+  }
+
+  async getCharacterAppearanceHistory(characterId: string, projectId: string): Promise<Array<{
+    panelId: string;
+    appearance: Partial<PanelCharacterState>;
+    timestamp: Date;
+  }>> {
+    // Get all panel states for this character in chronological order
+    const panelStates = await this.getCharacterPanelStates(characterId);
+    return panelStates.map(state => ({
+      panelId: state.panelId,
+      appearance: {
+        emotion: state.emotion,
+        facialExpression: state.facialExpression,
+        bodyLanguage: state.bodyLanguage,
+        position: state.position,
+        pose: state.pose,
+        visibility: state.visibility,
+        lightingCondition: state.lightingCondition,
+        temporaryChanges: state.temporaryChanges,
+        injuriesVisible: state.injuriesVisible,
+      },
+      timestamp: state.createdAt || new Date(),
+    }));
   }
 }
 
@@ -980,6 +1399,12 @@ export class DatabaseStorage implements IStorage {
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(pages.id, id))
       .returning();
+    
+    // If page number was updated, trigger recalculation
+    if (page && updates.pageNumber !== undefined) {
+      await this.recalculateGlobalPanelNumbers(page.projectId);
+    }
+    
     return page || undefined;
   }
 
@@ -994,12 +1419,25 @@ export class DatabaseStorage implements IStorage {
 
   async deletePage(id: string): Promise<boolean> {
     try {
+      // Get project info before deletion for recalculation
+      const [pageInfo] = await db
+        .select({ projectId: pages.projectId })
+        .from(pages)
+        .where(eq(pages.id, id));
+      
       // First delete all panels associated with this page
       await db.delete(panels).where(eq(panels.pageId, id));
       
       // Then delete the page itself
       const result = await db.delete(pages).where(eq(pages.id, id));
-      return result.rowCount !== null && result.rowCount > 0;
+      const success = result.rowCount !== null && result.rowCount > 0;
+      
+      // Trigger recalculation if deletion was successful and we found the project
+      if (success && pageInfo) {
+        await this.recalculateGlobalPanelNumbers(pageInfo.projectId);
+      }
+      
+      return success;
     } catch (error) {
       console.error("Error deleting page and associated panels:", error);
       return false;
@@ -1008,7 +1446,22 @@ export class DatabaseStorage implements IStorage {
 
   // Panel operations
   async createPanel(panelData: InsertPanel): Promise<Panel> {
-    const [panel] = await db.insert(panels).values(panelData).returning();
+    // Get the page to determine the project, then calculate global panel number
+    const [page] = await db.select().from(pages).where(eq(pages.id, panelData.pageId));
+    if (!page) {
+      throw new Error(`Page with id ${panelData.pageId} not found`);
+    }
+    
+    const globalPanelNumber = await this.calculateNextGlobalPanelNumber(page.projectId);
+    
+    const [panel] = await db.insert(panels).values({
+      ...panelData,
+      globalPanelNumber,
+    }).returning();
+    
+    // Trigger full resequencing to maintain chronological order
+    await this.recalculateGlobalPanelNumbers(page.projectId);
+    
     return panel;
   }
 
@@ -1021,17 +1474,254 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePanel(id: string, updates: Partial<InsertPanel>): Promise<Panel | undefined> {
+    // Get current panel to check for order changes
+    const [currentPanel] = await db.select().from(panels).where(eq(panels.id, id));
+    if (!currentPanel) return undefined;
+    
+    // Check if panelNumber or pageId changed
+    const panelOrderChanged = (
+      updates.panelNumber !== undefined && updates.panelNumber !== currentPanel.panelNumber
+    ) || (
+      updates.pageId !== undefined && updates.pageId !== currentPanel.pageId
+    );
+
     const [panel] = await db
       .update(panels)
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(panels.id, id))
       .returning();
+    
+    // Trigger recalculation if panel order changed
+    if (panel && panelOrderChanged) {
+      const [page] = await db.select().from(pages).where(eq(pages.id, panel.pageId));
+      if (page) {
+        await this.recalculateGlobalPanelNumbers(page.projectId);
+      }
+    }
+    
     return panel || undefined;
   }
 
   async deletePanel(id: string): Promise<boolean> {
+    // Get the panel and project info before deletion for recalculation
+    const [panelWithPage] = await db
+      .select({
+        panelId: panels.id,
+        projectId: pages.projectId,
+      })
+      .from(panels)
+      .innerJoin(pages, eq(panels.pageId, pages.id))
+      .where(eq(panels.id, id));
+    
     const result = await db.delete(panels).where(eq(panels.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
+    const success = result.rowCount !== null && result.rowCount > 0;
+    
+    // Trigger recalculation if deletion was successful and we found the project
+    if (success && panelWithPage) {
+      await this.recalculateGlobalPanelNumbers(panelWithPage.projectId);
+    }
+    
+    return success;
+  }
+
+  // Global panel operations
+  async getProjectPanels(projectId: string): Promise<Panel[]> {
+    const results = await db
+      .select({
+        panel: panels,
+        page: pages,
+      })
+      .from(panels)
+      .innerJoin(pages, eq(panels.pageId, pages.id))
+      .where(eq(pages.projectId, projectId))
+      .orderBy(pages.pageNumber, panels.panelNumber); // Fallback ordering
+    
+    const panelList = results.map(result => result.panel);
+    
+    // Deterministic sort: null globalPanelNumbers go to end using Infinity
+    return panelList.sort((a, b) => {
+      const aGlobal = a.globalPanelNumber ?? Infinity;
+      const bGlobal = b.globalPanelNumber ?? Infinity;
+      
+      if (aGlobal !== bGlobal) {
+        return aGlobal - bGlobal;
+      }
+      
+      // Stable secondary sort: get page info for deterministic ordering
+      const aPageResult = results.find(r => r.panel.id === a.id);
+      const bPageResult = results.find(r => r.panel.id === b.id);
+      
+      if (aPageResult && bPageResult) {
+        if (aPageResult.page.pageNumber !== bPageResult.page.pageNumber) {
+          return aPageResult.page.pageNumber - bPageResult.page.pageNumber;
+        }
+        return a.panelNumber - b.panelNumber;
+      }
+      
+      return 0;
+    });
+  }
+
+  async calculateNextGlobalPanelNumber(projectId: string): Promise<number> {
+    try {
+      const result = await db
+        .select({ maxGlobalNumber: sql<number>`MAX(COALESCE(${panels.globalPanelNumber}, 0))` })
+        .from(panels)
+        .innerJoin(pages, eq(panels.pageId, pages.id))
+        .where(eq(pages.projectId, projectId));
+      
+      const maxNumber = result[0]?.maxGlobalNumber || 0;
+      return Math.max(1, maxNumber + 1); // Ensure minimum of 1
+    } catch (error) {
+      console.error(`DbStorage: Error calculating next global panel number for project ${projectId}:`, error);
+      return 1; // Safe fallback
+    }
+  }
+
+  async recalculateGlobalPanelNumbers(projectId: string): Promise<void> {
+    try {
+      // Get all panels for the project ordered by page number, then panel number
+      const projectPanels = await db
+        .select()
+        .from(panels)
+        .innerJoin(pages, eq(panels.pageId, pages.id))
+        .where(eq(pages.projectId, projectId))
+        .orderBy(pages.pageNumber, panels.panelNumber);
+
+      // Update each panel with sequential global panel numbers (1..N)
+      for (let i = 0; i < projectPanels.length; i++) {
+        const panel = projectPanels[i].panels;
+        await db
+          .update(panels)
+          .set({ 
+            globalPanelNumber: i + 1, 
+            updatedAt: new Date() 
+          })
+          .where(eq(panels.id, panel.id));
+      }
+    } catch (error) {
+      console.error(`DbStorage: Error recalculating global panel numbers for project ${projectId}:`, error);
+      throw error; // Re-throw to ensure calling code knows about the failure
+    }
+  }
+
+  async updatePanelGlobalNumber(panelId: string, globalPanelNumber: number): Promise<Panel | undefined> {
+    // Get the panel to determine project for recalculation
+    const [panelWithPage] = await db
+      .select({
+        panel: panels,
+        projectId: pages.projectId,
+      })
+      .from(panels)
+      .innerJoin(pages, eq(panels.pageId, pages.id))
+      .where(eq(panels.id, panelId));
+    
+    if (!panelWithPage) {
+      return undefined;
+    }
+    
+    const [panel] = await db
+      .update(panels)
+      .set({ 
+        globalPanelNumber, 
+        updatedAt: new Date() 
+      })
+      .where(eq(panels.id, panelId))
+      .returning();
+    
+    // Trigger full re-sequencing to maintain 1..N contiguity without gaps
+    await this.recalculateGlobalPanelNumbers(panelWithPage.projectId);
+    
+    return panel || undefined;
+  }
+
+  // Data migration method to backfill globalPanelNumber for existing projects
+  async backfillGlobalPanelNumbers(projectId?: string): Promise<{
+    projectsProcessed: number;
+    panelsUpdated: number;
+    errors: Array<{ projectId: string; error: string }>;
+  }> {
+    const errors: Array<{ projectId: string; error: string }> = [];
+    let projectsProcessed = 0;
+    let panelsUpdated = 0;
+
+    try {
+      // Get all projects or just the specified one
+      const projectsToProcess = projectId 
+        ? await db.select().from(projects).where(eq(projects.id, projectId))
+        : await db.select().from(projects);
+
+      console.log(`🔄 Starting global panel number backfill for ${projectsToProcess.length} projects...`);
+
+      for (const project of projectsToProcess) {
+        try {
+          console.log(`🔄 Processing project ${project.id} (${project.title})`);
+          
+          // Get all panels for this project ordered by page number, then panel number
+          const projectPanels = await db
+            .select({
+              panelId: panels.id,
+              pageNumber: pages.pageNumber,
+              panelNumber: panels.panelNumber,
+              currentGlobalNumber: panels.globalPanelNumber,
+            })
+            .from(panels)
+            .innerJoin(pages, eq(panels.pageId, pages.id))
+            .where(eq(pages.projectId, project.id))
+            .orderBy(pages.pageNumber, panels.panelNumber);
+
+          if (projectPanels.length === 0) {
+            console.log(`  ⚠️  No panels found for project ${project.id}`);
+            continue;
+          }
+
+          // Update each panel with sequential global panel numbers
+          let updateCount = 0;
+          for (let i = 0; i < projectPanels.length; i++) {
+            const panel = projectPanels[i];
+            const newGlobalNumber = i + 1;
+            
+            // Only update if the number is different to avoid unnecessary writes
+            if (panel.currentGlobalNumber !== newGlobalNumber) {
+              await db
+                .update(panels)
+                .set({ 
+                  globalPanelNumber: newGlobalNumber, 
+                  updatedAt: new Date() 
+                })
+                .where(eq(panels.id, panel.panelId));
+              
+              updateCount++;
+            }
+          }
+          
+          console.log(`  ✅ Updated ${updateCount}/${projectPanels.length} panels for project ${project.id}`);
+          panelsUpdated += updateCount;
+          projectsProcessed++;
+          
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.error(`  ❌ Error processing project ${project.id}:`, errorMessage);
+          errors.push({ projectId: project.id, error: errorMessage });
+        }
+      }
+
+      console.log(`✅ Backfill complete! Processed ${projectsProcessed} projects, updated ${panelsUpdated} panels`);
+      if (errors.length > 0) {
+        console.error(`❌ Encountered ${errors.length} errors during backfill`);
+      }
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("❌ Critical error during backfill:", errorMessage);
+      throw error;
+    }
+
+    return {
+      projectsProcessed,
+      panelsUpdated,
+      errors,
+    };
   }
 
   // Structured Script operations
@@ -1962,82 +2652,124 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  // Script Validation operations
+  // Script Validation operations - Database implementation
   async createValidationReport(reportData: InsertScriptValidationReport): Promise<ScriptValidationReport> {
-    const report: ScriptValidationReport = {
-      id: randomUUID(),
-      ...reportData,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.validationReports.set(report.id, report);
+    const { scriptValidationReports } = await import("@shared/schema");
+    const [report] = await db
+      .insert(scriptValidationReports)
+      .values({
+        ...reportData,
+        status: reportData.status || null,
+        structuredScriptId: reportData.structuredScriptId || null,
+        validationResults: reportData.validationResults || null,
+        recommendationsCount: reportData.recommendationsCount || null,
+        criticalIssuesCount: reportData.criticalIssuesCount || null,
+        warningIssuesCount: reportData.warningIssuesCount || null,
+      })
+      .returning();
     return report;
   }
 
   async getValidationReport(reportId: string): Promise<ScriptValidationReport | undefined> {
-    return this.validationReports.get(reportId);
+    const { scriptValidationReports } = await import("@shared/schema");
+    const [report] = await db
+      .select()
+      .from(scriptValidationReports)
+      .where(eq(scriptValidationReports.id, reportId));
+    return report || undefined;
   }
 
   async getProjectValidationReports(projectId: string): Promise<ScriptValidationReport[]> {
-    return Array.from(this.validationReports.values())
-      .filter(report => report.projectId === projectId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    const { scriptValidationReports } = await import("@shared/schema");
+    return await db
+      .select()
+      .from(scriptValidationReports)
+      .where(eq(scriptValidationReports.projectId, projectId))
+      .orderBy(desc(scriptValidationReports.createdAt));
   }
 
   async createValidationIssue(issueData: InsertValidationIssue): Promise<ValidationIssue> {
-    const issue: ValidationIssue = {
-      id: randomUUID(),
-      ...issueData,
-      createdAt: new Date(),
-    };
-    
-    if (!this.validationIssues.has(issue.reportId)) {
-      this.validationIssues.set(issue.reportId, []);
-    }
-    this.validationIssues.get(issue.reportId)!.push(issue);
+    const { validationIssues } = await import("@shared/schema");
+    const [issue] = await db
+      .insert(validationIssues)
+      .values({
+        ...issueData,
+        suggestion: issueData.suggestion || null,
+        affectedElements: issueData.affectedElements || null,
+        confidence: issueData.confidence || null,
+        isResolved: issueData.isResolved || null,
+      })
+      .returning();
     return issue;
   }
 
   async getValidationIssues(reportId: string): Promise<ValidationIssue[]> {
-    return this.validationIssues.get(reportId) || [];
+    const { validationIssues } = await import("@shared/schema");
+    return await db
+      .select()
+      .from(validationIssues)
+      .where(eq(validationIssues.reportId, reportId))
+      .orderBy(validationIssues.createdAt);
   }
 
   async createCharacterConsistencyViolation(violationData: InsertCharacterConsistencyViolation): Promise<CharacterConsistencyViolation> {
-    const violation: CharacterConsistencyViolation = {
-      id: randomUUID(),
-      ...violationData,
-      createdAt: new Date(),
-    };
-    
-    if (!this.characterConsistencyViolations.has(violation.reportId)) {
-      this.characterConsistencyViolations.set(violation.reportId, []);
-    }
-    this.characterConsistencyViolations.get(violation.reportId)!.push(violation);
+    const { characterConsistencyViolations } = await import("@shared/schema");
+    const [violation] = await db
+      .insert(characterConsistencyViolations)
+      .values({
+        ...violationData,
+        ruleId: violationData.ruleId || null,
+        pageNumber: violationData.pageNumber || null,
+        panelNumber: violationData.panelNumber || null,
+        panelIds: violationData.panelIds || null,
+        expectedValue: violationData.expectedValue || null,
+        actualValue: violationData.actualValue || null,
+      })
+      .returning();
     return violation;
   }
 
   async getCharacterConsistencyViolations(reportId: string, characterId?: string): Promise<CharacterConsistencyViolation[]> {
-    const violations = this.characterConsistencyViolations.get(reportId) || [];
+    const { characterConsistencyViolations } = await import("@shared/schema");
+    const whereConditions = [eq(characterConsistencyViolations.reportId, reportId)];
+    
     if (characterId) {
-      return violations.filter(v => v.characterId === characterId);
+      whereConditions.push(eq(characterConsistencyViolations.characterId, characterId));
     }
-    return violations;
+    
+    return await db
+      .select()
+      .from(characterConsistencyViolations)
+      .where(and(...whereConditions))
+      .orderBy(characterConsistencyViolations.createdAt);
   }
 
-  // Character consistency operations
+  // Character consistency operations - Database implementation
   async getPanelCharacterStates(panelId: string): Promise<PanelCharacterState[]> {
-    return this.panelCharacterStates.get(panelId) || [];
+    const { panelCharacterStates } = await import("@shared/schema");
+    return await db
+      .select()
+      .from(panelCharacterStates)
+      .where(eq(panelCharacterStates.panelId, panelId))
+      .orderBy(panelCharacterStates.createdAt);
   }
 
   async getCharacterPanelStates(characterId: string): Promise<PanelCharacterState[]> {
-    const allStates: PanelCharacterState[] = [];
-    for (const states of this.panelCharacterStates.values()) {
-      allStates.push(...states.filter(state => state.characterId === characterId));
-    }
-    return allStates.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    const { panelCharacterStates } = await import("@shared/schema");
+    return await db
+      .select()
+      .from(panelCharacterStates)
+      .where(eq(panelCharacterStates.characterId, characterId))
+      .orderBy(panelCharacterStates.createdAt);
   }
 
-  async validateCharacterConsistency(characterId: string, projectId: string): Promise<any> {
+  async validateCharacterConsistency(characterId: string, projectId: string): Promise<{
+    characterId: string;
+    projectId: string;
+    consistencyScore: number;
+    issues: ValidationIssue[];
+    lastValidated: Date;
+  }> {
     // This would implement character consistency validation logic
     // For now, return placeholder data
     return {
@@ -2049,7 +2781,11 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getCharacterAppearanceHistory(characterId: string, projectId: string): Promise<any[]> {
+  async getCharacterAppearanceHistory(characterId: string, projectId: string): Promise<Array<{
+    panelId: string;
+    appearance: Partial<PanelCharacterState>;
+    timestamp: Date;
+  }>> {
     // Get all panel states for this character in chronological order
     const panelStates = await this.getCharacterPanelStates(characterId);
     return panelStates.map(state => ({
@@ -2065,7 +2801,7 @@ export class DatabaseStorage implements IStorage {
         temporaryChanges: state.temporaryChanges,
         injuriesVisible: state.injuriesVisible,
       },
-      timestamp: state.createdAt,
+      timestamp: state.createdAt || new Date(),
     }));
   }
 }

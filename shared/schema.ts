@@ -271,6 +271,7 @@ export const panels = pgTable("panels", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   pageId: varchar("page_id").notNull().references(() => pages.id),
   panelNumber: integer("panel_number").notNull(),
+  globalPanelNumber: integer("global_panel_number"), // Project-wide sequential panel number (nullable for backward compatibility)
   prompt: text("prompt"),
   imageUrl: varchar("image_url"),
   speechBubbles: jsonb("speech_bubbles"), // JSON array of speech bubble objects
@@ -278,7 +279,12 @@ export const panels = pgTable("panels", {
   generationStatus: varchar("generation_status").default("pending"), // pending, generating, completed, failed
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  // Add index for efficient ordering by globalPanelNumber
+  index("idx_panels_global_number").on(table.globalPanelNumber),
+  // Add composite index for better query performance on project panels
+  index("idx_panels_page_global_number").on(table.pageId, table.globalPanelNumber),
+]);
 
 // Structured Scripts table - Enhanced script system
 export const structuredScripts = pgTable("structured_scripts", {
@@ -504,6 +510,7 @@ export const insertPageSchema = createInsertSchema(pages).omit({
 
 export const insertPanelSchema = createInsertSchema(panels).omit({
   id: true,
+  globalPanelNumber: true, // Omit from insert - calculated automatically by the system
   createdAt: true,
   updatedAt: true,
 });
