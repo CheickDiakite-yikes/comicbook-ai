@@ -2814,24 +2814,26 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
           console.warn(`⚠️ Page count mismatch: requested ${requestedPageCount}, got ${actualPageCount}. Auto-correcting...`);
           
           if (actualPageCount < requestedPageCount) {
-            // Pad with placeholder pages if too few pages generated
+            // Pad with contextual pages if too few pages generated
             const missingPages = requestedPageCount - actualPageCount;
             for (let i = actualPageCount + 1; i <= requestedPageCount; i++) {
+              const defaults = this.generateContextualDefaults(request, i);
+              
               structuredScript.pages.push({
                 pageNumber: i,
                 title: `Page ${i}`,
-                overallMood: "neutral",
-                setting: "Continuation of previous scene",
+                overallMood: defaults.mood,
+                setting: defaults.setting,
                 characters: request.characters?.map(c => c.name) || [],
-                narrative: `Continuation of the story on page ${i}...`,
+                narrative: defaults.narrative,
                 panels: [{
                   panelNumber: 1,
-                  visualDescription: `Continue the story with the characters in the scene`,
+                  visualDescription: defaults.visualDescription,
                   cameraAngle: "medium shot",
                   shotType: "establishing shot",
-                  mood: "neutral",
+                  mood: defaults.mood,
                   characterEmotions: {},
-                  visualNotes: "Continue the narrative flow",
+                  visualNotes: defaults.visualNotes,
                   timing: "moment",
                   soundEffects: [],
                   dialogue: []
@@ -2861,26 +2863,30 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
         structuredScript.totalPages = requestedPageCount; // Use requested count, not actual
         structuredScript.overallMood = structuredScript.overallMood || "engaging";
         
-        structuredScript.pages = structuredScript.pages.map(page => ({
-          ...page,
-          overallMood: page.overallMood || "neutral",
-          setting: page.setting || "Unknown location",
-          characters: page.characters || [],
-          narrative: page.narrative || "",
-          panels: (page.panels || []).map(panel => ({
-            ...panel,
-            cameraAngle: panel.cameraAngle || "medium shot",
-            shotType: panel.shotType || "establishing shot",
-            mood: panel.mood || "neutral",
-            characterEmotions: Array.isArray(panel.characterEmotions) 
-              ? Object.fromEntries(panel.characterEmotions.map((e: any) => [e.characterName, e.emotion]))
-              : panel.characterEmotions || {},
-            visualNotes: panel.visualNotes || "",
-            timing: panel.timing || "moment",
-            soundEffects: panel.soundEffects || [],
-            dialogue: panel.dialogue || []
-          }))
-        }));
+        structuredScript.pages = structuredScript.pages.map(page => {
+          const defaults = this.generateContextualDefaults(request, page.pageNumber);
+          
+          return {
+            ...page,
+            overallMood: page.overallMood || defaults.mood,
+            setting: page.setting || defaults.setting,
+            characters: page.characters || [],
+            narrative: page.narrative || defaults.narrative,
+            panels: (page.panels || []).map((panel, index) => ({
+              ...panel,
+              cameraAngle: panel.cameraAngle || (index === 0 ? "wide shot" : "medium shot"),
+              shotType: panel.shotType || (index === 0 ? "establishing shot" : "medium shot"),
+              mood: panel.mood || defaults.mood,
+              characterEmotions: Array.isArray(panel.characterEmotions) 
+                ? Object.fromEntries(panel.characterEmotions.map((e: any) => [e.characterName, e.emotion]))
+                : panel.characterEmotions || {},
+              visualNotes: panel.visualNotes || defaults.visualNotes,
+              timing: panel.timing || "moment",
+              soundEffects: panel.soundEffects || [],
+              dialogue: panel.dialogue || []
+            }))
+          };
+        });
         
         console.log(`✅ AI generated ${structuredScript.pages.length} pages for structured script`);
         
@@ -2893,21 +2899,23 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
         const fallbackPages = [];
         
         for (let i = 1; i <= requestedPageCount; i++) {
+          const defaults = this.generateContextualDefaults(request, i);
+          
           fallbackPages.push({
             pageNumber: i,
             title: `Page ${i}`,
-            overallMood: "neutral",
-            setting: "Unknown location",
+            overallMood: defaults.mood,
+            setting: defaults.setting,
             characters: request.characters?.map(c => c.name) || [],
-            narrative: `The story continues on page ${i}...`,
+            narrative: defaults.narrative,
             panels: [{
               panelNumber: 1,
-              visualDescription: `Scene on page ${i} showing the characters in action`,
+              visualDescription: defaults.visualDescription,
               cameraAngle: "wide shot",
               shotType: "establishing shot", 
-              mood: "neutral",
+              mood: defaults.mood,
               characterEmotions: [],
-              visualNotes: "Basic scene setting",
+              visualNotes: defaults.visualNotes,
               timing: "moment",
               soundEffects: [],
               dialogue: []
@@ -4083,6 +4091,47 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
     prompt += `- 2:3 aspect ratio (portrait orientation) optimized composition `;
     
     return prompt;
+  }
+
+  /**
+   * Generate contextual defaults for script elements based on story information
+   */
+  private generateContextualDefaults(request: GenerateStructuredScriptRequest | GenerateStructuredScriptRequest, pageNumber?: number) {
+    const genre = request.genre?.toLowerCase() || 'adventure';
+    const primarySetting = request.settings?.[0]?.name || 'an interesting location';
+    const mainCharacter = request.characters?.[0]?.name || 'the protagonist';
+    
+    // Genre-based mood variations
+    const genreMoods: Record<string, string[]> = {
+      'action': ['intense', 'dynamic', 'energetic', 'suspenseful'],
+      'adventure': ['exciting', 'mysterious', 'hopeful', 'determined'],
+      'comedy': ['lighthearted', 'playful', 'upbeat', 'witty'],
+      'drama': ['emotional', 'thoughtful', 'contemplative', 'moving'],
+      'horror': ['eerie', 'tense', 'ominous', 'unsettling'],
+      'mystery': ['intriguing', 'puzzling', 'atmospheric', 'suspenseful'],
+      'romance': ['warm', 'intimate', 'tender', 'passionate'],
+      'fantasy': ['magical', 'wondrous', 'mystical', 'enchanting'],
+      'sci-fi': ['futuristic', 'technological', 'otherworldly', 'innovative']
+    };
+    
+    const moodOptions = genreMoods[genre] || genreMoods['adventure'];
+    const randomMood = moodOptions[Math.floor(Math.random() * moodOptions.length)];
+    
+    // Setting variations based on genre and existing settings
+    const settingVariations = [
+      primarySetting,
+      `${primarySetting} - ${randomMood} atmosphere`,
+      `A ${randomMood} scene in ${primarySetting}`,
+      `${primarySetting} where the story unfolds`
+    ];
+    
+    return {
+      mood: randomMood,
+      setting: settingVariations[Math.floor(Math.random() * settingVariations.length)],
+      narrative: `${mainCharacter} continues the journey${pageNumber ? ` on page ${pageNumber}` : ''} in this ${randomMood} scene.`,
+      visualDescription: `${mainCharacter} is in ${primarySetting}, with ${randomMood} lighting that enhances the ${genre} atmosphere.`,
+      visualNotes: `Capture the ${randomMood} mood of this ${genre} story with dynamic composition.`
+    };
   }
 
   /**
