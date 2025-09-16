@@ -231,7 +231,14 @@ export default function PanelEditor({
     const artStyleContext = proj.artStyle || "comic book style";
     const panelPosition = panelNum === 1 ? "opening" : panelNum === 6 ? "closing" : "middle";
     
-    return `Panel ${panelNum}: ${sceneContext}. Drawn in ${artStyleContext}. This is the ${panelPosition} panel of the page.`;
+    let basePrompt = `Panel ${panelNum}: ${sceneContext}. Drawn in ${artStyleContext}. This is the ${panelPosition} panel of the page.`;
+    
+    // ✨ NEW: Also enhance default prompts with character details if they mention character names
+    if (projectCharacters.length > 0) {
+      basePrompt = enhanceTextWithCharacterDetails(basePrompt, projectCharacters);
+    }
+    
+    return basePrompt;
   };
 
   // Helper function to detect generic or empty prompts that should be replaced with script content
@@ -313,6 +320,57 @@ export default function PanelEditor({
       }));
   };
 
+  // Helper function to enhance text with character appearance details embedded directly into the text
+  const enhanceTextWithCharacterDetails = (text: string, availableCharacters: any[] = projectCharacters) => {
+    if (!text || !availableCharacters.length) return text;
+    
+    let enhancedText = text;
+    
+    // For each character in the project, look for their name in the text and embed appearance details
+    availableCharacters.forEach((char: any) => {
+      if (!char.name || !char.visualDescriptors) return;
+      
+      // Create regex to find character name mentions (case insensitive, word boundaries)
+      const nameRegex = new RegExp(`\\b(${char.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'gi');
+      
+      // Build compact appearance description
+      const appearanceDetails = [];
+      
+      // Add visual descriptors (physical appearance)
+      if (char.visualDescriptors && char.visualDescriptors.trim()) {
+        appearanceDetails.push(char.visualDescriptors.trim());
+      }
+      
+      // Add clothing/outfit information from alwaysTraits if it contains clothing info
+      if (char.alwaysTraits && char.alwaysTraits.trim()) {
+        const clothingTerms = ['wearing', 'outfit', 'clothing', 'shirt', 'pants', 'dress', 'jacket', 'boots', 'shoes', 'hat', 'uniform', 'costume'];
+        const alwaysTraitsLower = char.alwaysTraits.toLowerCase();
+        if (clothingTerms.some(term => alwaysTraitsLower.includes(term))) {
+          appearanceDetails.push(char.alwaysTraits.trim());
+        }
+      }
+      
+      // If we have appearance details, create the enhanced format
+      if (appearanceDetails.length > 0) {
+        const combinedDetails = appearanceDetails.join('; ');
+        
+        // Replace character name with enhanced format: "Character Name [details]"
+        enhancedText = enhancedText.replace(nameRegex, (match) => {
+          // Check if this character name is already enhanced (has brackets after it)
+          const nameIndex = enhancedText.indexOf(match);
+          const afterName = enhancedText.slice(nameIndex + match.length, nameIndex + match.length + 50);
+          if (afterName.trim().startsWith('[')) {
+            return match; // Already enhanced, don't modify
+          }
+          
+          return `${match} [${combinedDetails}]`;
+        });
+      }
+    });
+    
+    return enhancedText;
+  };
+
   // Helper function to build enhanced description from script context
   const buildEnhancedDescription = (scriptPanel: any, panelNumber: number) => {
     if (!scriptPanel) {
@@ -322,18 +380,9 @@ export default function PanelEditor({
     // Start with the main scene description
     let description = scriptPanel.sceneDescription || scriptPanel.visualDescription || scriptPanel.action || prompt;
     
-    // Add character descriptions for this panel
-    if (scriptPanel.characters?.length > 0 && projectCharacters.length > 0) {
-      const panelCharacters = scriptPanel.characters.map((charName: string) => {
-        const charData = projectCharacters.find((c: any) => c.name === charName);
-        if (charData && charData.visualDescriptors) {
-          return `${charName} (APPEARANCE: ${charData.visualDescriptors})`;
-        }
-        return charName;
-      }).join(', ');
-      description += `. Characters in panel: ${panelCharacters}`;
-    } else if (scriptPanel.characters?.length > 0) {
-      description += `. Characters: ${scriptPanel.characters.join(', ')}`;
+    // ✨ NEW: Enhance the core description text with embedded character details
+    if (projectCharacters.length > 0) {
+      description = enhanceTextWithCharacterDetails(description, projectCharacters);
     }
 
     // ✨ ENHANCED: Add full dialogue with character emotions and speech text
@@ -342,7 +391,9 @@ export default function PanelEditor({
       scriptPanel.dialogue.forEach((d: any) => {
         if (d.character && d.text) {
           const emotionPart = d.emotionalState || d.emotion ? ` (${d.emotionalState || d.emotion})` : '';
-          description += `\n- ${d.character}${emotionPart}: "${d.text}"`;
+          // Enhance character names in dialogue too
+          const enhancedCharacterName = enhanceTextWithCharacterDetails(d.character, projectCharacters);
+          description += `\n- ${enhancedCharacterName}${emotionPart}: "${d.text}"`;
         }
       });
     }
@@ -355,9 +406,10 @@ export default function PanelEditor({
       description += `\n\nSound Effects: ${soundEffectsText}`;
     }
 
-    // ✨ ENHANCED: Add action details when present
+    // ✨ ENHANCED: Add action details when present (with character enhancement)
     if (scriptPanel.action && scriptPanel.action.trim() !== '') {
-      description += `\n\nAction: ${scriptPanel.action}`;
+      const enhancedAction = enhanceTextWithCharacterDetails(scriptPanel.action, projectCharacters);
+      description += `\n\nAction: ${enhancedAction}`;
     }
 
     // ✨ ENHANCED: Add timing information when present
@@ -365,9 +417,10 @@ export default function PanelEditor({
       description += `\n\nTiming: ${scriptPanel.timing}`;
     }
 
-    // ✨ ENHANCED: Add visual notes as a dedicated section
+    // ✨ ENHANCED: Add visual notes as a dedicated section (with character enhancement)
     if (scriptPanel.visualNotes && scriptPanel.visualNotes.trim() !== '') {
-      description += `\n\nVisual Notes: ${scriptPanel.visualNotes}`;
+      const enhancedVisualNotes = enhanceTextWithCharacterDetails(scriptPanel.visualNotes, projectCharacters);
+      description += `\n\nVisual Notes: ${enhancedVisualNotes}`;
     }
 
     // Add technical direction (camera, shot, mood)
@@ -675,8 +728,8 @@ export default function PanelEditor({
       console.error("📊 Generation Context:");
       console.error("  Prompt length:", prompt.length, "characters");
       console.error("  Project characters:", project?.id ? '✅ Available' : '❌ Missing');
-      console.error("  Panel context:", panelContext ? '✅ Present' : '❌ Missing');
-      console.error("  Style options:", styleOptions ? '✅ Present' : '❌ Missing');
+      console.error("  Current page:", currentPage ? '✅ Present' : '❌ Missing');
+      console.error("  Art style:", artStyle ? '✅ Present' : '❌ Missing');
       
       toast({
         title,
@@ -944,7 +997,7 @@ export default function PanelEditor({
       
       // Log regeneration context
       console.error("📊 Regeneration Context:");
-      console.error("  Original image URL:", existingPanel?.imageUrl ? '✅ Present' : '❌ Missing');
+      console.error("  Original image URL:", currentPanelData?.imageUrl ? '✅ Present' : '❌ Missing');
       console.error("  Regeneration attempt:", 'User-initiated');
       
       toast({
@@ -1008,7 +1061,7 @@ export default function PanelEditor({
       // Log script context for debugging
       console.error("📊 Script Context:");
       console.error("  Script available:", project?.script ? '✅ Present' : '❌ Missing');
-      console.error("  Characters suggested:", suggestedCharacters.length);
+      console.error("  Characters suggested:", scriptCharacters.length);
       
       toast({
         title,
