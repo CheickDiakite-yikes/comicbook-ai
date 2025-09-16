@@ -9,7 +9,6 @@ import ComicPageLayout from "@/components/comic-page-layout";
 import StructuredScriptViewer from "@/components/structured-script-viewer";
 import { ComicReader } from "@/components/comic-reader";
 import { ShareDialog } from "@/components/share-dialog";
-import ScriptValidationPanel from "@/components/ScriptValidationPanel";
 import { exportComicAsPDF, exportCurrentPage } from "@/lib/comic-export";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -55,7 +54,7 @@ export default function Editor() {
     setSidebarCollapsed(!sidebarCollapsed);
   };
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [activeTab, setActiveTab] = useState<"editor" | "script" | "validate" | "animate">("editor");
+  const [activeTab, setActiveTab] = useState<"editor" | "script" | "animate">("editor");
   const [showComicReader, setShowComicReader] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
@@ -1381,8 +1380,8 @@ export default function Editor() {
             >
               <div className="max-w-4xl mx-auto">
                 {/* Tab Navigation */}
-                <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "editor" | "script" | "validate" | "animate")} className="w-full">
-                  <TabsList className="grid w-full grid-cols-4 mb-6">
+                <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "editor" | "script" | "animate")} className="w-full">
+                  <TabsList className="grid w-full grid-cols-3 mb-6">
                     <TabsTrigger value="editor" className="flex items-center gap-2" data-testid="tab-editor">
                       <Layout className="h-4 w-4" />
                       Page Editor
@@ -1390,10 +1389,6 @@ export default function Editor() {
                     <TabsTrigger value="script" className="flex items-center gap-2" data-testid="tab-script">
                       <FileText className="h-4 w-4" />
                       Script View
-                    </TabsTrigger>
-                    <TabsTrigger value="validate" className="flex items-center gap-2" data-testid="tab-validate">
-                      <FileCheck className="h-4 w-4" />
-                      Validate
                     </TabsTrigger>
                     <TabsTrigger value="animate" className="flex items-center gap-2" data-testid="tab-animate">
                       <Zap className="h-4 w-4" />
@@ -1447,12 +1442,6 @@ export default function Editor() {
                     />
                   </TabsContent>
 
-                  <TabsContent value="validate" className="space-y-4">
-                    <ScriptValidationPanel
-                      projectId={projectId!}
-                      isOpen={activeTab === "validate"}
-                    />
-                  </TabsContent>
 
                   <TabsContent value="animate" className="space-y-4">
                     <div className="flex items-center justify-center min-h-[400px]">
