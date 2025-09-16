@@ -61,10 +61,15 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
   const [showAllPages, setShowAllPages] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: structuredScript, isLoading } = useQuery<FullStructuredScript | null>({
-    queryKey: ["/api/projects", projectId, "structured-script"],
+  // Fix: Read from project.script instead of structured_scripts table
+  const { data: project } = useQuery<{script?: string}>({
+    queryKey: ["/api/projects", projectId],
     retry: false,
   });
+  
+  // Parse the script from project.script field (same source as Preview)
+  const structuredScript = project?.script ? JSON.parse(project.script) : null;
+  const isLoading = !project;
 
   const { data: characters = [] } = useQuery<Character[]>({
     queryKey: ["/api/projects", projectId, "characters"],
@@ -73,7 +78,7 @@ export default function StructuredScriptViewer({ projectId, currentPageNumber }:
 
   const handleRefreshScript = () => {
     queryClient.invalidateQueries({ 
-      queryKey: ["/api/projects", projectId, "structured-script"] 
+      queryKey: ["/api/projects", projectId] 
     });
   };
 
