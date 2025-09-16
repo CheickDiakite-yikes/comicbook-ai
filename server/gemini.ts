@@ -2235,10 +2235,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
                           mood: { type: "string" },
                           characterEmotions: { 
                             type: "object",
-                            properties: {
-                              character: { type: "string" },
-                              emotion: { type: "string" }
-                            }
+                            additionalProperties: { type: "string" }
                           },
                           visualNotes: { type: "string" },
                           timing: { type: "string" },
@@ -3937,7 +3934,10 @@ Use ONLY the character names provided: ${characterNames.join(', ')}.`;
                         cameraAngle: { type: "string" },
                         shotType: { type: "string" },
                         mood: { type: "string" },
-                        characterEmotions: { type: "object" },
+                        characterEmotions: { 
+                          type: "object",
+                          additionalProperties: { type: "string" }
+                        },
                         visualNotes: { type: "string" },
                         timing: { type: "string" },
                         soundEffects: { type: "array", items: { type: "string" } },
