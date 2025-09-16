@@ -3261,8 +3261,9 @@ Redress this character in the specified outfit while maintaining their core visu
       const { projectId } = req.params;
       const { title, logline, pages } = req.body;
       
-      console.log(`🐛 save-structured-script called for project ${projectId}`);
-      console.log(`🐛 Request body:`, { title, logline, pagesCount: pages?.length });
+      console.log(`🚨 SAVE-SCRIPT: save-structured-script called for project ${projectId}`);
+      console.log(`🚨 SAVE-SCRIPT: Request body:`, { title, logline, pagesCount: pages?.length });
+      console.log(`🚨 SAVE-SCRIPT: Full pages data:`, JSON.stringify(pages, null, 2));
       
       // Verify user owns the project
       const project = await storage.getProject(projectId);
