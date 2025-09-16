@@ -5984,7 +5984,9 @@ Output in the specified JSON format with ALL enhanced fields completed comprehen
               title: { type: "string" },
               overallMood: { type: "string" },
               setting: { type: "string" },
-              characters: { type: "array", items: { type: "string" } },
+              characters: validCharacterNames && validCharacterNames.length > 0 ? 
+                { type: "array", items: { type: "string", enum: validCharacterNames } } : 
+                { type: "array", items: { type: "string" } },
               narrative: { type: "string" },
               layoutSuggestion: { type: "string" },
               panelCount: { type: "number" },
@@ -6033,7 +6035,9 @@ Output in the specified JSON format with ALL enhanced fields completed comprehen
                         lighting: { type: "string" },
                         atmosphere: { type: "string" },
                         keyObjects: { type: "array", items: { type: "string" } },
-                        backgroundCharacters: { type: "array", items: { type: "string" } },
+                        backgroundCharacters: validCharacterNames && validCharacterNames.length > 0 ? 
+                          { type: "array", items: { type: "string", enum: validCharacterNames } } : 
+                          { type: "array", items: { type: "string" } },
                         soundscape: { type: "array", items: { type: "string" } }
                       },
                       required: ["settingName", "timeOfDay", "lighting", "atmosphere"]
@@ -6092,7 +6096,9 @@ Output in the specified JSON format with ALL enhanced fields completed comprehen
                         ambientSounds: { type: "array", items: { type: "string" } },
                         musicCues: { type: "string" },
                         voiceOverText: { type: "string" },
-                        voiceOverCharacter: { type: "string" },
+                        voiceOverCharacter: validCharacterNames && validCharacterNames.length > 0 ? 
+                          { type: "string", enum: validCharacterNames } : 
+                          { type: "string" },
                         dialoguePlacement: { type: "string" },
                         silenceEmphasis: { type: "boolean" },
                         soundPerspective: { type: "string" }
