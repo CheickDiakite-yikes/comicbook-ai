@@ -5158,6 +5158,15 @@ ${characterBible.characters.map(char => {
   - Never: ${char.consistencyRules.neverTraits.join(', ')}`;
 }).join('\n\n')}
 
+CHARACTER APPEARANCE DICTIONARY (MANDATORY FOR PANEL DESCRIPTIONS):
+${characterBible.characters.map(char => {
+  const physical = char.physicalProfile;
+  const clothing = char.defaultClothingState;
+  const accessories = clothing.jewelry?.length ? `, ${clothing.jewelry.join(', ')}` : '';
+  const extra = clothing.accessories?.length ? `, ${clothing.accessories.join(', ')}` : '';
+  return `${char.name}: [${physical.height} ${physical.build}, ${physical.skinTone}, ${physical.hairColor} ${physical.hairTexture} ${physical.hairStyle} hair, ${physical.eyeColor} eyes; wearing ${clothing.upperBody}, ${clothing.lowerBody}, ${clothing.footwear}${accessories}${extra}]`;
+}).join('\n')}
+
 PAGES TO SCRIPT (from outline):
 ${storyOutline.pageSummaries
   .filter(page => chunkInfo.pagesInChunk.includes(page.pageNumber))
@@ -5186,6 +5195,13 @@ ${validCharacterNames && validCharacterNames.length > 0 ? buildCharacterConstrai
 
 INSTRUCTIONS:
 Create MOVIE-QUALITY detailed panel scripts that utilize the full range of cinematic techniques. For each page:
+
+🎯 **CRITICAL CHARACTER APPEARANCE RULE**: In EVERY panel's visualDescription, sceneDescription, or action field where a character appears:
+   - The FIRST time a character appears on each page, you MUST include their appearance description EXACTLY as written in the CHARACTER APPEARANCE DICTIONARY above
+   - Format: "Character Name [exact appearance description from dictionary] does/says/moves..."
+   - Example: "Sol Bautista [tall athletic build, warm brown skin, wavy shoulder-length black hair, brown eyes; wearing blue flight jumpsuit, tactical boots, silver cuff] examines the clockwork device..."
+   - This is MANDATORY for character consistency - do NOT omit, paraphrase, or shorten these descriptions
+   - If a character changes clothing in a panel, update their appearance description accordingly
 
 1. **Page Structure**: Determine optimal panel count and layout based on story beats
 2. **ENHANCED Panel Details**: For each panel, provide comprehensive technical direction:
