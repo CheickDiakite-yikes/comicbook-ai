@@ -160,17 +160,34 @@ export default function PanelEditor({
             sceneInfo += `\n💬 Dialogue: ${dialogueText}`;
           }
           
-          setCurrentSceneContext(sceneInfo || "Scene context loading...");
-          console.log(`✅ Loaded scene context:`, sceneInfo);
+          // ✨ ENHANCEMENT: Apply character appearance details to the scene context text
+          const enhancedSceneInfo = projectCharacters.length > 0 
+            ? enhanceTextWithCharacterDetails(sceneInfo, projectCharacters)
+            : sceneInfo;
+          
+          setCurrentSceneContext(enhancedSceneInfo || "Scene context loading...");
+          console.log(`✅ Loaded scene context:`, enhancedSceneInfo);
         } else {
           // Fallback to page-level information
-          const fallbackContext = `📖 Page ${currentPage.pageNumber} of ${project.title || "Untitled Comic"}\n\n${project.description || "No scene description available. Add a script or project description for better context."}`;
+          let fallbackContext = `📖 Page ${currentPage.pageNumber} of ${project.title || "Untitled Comic"}\n\n${project.description || "No scene description available. Add a script or project description for better context."}`;
+          
+          // ✨ ENHANCEMENT: Also apply character enhancement to fallback context
+          if (projectCharacters.length > 0) {
+            fallbackContext = enhanceTextWithCharacterDetails(fallbackContext, projectCharacters);
+          }
+          
           setCurrentSceneContext(fallbackContext);
           console.log(`⚠️ No script context found, using fallback`);
         }
       } catch (error) {
         console.error("❌ Failed to load scene context:", error);
-        const errorContext = `📖 Page ${currentPage.pageNumber} of ${project.title || "Untitled Comic"}\n\n${project.description || "Unable to load scene context. Please check your project script."}`;
+        let errorContext = `📖 Page ${currentPage.pageNumber} of ${project.title || "Untitled Comic"}\n\n${project.description || "Unable to load scene context. Please check your project script."}`;
+        
+        // ✨ ENHANCEMENT: Also apply character enhancement to error context
+        if (projectCharacters.length > 0) {
+          errorContext = enhanceTextWithCharacterDetails(errorContext, projectCharacters);
+        }
+        
         setCurrentSceneContext(errorContext);
       } finally {
         setIsLoadingSceneContext(false);
