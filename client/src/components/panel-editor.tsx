@@ -6,7 +6,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Wand2, RotateCcw, MessageSquare, Cloud, Palette, BookOpen, X, Loader2 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Badge } from "@/components/ui/badge";
+import { Wand2, RotateCcw, MessageSquare, Cloud, Palette, BookOpen, X, Loader2, ChevronDown, ChevronRight, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { comicLayouts } from "@/lib/comic-layouts";
@@ -53,6 +55,7 @@ export default function PanelEditor({
   const [hasUserEditedPrompt, setHasUserEditedPrompt] = useState(false);
   const [currentSceneContext, setCurrentSceneContext] = useState<string>("");
   const [isLoadingSceneContext, setIsLoadingSceneContext] = useState(false);
+  const [isCharactersInPanelExpanded, setIsCharactersInPanelExpanded] = useState(false);
 
   // Fetch existing panels for the current page
   const { data: existingPanels = [], isLoading: panelsLoading } = useQuery<Panel[]>({
@@ -416,6 +419,33 @@ export default function PanelEditor({
     
     return enhancedText;
   };
+
+  // Function to detect characters mentioned in current panel prompt
+  const detectCharactersInPanel = (): Character[] => {
+    if (!projectCharacters || projectCharacters.length === 0 || !prompt.trim()) return [];
+    
+    const promptContent = prompt.toLowerCase();
+    const detectedCharacters: Character[] = [];
+    
+    for (const character of projectCharacters) {
+      const characterName = character.name.toLowerCase();
+      const nameParts = characterName.split(' ');
+      
+      // Check for full name or any part of the name
+      const isInContent = nameParts.some(part => 
+        part.length > 2 && promptContent.includes(part)
+      ) || promptContent.includes(characterName);
+      
+      if (isInContent && !detectedCharacters.find(c => c.id === character.id)) {
+        detectedCharacters.push(character);
+      }
+    }
+    
+    return detectedCharacters;
+  };
+
+  // Get characters detected in current panel
+  const charactersInPanel = detectCharactersInPanel();
 
   // Helper function to build enhanced description from script context
   const buildEnhancedDescription = (scriptPanel: any, panelNumber: number) => {
@@ -1550,6 +1580,109 @@ export default function PanelEditor({
             )}
           </div>
         </div>
+
+        {/* Characters in Panel */}
+        {charactersInPanel.length > 0 && (
+          <div>
+            <Collapsible 
+              open={isCharactersInPanelExpanded} 
+              onOpenChange={setIsCharactersInPanelExpanded}
+            >
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-between p-0 h-auto font-semibold text-left hover:bg-transparent"
+                  data-testid="button-toggle-characters-in-panel"
+                >
+                  <h3 className="font-semibold mb-3 flex items-center">
+                    <Users className="mr-2 h-5 w-5 text-chart-5" />
+                    Characters in Panel
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      {charactersInPanel.length}
+                    </Badge>
+                  </h3>
+                  {isCharactersInPanelExpanded ? (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-4">
+                {charactersInPanel.map((character) => (
+                  <div key={character.id} className="bg-muted/10 rounded-lg p-3 border">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Users className="h-4 w-4 text-primary" />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h6 className="font-medium text-sm" data-testid={`character-name-${character.id}`}>
+                            {character.name}
+                          </h6>
+                          {character.role && (
+                            <Badge variant="secondary" className="text-xs">
+                              {character.role}
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        {character.visualDescriptors && (
+                          <div className="mb-2">
+                            <span className="text-xs font-medium text-muted-foreground block mb-1">Appearance:</span>
+                            <p className="text-sm text-muted-foreground break-words" data-testid={`character-appearance-${character.id}`}>
+                              {character.visualDescriptors}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {character.bio && (
+                          <div className="mb-2">
+                            <span className="text-xs font-medium text-muted-foreground block mb-1">Bio:</span>
+                            <p className="text-sm text-muted-foreground break-words" data-testid={`character-bio-${character.id}`}>
+                              {character.bio}
+                            </p>
+                          </div>
+                        )}
+                        
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {character.alwaysTraits && (
+                            <Badge variant="outline" className="text-xs">
+                              Always: {character.alwaysTraits}
+                            </Badge>
+                          )}
+                          {character.colorScheme && (
+                            <Badge variant="outline" className="text-xs">
+                              <Palette className="h-3 w-3 mr-1" />
+                              {character.colorScheme}
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        <div className="mt-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => setSelectedCharacterForDressing(character)}
+                            data-testid={`button-dress-room-panel-${character.id}`}
+                          >
+                            Dress Room
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div className="text-xs text-muted-foreground italic p-2 bg-muted/20 rounded">
+                  💡 These characters were detected in your panel prompt. Use the "Enhance Characters" button above to embed their appearance details directly into your prompt text.
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        )}
         </div>
       </aside>
 
