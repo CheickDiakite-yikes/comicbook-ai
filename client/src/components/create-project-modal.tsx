@@ -95,9 +95,29 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
   ]);
   const [showGenerationCompleteBanner, setShowGenerationCompleteBanner] = useState(false);
   
+  // 🎯 ENHANCED: Script tone options with comprehensive choices
+  const scriptToneOptions = [
+    { value: "action-packed", label: "Action-Packed ⚡", description: "Fast-paced with dynamic sequences" },
+    { value: "balanced", label: "Balanced 📖", description: "Well-rounded mix of elements" },
+    { value: "dialogue-heavy", label: "Dialogue-Heavy 💬", description: "Character-driven conversations" },
+    { value: "cinematic", label: "Cinematic 🎬", description: "Visually striking and dramatic" },
+    { value: "character-driven", label: "Character-Driven 👥", description: "Focus on relationships and growth" },
+    { value: "mysterious", label: "Mysterious 🔍", description: "Atmospheric with suspense" },
+    { value: "comedic", label: "Comedic 😄", description: "Humorous and light-hearted" },
+    { value: "dramatic", label: "Dramatic 🎭", description: "Emotional depth and intensity" },
+    { value: "romantic", label: "Romantic 💕", description: "Love-focused storytelling" },
+    { value: "erotic", label: "Erotic 🔥", description: "Sensual and intimate themes" },
+    { value: "dark", label: "Dark 🌑", description: "Gritty and mature themes" },
+    { value: "fantasy", label: "Fantasy ✨", description: "Magical and otherworldly" },
+    { value: "horror", label: "Horror 👻", description: "Scary and suspenseful" },
+    { value: "sci-fi", label: "Sci-Fi 🚀", description: "Futuristic and technological" },
+    { value: "slice-of-life", label: "Slice of Life 🌸", description: "Everyday moments and realism" },
+    { value: "epic", label: "Epic 🌟", description: "Grand scale and heroic themes" }
+  ];
+  
   // 🎯 NEW: User control options for amazing script generation
   const [scriptLength, setScriptLength] = useState<string>("12");
-  const [scriptTone, setScriptTone] = useState<string>("balanced");
+  const [selectedScriptTones, setSelectedScriptTones] = useState<string[]>(["balanced"]);
   const [userInstructions, setUserInstructions] = useState<string>("");
   
   const { state: generationState, clearGeneration } = useBackgroundGeneration();
@@ -538,24 +558,41 @@ The complete structured script with full character details has been generated an
         const MIN_PAGES = 6;
         const pageCount = Math.max(MIN_PAGES, requestedPages);
         
-        // Build enhanced tone description
+        // 🎯 ENHANCED: Build enhanced tone description from multiple selected tones
         const toneMap: Record<string, string> = {
           "action-packed": "Fast-paced with dynamic action sequences and exciting panel-to-panel progression",
           "balanced": "Well-balanced mix of action, dialogue, and character development",
           "dialogue-heavy": "Character-driven with rich dialogue and emotional depth",
           "cinematic": "Visually striking with dramatic camera angles and cinematic storytelling",
           "character-driven": "Focus on character development, relationships, and internal conflicts",
-          "mysterious": "Atmospheric with suspense, hidden clues, and gradual revelation"
+          "mysterious": "Atmospheric with suspense, hidden clues, and gradual revelation",
+          "comedic": "Humorous with witty dialogue and entertaining scenarios",
+          "dramatic": "Emotionally intense with deep character conflicts",
+          "romantic": "Love-focused with intimate character interactions",
+          "erotic": "Sensual with mature intimate themes and relationships",
+          "dark": "Gritty with mature themes and complex moral issues",
+          "fantasy": "Magical with otherworldly elements and mystical storytelling",
+          "horror": "Scary with suspenseful and frightening scenarios",
+          "sci-fi": "Futuristic with technological and scientific elements",
+          "slice-of-life": "Realistic with everyday moments and relatable situations",
+          "epic": "Grand scale with heroic themes and sweeping narratives"
         };
         
-        const enhancedTone = toneMap[scriptTone] || toneMap["balanced"];
+        // Combine multiple selected tones into rich description
+        const selectedToneDescriptions = selectedScriptTones.map(tone => 
+          toneMap[tone] || toneMap["balanced"]
+        );
+        const enhancedTone = selectedToneDescriptions.join(", blended with ");
         
-        // Combine genre tone with script tone
+        // Combine genre tone with script tones
         const combinedTone = formValues.genre 
           ? `${formValues.genre} with ${enhancedTone.toLowerCase()}` 
           : enhancedTone;
         
-        setScriptGenerationStep(`🤖 AI is crafting your ${pageCount}-page ${scriptTone} script...`);
+        const toneDisplayText = selectedScriptTones.length > 1 
+          ? `${selectedScriptTones.join(" + ")} blend` 
+          : selectedScriptTones[0] || "balanced";
+        setScriptGenerationStep(`🤖 AI is crafting your ${pageCount}-page ${toneDisplayText} script...`);
         
         // 🔧 ENHANCED: Use consistent apiRequest for all HTTP calls
         const structuredScript = await apiRequest("POST", `/api/projects/${tempProject.id}/generate-structured-script`, {
@@ -567,9 +604,9 @@ The complete structured script with full character details has been generated an
           pageCount: pageCount,
           tone: combinedTone,
           logline: formValues.description,
-          // 🎯 NEW: User control parameters
+          // 🎯 ENHANCED: User control parameters with multiple tones
           userInstructions: userInstructions.trim() || undefined,
-          scriptTone: scriptTone,
+          scriptTones: selectedScriptTones,
           requestedLength: scriptLength
         });
         
@@ -1157,22 +1194,48 @@ Create a visual description that fits the ${selectedArtStyle || 'comic-book'} ar
                   <p className="text-xs text-muted-foreground mt-1">More pages = richer story development</p>
                 </div>
                 
-                <div>
-                  <FormLabel className="text-sm font-medium mb-2 block">Script Tone</FormLabel>
-                  <Select value={scriptTone} onValueChange={setScriptTone}>
-                    <SelectTrigger className="h-9" data-testid="select-script-tone">
-                      <SelectValue placeholder="Choose tone" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="action-packed">Action-Packed ⚡</SelectItem>
-                      <SelectItem value="balanced">Balanced 📖</SelectItem>
-                      <SelectItem value="dialogue-heavy">Dialogue-Heavy 💬</SelectItem>
-                      <SelectItem value="cinematic">Cinematic 🎬</SelectItem>
-                      <SelectItem value="character-driven">Character-Driven 👥</SelectItem>
-                      <SelectItem value="mysterious">Mysterious 🔍</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground mt-1">Affects pacing and story focus</p>
+                <div className="col-span-2">
+                  <FormLabel className="text-sm font-medium mb-2 block">
+                    Script Tones ({selectedScriptTones.length}/4 selected)
+                  </FormLabel>
+                  <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                    {scriptToneOptions.map((tone) => {
+                      const isSelected = selectedScriptTones.includes(tone.value);
+                      const canSelect = selectedScriptTones.length < 4 || isSelected;
+                      
+                      return (
+                        <Button
+                          key={tone.value}
+                          type="button"
+                          variant={isSelected ? "default" : "outline"}
+                          size="sm"
+                          className={`h-8 text-xs justify-start ${
+                            !canSelect ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
+                          disabled={!canSelect}
+                          onClick={() => {
+                            if (isSelected) {
+                              // Remove tone
+                              setSelectedScriptTones(prev => 
+                                prev.filter(t => t !== tone.value)
+                              );
+                            } else if (canSelect) {
+                              // Add tone
+                              setSelectedScriptTones(prev => 
+                                [...prev, tone.value]
+                              );
+                            }
+                          }}
+                          data-testid={`button-tone-${tone.value}`}
+                        >
+                          {tone.label}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Pick up to 4 tones for blended storytelling style
+                  </p>
                 </div>
                 
                 <div>

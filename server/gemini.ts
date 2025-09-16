@@ -2780,9 +2780,9 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
       try {
         const structuredScript: GenerateStructuredScriptResponse = JSON.parse(responseText);
         
-        // Validate and ensure we have at least some pages
-        if (!structuredScript.pages || structuredScript.pages.length === 0) {
-          throw new Error("No pages generated in structured script");
+        // Initialize pages array if missing (don't throw, handle with padding)
+        if (!structuredScript.pages) {
+          structuredScript.pages = [];
         }
         
         // 🔒 VALIDATION GATE: Validate character names in generated script
@@ -2806,8 +2806,59 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
           console.log(`✅ Script validation passed: ${validationResult.validCharacters.length} valid characters found`);
         }
         
+        // SERVER-SIDE PAGE COUNT VALIDATION (Critical for user expectations)
+        const requestedPageCount = request.pageCount || 12;
+        const actualPageCount = structuredScript.pages?.length || 0;
+        
+        if (actualPageCount !== requestedPageCount) {
+          console.warn(`⚠️ Page count mismatch: requested ${requestedPageCount}, got ${actualPageCount}. Auto-correcting...`);
+          
+          if (actualPageCount < requestedPageCount) {
+            // Pad with placeholder pages if too few pages generated
+            const missingPages = requestedPageCount - actualPageCount;
+            for (let i = actualPageCount + 1; i <= requestedPageCount; i++) {
+              structuredScript.pages.push({
+                pageNumber: i,
+                title: `Page ${i}`,
+                overallMood: "neutral",
+                setting: "Continuation of previous scene",
+                characters: request.characters?.map(c => c.name) || [],
+                narrative: `Continuation of the story on page ${i}...`,
+                panels: [{
+                  panelNumber: 1,
+                  visualDescription: `Continue the story with the characters in the scene`,
+                  cameraAngle: "medium shot",
+                  shotType: "establishing shot",
+                  mood: "neutral",
+                  characterEmotions: {},
+                  visualNotes: "Continue the narrative flow",
+                  timing: "moment",
+                  soundEffects: [],
+                  dialogue: []
+                }]
+              });
+            }
+            console.log(`✅ Added ${missingPages} placeholder pages to reach requested count of ${requestedPageCount}`);
+          } else {
+            // Trim excess pages if too many were generated
+            structuredScript.pages = structuredScript.pages.slice(0, requestedPageCount);
+            console.log(`✅ Trimmed ${actualPageCount - requestedPageCount} excess pages to match requested count of ${requestedPageCount}`);
+          }
+        }
+        
+        // FINAL NORMALIZATION: Ensure sequential pageNumbers and exact count
+        structuredScript.pages = structuredScript.pages.map((page, index) => ({
+          ...page,
+          pageNumber: index + 1 // Normalize to sequential 1, 2, 3... N
+        }));
+        
+        // INVARIANT ASSERTION: Guarantee exactly the requested page count
+        if (structuredScript.pages.length !== requestedPageCount) {
+          throw new Error(`CRITICAL: Page count invariant failed - expected ${requestedPageCount}, got ${structuredScript.pages.length}`);
+        }
+        
         // Fill in missing required fields with defaults and ensure page count
-        structuredScript.totalPages = structuredScript.pages?.length || 0;
+        structuredScript.totalPages = requestedPageCount; // Use requested count, not actual
         structuredScript.overallMood = structuredScript.overallMood || "engaging";
         
         structuredScript.pages = structuredScript.pages.map(page => ({
@@ -2837,32 +2888,39 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
       } catch (parseError) {
         console.error("JSON parsing failed, attempting to extract partial data:", parseError);
         
-        // Fallback: create a minimal valid response
-        return {
-          title: request.title || "Generated Comic Script",
-          logline: request.logline || request.description || "A compelling comic story",
-          totalPages: 1,
-          overallMood: "neutral",
-          pages: [{
-            pageNumber: 1,
-            title: "Opening Scene",
+        // Fallback: create the full requested number of pages
+        const requestedPageCount = request.pageCount || 12;
+        const fallbackPages = [];
+        
+        for (let i = 1; i <= requestedPageCount; i++) {
+          fallbackPages.push({
+            pageNumber: i,
+            title: `Page ${i}`,
             overallMood: "neutral",
             setting: "Unknown location",
             characters: request.characters?.map(c => c.name) || [],
-            narrative: "The story begins...",
+            narrative: `The story continues on page ${i}...`,
             panels: [{
               panelNumber: 1,
-              visualDescription: "Opening scene establishing the setting and introducing the main characters",
+              visualDescription: `Scene on page ${i} showing the characters in action`,
               cameraAngle: "wide shot",
-              shotType: "establishing shot",
+              shotType: "establishing shot", 
               mood: "neutral",
               characterEmotions: [],
-              visualNotes: "Clear establishing shot",
+              visualNotes: "Basic scene setting",
               timing: "moment",
               soundEffects: [],
               dialogue: []
             }]
-          }]
+          });
+        }
+        
+        return {
+          title: request.title || "Generated Comic Script",
+          logline: request.logline || request.description || "A compelling comic story",
+          totalPages: requestedPageCount,
+          overallMood: "neutral",
+          pages: fallbackPages
         };
       }
     } catch (error) {
@@ -4063,9 +4121,9 @@ CHARACTERS:`;
 1. Script Metadata:
    - Compelling logline
    - Overall mood and tone
-   - Optimal page count (analyze story complexity and determine appropriate length: minimum 6 pages, typically 6-30+ pages depending on story scope, genre conventions, and narrative pacing needs)
+   - Total pages: exactly ${request.pageCount || 12} (do not deviate); number pages 1..${request.pageCount || 12}
 
-2. Page-by-Page Breakdown:
+2. Page-by-Page Breakdown (Generate pages 1..${request.pageCount || 12}):
    - Each page should have 1-5 panels for optimal comic pacing
    - Page title and overall mood
    - Setting and characters present
@@ -4128,7 +4186,7 @@ CHARACTERS:`;
 
 ENHANCED GUIDELINES FOR MOVIE-QUALITY SCRIPTS:
 - CRITICAL: Number panels sequentially within each page starting from 1 (Panel 1, Panel 2, Panel 3, etc.)
-- **PAGE COUNT DETERMINATION**: Analyze story complexity - simple concepts (6-12 pages), complex plots (12-20 pages), epic stories (20-30+ pages). Genre considerations: Action/Superhero (more panels for choreographed sequences), Romance/Character-driven (fewer panels for emotional beats), Horror/Mystery (medium pacing for tension and reveals).
+- **REQUIRED PAGE COUNT**: Create exactly ${request.pageCount || 12} pages. This is a strict requirement - do not analyze or adjust the page count. Use the full ${request.pageCount || 12} pages to tell a complete, well-paced story with proper narrative structure.
 
 **PROFESSIONAL STANDARDS**:
 - Visual descriptions must be EXTREMELY detailed and cinematic
@@ -4154,7 +4212,24 @@ ENHANCED GUIDELINES FOR MOVIE-QUALITY SCRIPTS:
 - Provide character consistency guidelines throughout the script
 - Balance artistic vision with technical execution requirements
 
-Create a MOVIE-QUALITY script with the depth and precision of a professional film storyboard, utilizing every technical field for maximum visual impact and narrative clarity. The script should generate panels that rival professional comic book and film production standards.`;
+Create a MOVIE-QUALITY script with the depth and precision of a professional film storyboard, utilizing every technical field for maximum visual impact and narrative clarity. The script should generate panels that rival professional comic book and film production standards.
+
+**CRITICAL OUTPUT CONSTRAINTS:**
+- totalPages must equal exactly ${request.pageCount || 12}
+- pages array must contain exactly ${request.pageCount || 12} items
+- pages must be numbered sequentially: pageNumber 1, 2, 3... up to ${request.pageCount || 12}
+- Do NOT generate fewer or more pages than requested - this is a strict requirement
+
+Example JSON structure (adapt for your story):
+{
+  "title": "Your Story Title",
+  "logline": "Your compelling logline",
+  "pages": [
+    {"pageNumber": 1, "title": "Page 1 Title", "setting": "Location", "mood": "Mood", "characters": ["Character1"], "narrative": "Brief description", "panels": [...4-5 panels...]},
+    {"pageNumber": 2, "title": "Page 2 Title", "setting": "Location", "mood": "Mood", "characters": ["Character2"], "narrative": "Brief description", "panels": [...4-5 panels...]},
+    ... continue until page ${request.pageCount || 12}
+  ]
+}`;
 
     return prompt;
   }
