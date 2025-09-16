@@ -1300,27 +1300,121 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
     // 🔒 RUNTIME CHARACTER VALIDATION GUARD: Validate characters before panel generation
     const { projectId } = request; // SECURITY FIX: Use authenticated projectId from route params, not derived from panelId
     
-    // 📊 ENHANCED ERROR LOGGING: Log detailed request context for debugging
-    console.log(`🎯 === PANEL GENERATION REQUEST DETAILS ===`);
-    console.log(`📋 Panel ID: ${request.panelId}`);
-    console.log(`🏗️ Project ID: ${projectId || 'MISSING'}`);
-    console.log(`🎬 Project: ${request.projectContext?.title || 'Unknown'}`);
-    console.log(`🎭 Genre: ${request.projectContext?.genre || 'Not specified'}`);
-    console.log(`🎨 Art Style: ${request.styleOptions?.artStyle || request.projectContext?.artStyle || 'Default'}`);
-    console.log(`📝 Prompt Length: ${request.prompt?.length || 0} characters`);
-    console.log(`🎭 Characters in Request: ${request.projectContext?.characters?.length || 0}`);
-    if (request.projectContext?.characters?.length) {
-      console.log(`👥 Character Names: ${request.projectContext.characters?.map(c => c.name).join(', ') || 'None'}`);
+    // 🔍 CONTEXT TRACE: Start comprehensive panel generation logging
+    const contextTraceId = `${request.panelId}_${Date.now()}`;
+    const timestamp = new Date().toISOString();
+    
+    console.log(`🔍 === CONTEXT TRACE START [${contextTraceId}] ===`);
+    console.log(`🔍 CONTEXT TRACE: Timestamp: ${timestamp}`);
+    console.log(`🔍 CONTEXT TRACE: Panel ID: ${request.panelId}`);
+    console.log(`🔍 CONTEXT TRACE: Project ID: ${projectId || 'MISSING'}`);
+    console.log(`🔍 CONTEXT TRACE: Generation Mode: ${isEditMode ? 'IMAGE_EDIT' : 'TEXT_TO_IMAGE'}`);
+    
+    // 📊 PROJECT CONTEXT LOGGING
+    console.log(`🔍 CONTEXT TRACE: === PROJECT CONTEXT ===`);
+    console.log(`🔍 CONTEXT TRACE: Project Title: "${request.projectContext?.title || 'Unknown'}"`);
+    console.log(`🔍 CONTEXT TRACE: Project Genre: "${request.projectContext?.genre || 'Not specified'}"`);
+    console.log(`🔍 CONTEXT TRACE: Project Description: "${request.projectContext?.description || 'None'}"`);
+    console.log(`🔍 CONTEXT TRACE: Project Art Style: "${request.projectContext?.artStyle || 'Default'}"`);
+    console.log(`🔍 CONTEXT TRACE: Style Consistency Rules: "${request.projectContext?.styleConsistencyRules || 'None'}"`);
+    
+    // 🎭 CHARACTER CONTEXT DETAILED LOGGING
+    console.log(`🔍 CONTEXT TRACE: === CHARACTER CONTEXT ===`);
+    console.log(`🔍 CONTEXT TRACE: Total Characters: ${request.projectContext?.characters?.length || 0}`);
+    if (request.projectContext?.characters && request.projectContext.characters.length > 0) {
+      request.projectContext.characters.forEach((char, index) => {
+        console.log(`🔍 CONTEXT TRACE: Character ${index + 1}: "${char.name}"`);
+        console.log(`🔍 CONTEXT TRACE:   - Role: "${char.role || 'Unknown'}"`);
+        console.log(`🔍 CONTEXT TRACE:   - Bio: "${char.bio || 'None'}"`);
+        console.log(`🔍 CONTEXT TRACE:   - Visual Descriptors: "${char.visualDescriptors || 'None'}"`);
+        console.log(`🔍 CONTEXT TRACE:   - Always Traits: "${char.alwaysTraits || 'None'}"`);
+        console.log(`🔍 CONTEXT TRACE:   - Never Traits: "${char.neverTraits || 'None'}"`);
+        console.log(`🔍 CONTEXT TRACE:   - Color Scheme: "${char.colorScheme || 'None'}"`);
+        console.log(`🔍 CONTEXT TRACE:   - Reference Image: "${char.referenceImageUrl || 'None'}"`);
+      });
+    } else {
+      console.log(`🔍 CONTEXT TRACE: No character context provided`);
     }
-    console.log(`📐 Panel Context: ${request.panelContext ? 'Present' : 'Missing'}`);
+    
+    // 📐 PANEL CONTEXT DETAILED LOGGING
+    console.log(`🔍 CONTEXT TRACE: === PANEL CONTEXT ===`);
     if (request.panelContext) {
-      console.log(`📏 Dimensions: ${request.panelContext.dimensions?.width || 'Unknown'}x${request.panelContext.dimensions?.height || 'Unknown'}`);
-      console.log(`📊 Aspect Ratio: ${request.panelContext.aspectRatio || 'Unknown'}`);
-      console.log(`🏷️ Panel Type: ${request.panelContext.panelType || 'Unknown'}`);
+      console.log(`🔍 CONTEXT TRACE: Layout Template: "${request.panelContext.layoutTemplate}"`);
+      console.log(`🔍 CONTEXT TRACE: Panel Number: ${request.panelContext.panelNumber}`);
+      console.log(`🔍 CONTEXT TRACE: Aspect Ratio: ${request.panelContext.aspectRatio}`);
+      console.log(`🔍 CONTEXT TRACE: Dimensions: ${request.panelContext.dimensions?.width || 'Unknown'}x${request.panelContext.dimensions?.height || 'Unknown'}`);
+      console.log(`🔍 CONTEXT TRACE: Panel Type: "${request.panelContext.panelType}"`);
+    } else {
+      console.log(`🔍 CONTEXT TRACE: No panel context provided`);
     }
-    console.log(`🖼️ Source Image: ${request.sourceImageUrl ? 'Present (Edit Mode)' : 'None (Generation Mode)'}`);
-    console.log(`🔄 Previous Context: ${request.previousPanelsContext?.length || 0} previous panels`);
-    console.log(`📚 Cross-Page Context: ${request.crossPageContext?.length || 0} pages`);
+    
+    // 🎨 STYLE OPTIONS LOGGING
+    console.log(`🔍 CONTEXT TRACE: === STYLE OPTIONS ===`);
+    if (request.styleOptions) {
+      console.log(`🔍 CONTEXT TRACE: Art Style Override: "${request.styleOptions.artStyle || 'None'}"`);
+      console.log(`🔍 CONTEXT TRACE: Color Palette: [${request.styleOptions.colorPalette?.join(', ') || 'None'}]`);
+      console.log(`🔍 CONTEXT TRACE: Mood: "${request.styleOptions.mood || 'None'}"`);
+    } else {
+      console.log(`🔍 CONTEXT TRACE: No style options provided`);
+    }
+    
+    // 📝 PROMPT LOGGING
+    console.log(`🔍 CONTEXT TRACE: === BASE PROMPT ===`);
+    console.log(`🔍 CONTEXT TRACE: Original Prompt Length: ${request.prompt?.length || 0} characters`);
+    console.log(`🔍 CONTEXT TRACE: Original Prompt: "${request.prompt || 'Empty'}"`);
+    
+    // 🖼️ SOURCE IMAGE LOGGING
+    if (request.sourceImageUrl) {
+      console.log(`🔍 CONTEXT TRACE: === SOURCE IMAGE (EDIT MODE) ===`);
+      console.log(`🔍 CONTEXT TRACE: Source Image URL: "${request.sourceImageUrl}"`);
+    }
+    
+    // 🔄 PREVIOUS PANELS CONTEXT
+    console.log(`🔍 CONTEXT TRACE: === PREVIOUS PANELS CONTEXT ===`);
+    console.log(`🔍 CONTEXT TRACE: Previous Panels Count: ${request.previousPanelsContext?.length || 0}`);
+    if (request.previousPanelsContext && request.previousPanelsContext.length > 0) {
+      request.previousPanelsContext.forEach((panel, index) => {
+        console.log(`🔍 CONTEXT TRACE: Previous Panel ${index + 1}: Panel #${panel.panelNumber}`);
+        console.log(`🔍 CONTEXT TRACE:   - Prompt: "${panel.prompt}"`);
+        console.log(`🔍 CONTEXT TRACE:   - Image URL: "${panel.imageUrl || 'None'}"`);
+      });
+    }
+    
+    // 📚 CROSS-PAGE CONTEXT
+    console.log(`🔍 CONTEXT TRACE: === CROSS-PAGE CONTEXT ===`);
+    console.log(`🔍 CONTEXT TRACE: Cross-Page Context Count: ${request.crossPageContext?.length || 0}`);
+    if (request.crossPageContext && request.crossPageContext.length > 0) {
+      request.crossPageContext.forEach((page, pageIndex) => {
+        console.log(`🔍 CONTEXT TRACE: Page ${page.pageNumber}: ${page.panels?.length || 0} panels`);
+        if (page.panels && page.panels.length > 0) {
+          page.panels.forEach((panel, panelIndex) => {
+            console.log(`🔍 CONTEXT TRACE:   Panel ${panel.panelNumber}: "${panel.prompt}"`);
+            console.log(`🔍 CONTEXT TRACE:     Image: "${panel.imageUrl || 'None'}"`);
+          });
+        }
+      });
+    }
+    
+    // 🎪 CHARACTER CONTEXT ADDITIONAL LOGGING
+    console.log(`🔍 CONTEXT TRACE: === ADDITIONAL CHARACTER CONTEXT ===`);
+    console.log(`🔍 CONTEXT TRACE: Character Context Count: ${request.characterContext?.length || 0}`);
+    if (request.characterContext && request.characterContext.length > 0) {
+      request.characterContext.forEach((char, index) => {
+        console.log(`🔍 CONTEXT TRACE: Char Context ${index + 1}: "${char.name}" (${char.role})`);
+        console.log(`🔍 CONTEXT TRACE:   - Visual Descriptors: "${char.visualDescriptors}"`);
+      });
+    }
+    
+    // 🏢 PROJECT SETTINGS
+    console.log(`🔍 CONTEXT TRACE: === PROJECT SETTINGS ===`);
+    if (request.projectContext?.settings && request.projectContext.settings.length > 0) {
+      request.projectContext.settings.forEach((setting, index) => {
+        console.log(`🔍 CONTEXT TRACE: Setting ${index + 1}: "${setting.name}"`);
+        console.log(`🔍 CONTEXT TRACE:   - Description: "${setting.description}"`);
+      });
+    } else {
+      console.log(`🔍 CONTEXT TRACE: No project settings provided`);
+    }
     
     // SECURITY ENFORCEMENT: ProjectId is required - fail fast if missing
     if (!projectId) {
@@ -1385,6 +1479,14 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
           };
         }
         
+        console.log(`🔍 CONTEXT TRACE: === CHARACTER VALIDATION SUCCESS ===`);
+        console.log(`🔍 CONTEXT TRACE: Validation Status: PASSED`);
+        console.log(`🔍 CONTEXT TRACE: Valid Characters Found: ${validationResult.validCharacters.length}`);
+        console.log(`🔍 CONTEXT TRACE: Valid Character Names: [${validationResult.validCharacters.join(', ')}]`);
+        console.log(`🔍 CONTEXT TRACE: Unknown Characters: ${validationResult.unknownCharacters.length}`);
+        if (validationResult.unknownCharacters.length > 0) {
+          console.log(`🔍 CONTEXT TRACE: Unknown Character Names: [${validationResult.unknownCharacters.join(', ')}]`);
+        }
         console.log(`✅ Character validation passed for panel ${request.panelId}: ${validationResult.validCharacters.length} valid characters found`);
       }
     } catch (validationError) {
@@ -1408,14 +1510,39 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
         await sharedStateManager.initializeProject(projectId, storage);
         
         // Get enhanced character context from SharedStateManager
+        console.log(`🔍 CONTEXT TRACE: === SHARED STATE MANAGER CONTEXT ===`);
         const sharedContext = await sharedStateManager.getSharedContext(projectId);
+        
+        console.log(`🔍 CONTEXT TRACE: Shared Context Retrieved`);
+        console.log(`🔍 CONTEXT TRACE: Shared Characters Count: ${sharedContext.characters?.length || 0}`);
+        console.log(`🔍 CONTEXT TRACE: Shared Settings Count: ${sharedContext.settings?.length || 0}`);
+        
+        // Log detailed shared context
+        if (sharedContext.characters && sharedContext.characters.length > 0) {
+          sharedContext.characters.forEach((sharedChar: any, index: number) => {
+            console.log(`🔍 CONTEXT TRACE: Shared Character ${index + 1}: "${sharedChar.name}"`);
+            console.log(`🔍 CONTEXT TRACE:   - Role: "${sharedChar.role || 'Unknown'}"`);
+            console.log(`🔍 CONTEXT TRACE:   - Bio: "${sharedChar.bio || 'None'}"`);
+            console.log(`🔍 CONTEXT TRACE:   - Visual Descriptors: "${sharedChar.visualDescriptors || 'None'}"`);
+            console.log(`🔍 CONTEXT TRACE:   - Always Traits: "${sharedChar.alwaysTraits || 'None'}"`);
+            console.log(`🔍 CONTEXT TRACE:   - Never Traits: "${sharedChar.neverTraits || 'None'}"`);
+            console.log(`🔍 CONTEXT TRACE:   - Color Scheme: "${sharedChar.colorScheme || 'None'}"`);
+            console.log(`🔍 CONTEXT TRACE:   - Reference Image: "${sharedChar.referenceImageUrl || 'None'}"`);
+          });
+        }
         
         // Merge shared context with request context for enhanced consistency
         if (sharedContext.characters && sharedContext.characters.length > 0) {
           if (!request.projectContext) {
             request.projectContext = { title: 'Untitled' };
           }
+          const originalCharCount = request.projectContext.characters?.length || 0;
           request.projectContext.characters = sharedContext.characters;
+          
+          console.log(`🔍 CONTEXT TRACE: Character Context Merge`);
+          console.log(`🔍 CONTEXT TRACE:   - Original Characters: ${originalCharCount}`);
+          console.log(`🔍 CONTEXT TRACE:   - Shared Characters: ${sharedContext.characters.length}`);
+          console.log(`🔍 CONTEXT TRACE:   - Final Characters: ${request.projectContext.characters?.length || 0}`);
           console.log(`🎯 Enhanced character context from SharedStateManager: ${sharedContext.characters.length} characters`);
         }
         
@@ -1447,7 +1574,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
           .slice(-10) // Get last 10 panels chronologically
           .map(panel => ({
             panelNumber: panel.globalPanelNumber || panel.panelNumber,
-            imageUrl: panel.imageUrl
+            imageUrl: panel.imageUrl as string // Safe because of filter above
           }));
           
         console.log(`🔍 Panel ordering debug: Found ${projectPanels.length} total panels, ${recentPanels.length} recent panels with images`);
@@ -1480,21 +1607,125 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
           });
           
           if (analysisResult.success && analysisResult.panelAnalyses.length > 0) {
+            console.log(`🔍 CONTEXT TRACE: === VISUAL CONTINUITY ANALYSIS RESULTS ===`);
+            console.log(`🔍 CONTEXT TRACE: Analysis Success: ${analysisResult.success}`);
+            console.log(`🔍 CONTEXT TRACE: Total Panels Analyzed: ${analysisResult.totalPanelsAnalyzed}`);
+            
+            // Log detailed analysis results for each panel
+            analysisResult.panelAnalyses.forEach((panelAnalysis, index) => {
+              console.log(`🔍 CONTEXT TRACE: Panel Analysis ${index + 1}: Panel #${panelAnalysis.panelNumber}`);
+              console.log(`🔍 CONTEXT TRACE:   - Image URL: "${panelAnalysis.imageUrl}"`);
+              console.log(`🔍 CONTEXT TRACE:   - Analysis Success: ${panelAnalysis.analysisSuccess}`);
+              console.log(`🔍 CONTEXT TRACE:   - Characters Found: ${panelAnalysis.characters.length}`);
+              
+              if (panelAnalysis.characters.length > 0) {
+                panelAnalysis.characters.forEach((charAnalysis, charIndex) => {
+                  console.log(`🔍 CONTEXT TRACE:     Character ${charIndex + 1}: "${charAnalysis.characterName}"`);
+                  console.log(`🔍 CONTEXT TRACE:       - Present: ${charAnalysis.isPresent}`);
+                  console.log(`🔍 CONTEXT TRACE:       - Confidence: ${charAnalysis.confidence}%`);
+                  
+                  if (charAnalysis.visualDetails) {
+                    const details = charAnalysis.visualDetails;
+                    console.log(`🔍 CONTEXT TRACE:       - Clothing: ${details.clothing?.upperBody || 'Unknown'} | ${details.clothing?.lowerBody || 'Unknown'}`);
+                    console.log(`🔍 CONTEXT TRACE:       - Hair: ${details.hair?.color || 'Unknown'} ${details.hair?.style || 'Unknown'}`);
+                    console.log(`🔍 CONTEXT TRACE:       - Skin Tone: ${details.physicalAppearance?.skinTone || 'Unknown'}`);
+                    console.log(`🔍 CONTEXT TRACE:       - Expression: ${details.physicalAppearance?.facialExpression || 'Unknown'}`);
+                    console.log(`🔍 CONTEXT TRACE:       - Pose: ${details.physicalAppearance?.pose || 'Unknown'}`);
+                  }
+                  
+                  if (charAnalysis.inconsistencies && charAnalysis.inconsistencies.length > 0) {
+                    console.log(`🔍 CONTEXT TRACE:       - Inconsistencies: ${charAnalysis.inconsistencies.length}`);
+                    charAnalysis.inconsistencies.forEach((inconsistency, incIndex) => {
+                      console.log(`🔍 CONTEXT TRACE:         ${incIndex + 1}. ${inconsistency.type} (${inconsistency.severity}): ${inconsistency.description}`);
+                    });
+                  }
+                });
+              }
+              
+              console.log(`🔍 CONTEXT TRACE:   - Scene Setting: "${panelAnalysis.overallScene?.setting || 'Unknown'}"`);
+              console.log(`🔍 CONTEXT TRACE:   - Scene Lighting: "${panelAnalysis.overallScene?.lighting || 'Unknown'}"`);
+              console.log(`🔍 CONTEXT TRACE:   - Scene Mood: "${panelAnalysis.overallScene?.mood || 'Unknown'}"`);
+              
+              if (panelAnalysis.error) {
+                console.log(`🔍 CONTEXT TRACE:   - Error: "${panelAnalysis.error}"`);
+              }
+            });
+            
+            // Log character summary from analysis
+            if (analysisResult.characterSummary && analysisResult.characterSummary.length > 0) {
+              console.log(`🔍 CONTEXT TRACE: === CHARACTER CONSISTENCY SUMMARY ===`);
+              analysisResult.characterSummary.forEach((charSummary, index) => {
+                console.log(`🔍 CONTEXT TRACE: Character Summary ${index + 1}: "${charSummary.characterName}"`);
+                console.log(`🔍 CONTEXT TRACE:   - Appeared in Panels: [${charSummary.appearedInPanels.join(', ')}]`);
+                console.log(`🔍 CONTEXT TRACE:   - Consistency Score: ${charSummary.consistencyScore}/100`);
+                console.log(`🔍 CONTEXT TRACE:   - Most Common Clothing: "${charSummary.commonAppearance?.mostCommonClothing || 'Unknown'}"`);
+                console.log(`🔍 CONTEXT TRACE:   - Most Common Hair Style: "${charSummary.commonAppearance?.mostCommonHairStyle || 'Unknown'}"`);
+                console.log(`🔍 CONTEXT TRACE:   - Consistent Features: [${charSummary.commonAppearance?.consistentFeatures?.join(', ') || 'None'}]`);
+                
+                if (charSummary.variations && charSummary.variations.length > 0) {
+                  console.log(`🔍 CONTEXT TRACE:   - Variations Found: ${charSummary.variations.length}`);
+                  charSummary.variations.forEach((variation, varIndex) => {
+                    console.log(`🔍 CONTEXT TRACE:     Variation ${varIndex + 1}: Panel ${variation.panelNumber} (${variation.significance})`);
+                    console.log(`🔍 CONTEXT TRACE:       Changes: [${variation.changes.join(', ')}]`);
+                  });
+                }
+              });
+            }
+            
+            // Log overall insights
+            if (analysisResult.overallInsights) {
+              console.log(`🔍 CONTEXT TRACE: === OVERALL INSIGHTS ===`);
+              console.log(`🔍 CONTEXT TRACE: Setting Consistency: "${analysisResult.overallInsights.settingConsistency}"`);
+              console.log(`🔍 CONTEXT TRACE: Time Progression: "${analysisResult.overallInsights.timeProgression || 'None'}"`);
+              console.log(`🔍 CONTEXT TRACE: Notable Patterns: [${analysisResult.overallInsights.notablePatterns?.join(', ') || 'None'}]`);
+            }
+            
             console.log(`✅ Visual analysis completed: ${analysisResult.totalPanelsAnalyzed} panels analyzed`);
             
             // Generate continuity guidance based on analysis
             continuityGuidance = await visualContinuityService.generateContinuityGuidance(analysisResult);
             
             if (continuityGuidance.success) {
+              console.log(`🔍 CONTEXT TRACE: === CONTINUITY GUIDANCE GENERATION ===`);
+              console.log(`🔍 CONTEXT TRACE: Guidance Success: ${continuityGuidance.success}`);
+              console.log(`🔍 CONTEXT TRACE: Character Guidance Count: ${continuityGuidance.characterGuidance.length}`);
+              
+              continuityGuidance.characterGuidance.forEach((guidance: any, index: number) => {
+                console.log(`🔍 CONTEXT TRACE: Character Guidance ${index + 1}: "${guidance.characterName}"`);
+                console.log(`🔍 CONTEXT TRACE:   - Consistency Score: ${guidance.consistencyScore}/100`);
+                console.log(`🔍 CONTEXT TRACE:   - Last Seen Panel: ${guidance.lastSeenPanel}`);
+                console.log(`🔍 CONTEXT TRACE:   - Generated Prompt: "${guidance.prompt}"`);
+                
+                if (guidance.keyAttributes) {
+                  console.log(`🔍 CONTEXT TRACE:   - Key Hair: "${guidance.keyAttributes.hair}"`);
+                  console.log(`🔍 CONTEXT TRACE:   - Key Clothing: "${guidance.keyAttributes.clothing}"`);
+                  console.log(`🔍 CONTEXT TRACE:   - Key Physical Features: "${guidance.keyAttributes.physicalFeatures}"`);
+                  console.log(`🔍 CONTEXT TRACE:   - Key Accessories: "${guidance.keyAttributes.accessories}"`);
+                }
+              });
+              
+              if (continuityGuidance.sceneGuidance) {
+                console.log(`🔍 CONTEXT TRACE: === SCENE GUIDANCE ===`);
+                console.log(`🔍 CONTEXT TRACE: Setting Consistency: "${continuityGuidance.sceneGuidance.settingConsistency}"`);
+                console.log(`🔍 CONTEXT TRACE: Lighting Pattern: "${continuityGuidance.sceneGuidance.lightingPattern}"`);
+                console.log(`🔍 CONTEXT TRACE: Suggested Mood: "${continuityGuidance.sceneGuidance.suggestedMood}"`);
+              }
+              
               console.log(`🎯 Continuity guidance generated for ${continuityGuidance.characterGuidance.length} characters`);
-              continuityGuidance.characterGuidance.forEach(guidance => {
+              continuityGuidance.characterGuidance.forEach((guidance: any) => {
                 console.log(`👤 ${guidance.characterName}: Consistency score ${guidance.consistencyScore}/100`);
               });
             } else {
+              console.log(`🔍 CONTEXT TRACE: === CONTINUITY GUIDANCE FAILED ===`);
+              console.log(`🔍 CONTEXT TRACE: Error: "${continuityGuidance.error}"`);
               console.warn(`⚠️ Failed to generate continuity guidance: ${continuityGuidance.error}`);
               continuityGuidance = null;
             }
           } else {
+            console.log(`🔍 CONTEXT TRACE: === VISUAL ANALYSIS FAILED ===`);
+            console.log(`🔍 CONTEXT TRACE: Success: ${analysisResult.success}`);
+            console.log(`🔍 CONTEXT TRACE: Error: "${analysisResult.error || 'No results'}"`);
+            console.log(`🔍 CONTEXT TRACE: Panel Analyses Count: ${analysisResult.panelAnalyses?.length || 0}`);
             console.warn(`⚠️ Visual analysis failed or found no panels: ${analysisResult.error || 'No results'}`);
           }
         } else {
@@ -1524,9 +1755,26 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
       console.log(`🔍 Continuity Guidance: ${continuityGuidance ? 'Available' : 'None'}`);
       
       // Build context-aware prompt (optimized for edit vs generation)
+      console.log(`🔍 CONTEXT TRACE: === PROMPT CONSTRUCTION START ===`);
+      console.log(`🔍 CONTEXT TRACE: Building ${isEditMode ? 'EDITING' : 'GENERATION'} prompt`);
+      console.log(`🔍 CONTEXT TRACE: Continuity Guidance Available: ${continuityGuidance ? 'Yes' : 'No'}`);
+      
       const contextualPrompt = this.buildContextualPrompt(request, isEditMode, continuityGuidance);
       
-      // 🔧 ENHANCED DEBUG LOGGING: Verify continuity guidance integration
+      // 🔧 COMPREHENSIVE PROMPT LOGGING
+      console.log(`🔍 CONTEXT TRACE: === FINAL CONSTRUCTED PROMPT ===`);
+      console.log(`🔍 CONTEXT TRACE: Final Prompt Length: ${contextualPrompt.length} characters`);
+      console.log(`🔍 CONTEXT TRACE: Final Prompt (First 500 chars): "${contextualPrompt.substring(0, 500)}${contextualPrompt.length > 500 ? '...' : ''}"`);
+      
+      // Split the prompt and log it in chunks for better readability
+      const promptLines = contextualPrompt.split(/\. (?=[A-Z]|🎯|⚠️|🔥|🎨|CHARACTER|CRITICAL|CONSISTENCY)/);
+      console.log(`🔍 CONTEXT TRACE: Prompt Components (${promptLines.length} segments):`);
+      promptLines.forEach((line, index) => {
+        if (line.trim()) {
+          console.log(`🔍 CONTEXT TRACE:   ${index + 1}. "${line.trim()}"`);
+        }
+      });
+      
       console.log(`📝 Generated Prompt (${contextualPrompt.length} chars):`);
       console.log(`"${contextualPrompt.substring(0, 200)}${contextualPrompt.length > 200 ? '...' : ''}"`);
       
@@ -1714,6 +1962,16 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
           }
           
           const duration = Date.now() - startTime;
+          
+          console.log(`🔍 CONTEXT TRACE: === IMAGE GENERATION SUCCESS ===`);
+          console.log(`🔍 CONTEXT TRACE: Panel ID: ${request.panelId}`);
+          console.log(`🔍 CONTEXT TRACE: Generation Duration: ${duration}ms`);
+          console.log(`🔍 CONTEXT TRACE: Final Image URL: "${finalImageUrl}"`);
+          console.log(`🔍 CONTEXT TRACE: Image Processing: Enhanced`);
+          console.log(`🔍 CONTEXT TRACE: Model Used: gemini-2.5-flash-image-preview`);
+          console.log(`🔍 CONTEXT TRACE: Content Parts: ${contentParts.length}`);
+          console.log(`🔍 CONTEXT TRACE: Had Source Image: ${contentParts.some(p => p.inlineData)}`);
+          
           console.log(`✅ === GEMINI IMAGE ${isEditMode ? 'EDITING' : 'GENERATION'} SUCCESS ===`);
           console.log(`⏱️ Duration: ${duration}ms`);
           console.log(`🖼️ Result URL: ${finalImageUrl}`);
@@ -1816,6 +2074,32 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
             // Don't fail generation for analysis setup errors
           }
           
+          // 🔍 COMPREHENSIVE CONTEXT TRACE SUMMARY
+          console.log(`🔍 CONTEXT TRACE: === GENERATION COMPLETE - FINAL SUMMARY [${contextTraceId}] ===`);
+          console.log(`🔍 CONTEXT TRACE: Success: YES`);
+          console.log(`🔍 CONTEXT TRACE: Total Duration: ${duration}ms`);
+          console.log(`🔍 CONTEXT TRACE: Final Image URL: "${finalImageUrl}"`);
+          
+          // Summary of all context used
+          console.log(`🔍 CONTEXT TRACE: === CONTEXT SUMMARY ===`);
+          console.log(`🔍 CONTEXT TRACE: Project: "${request.projectContext?.title || 'Unknown'}" (ID: ${projectId})`);
+          console.log(`🔍 CONTEXT TRACE: Base Prompt: "${request.prompt}"`);
+          console.log(`🔍 CONTEXT TRACE: Art Style: "${request.styleOptions?.artStyle || request.projectContext?.artStyle || 'Default'}"`);
+          console.log(`🔍 CONTEXT TRACE: Characters Used: ${request.projectContext?.characters?.length || 0}`);
+          if (request.projectContext?.characters?.length) {
+            const charNames = request.projectContext.characters.map(c => c.name).join(', ');
+            console.log(`🔍 CONTEXT TRACE: Character Names: [${charNames}]`);
+          }
+          console.log(`🔍 CONTEXT TRACE: Visual Continuity: ${continuityGuidance ? 'Used' : 'Not Available'}`);
+          if (continuityGuidance?.success) {
+            console.log(`🔍 CONTEXT TRACE: Continuity Characters: ${continuityGuidance.characterGuidance?.length || 0}`);
+          }
+          console.log(`🔍 CONTEXT TRACE: Previous Panels Context: ${request.previousPanelsContext?.length || 0}`);
+          console.log(`🔍 CONTEXT TRACE: Cross-Page Context: ${request.crossPageContext?.length || 0}`);
+          console.log(`🔍 CONTEXT TRACE: Final Prompt Length: ${contextualPrompt.length} chars`);
+          console.log(`🔍 CONTEXT TRACE: SharedStateManager: ${sharedStateManager ? 'Active' : 'Inactive'}`);
+          console.log(`🔍 CONTEXT TRACE: === END SUMMARY [${contextTraceId}] ===`);
+          
           return result;
         }
       }
@@ -1823,6 +2107,65 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
       throw new Error("No image data received from Gemini");
     } catch (error) {
       const duration = Date.now() - startTime;
+      
+      // 🔍 COMPREHENSIVE ERROR CONTEXT TRACE
+      console.error(`🔍 CONTEXT TRACE: === GENERATION FAILED - ERROR SUMMARY [${contextTraceId}] ===`);
+      console.error(`🔍 CONTEXT TRACE: Success: NO`);
+      console.error(`🔍 CONTEXT TRACE: Error Duration: ${duration}ms`);
+      console.error(`🔍 CONTEXT TRACE: Panel ID: ${request.panelId}`);
+      console.error(`🔍 CONTEXT TRACE: Project ID: ${projectId}`);
+      console.error(`🔍 CONTEXT TRACE: Timestamp: ${timestamp}`);
+      
+      // Log all context that was being used when error occurred
+      console.error(`🔍 CONTEXT TRACE: === ERROR CONTEXT DETAILS ===`);
+      console.error(`🔍 CONTEXT TRACE: Project: "${request.projectContext?.title || 'Unknown'}"`);
+      console.error(`🔍 CONTEXT TRACE: Base Prompt: "${request.prompt}"`);
+      console.error(`🔍 CONTEXT TRACE: Art Style: "${request.styleOptions?.artStyle || request.projectContext?.artStyle || 'Default'}"`);
+      console.error(`🔍 CONTEXT TRACE: Characters: ${request.projectContext?.characters?.length || 0}`);
+      if (request.projectContext?.characters?.length) {
+        const charNames = request.projectContext.characters.map(c => c.name).join(', ');
+        console.error(`🔍 CONTEXT TRACE: Character Names: [${charNames}]`);
+        request.projectContext.characters.forEach((char: any, index: number) => {
+          console.error(`🔍 CONTEXT TRACE:   Character ${index + 1}: "${char.name}" - Visual: "${char.visualDescriptors || 'None'}"`);
+          console.error(`🔍 CONTEXT TRACE:     Always Traits: "${char.alwaysTraits || 'None'}"`);
+          console.error(`🔍 CONTEXT TRACE:     Reference Image: "${char.referenceImageUrl || 'None'}"`);
+        });
+      }
+      console.error(`🔍 CONTEXT TRACE: Panel Context: ${request.panelContext ? 'Present' : 'Missing'}`);
+      if (request.panelContext) {
+        console.error(`🔍 CONTEXT TRACE:   Dimensions: ${request.panelContext.dimensions?.width || 'Unknown'}x${request.panelContext.dimensions?.height || 'Unknown'}`);
+        console.error(`🔍 CONTEXT TRACE:   Aspect Ratio: ${request.panelContext.aspectRatio}`);
+        console.error(`🔍 CONTEXT TRACE:   Panel Type: "${request.panelContext.panelType}"`);
+      }
+      console.error(`🔍 CONTEXT TRACE: Visual Continuity: ${continuityGuidance ? 'Available' : 'Not Available'}`);
+      if (continuityGuidance?.success) {
+        console.error(`🔍 CONTEXT TRACE: Continuity Characters: ${continuityGuidance.characterGuidance?.length || 0}`);
+        continuityGuidance.characterGuidance.forEach((guidance: any, index: number) => {
+          console.error(`🔍 CONTEXT TRACE:   Guidance ${index + 1}: "${guidance.characterName}" (Score: ${guidance.consistencyScore}/100)`);
+        });
+      }
+      console.error(`🔍 CONTEXT TRACE: Previous Context: ${request.previousPanelsContext?.length || 0} panels`);
+      console.error(`🔍 CONTEXT TRACE: Cross-Page Context: ${request.crossPageContext?.length || 0} pages`);
+      console.error(`🔍 CONTEXT TRACE: SharedStateManager: ${sharedStateManager ? 'Active' : 'Inactive'}`);
+      
+      // Log the final prompt that failed (if it was constructed)
+      let contextualPrompt: string | undefined;
+      try {
+        // Try to access contextualPrompt from outer scope if available
+        contextualPrompt = (this as any).lastContextualPrompt;
+      } catch {
+        contextualPrompt = undefined;
+      }
+      
+      if (typeof contextualPrompt !== 'undefined') {
+        console.error(`🔍 CONTEXT TRACE: Final Prompt Length: ${contextualPrompt.length} chars`);
+        console.error(`🔍 CONTEXT TRACE: Final Prompt Preview: "${contextualPrompt.substring(0, 300)}${contextualPrompt.length > 300 ? '...' : ''}"`);
+      } else {
+        console.error(`🔍 CONTEXT TRACE: Final Prompt: Not constructed (error occurred before prompt building)`);
+      }
+      
+      console.error(`🔍 CONTEXT TRACE: === END ERROR SUMMARY [${contextTraceId}] ===`);
+      
       console.error(`❌ === GEMINI IMAGE ${isEditMode ? 'EDITING' : 'GENERATION'} FAILED ===`);
       console.error(`📋 Panel ID: ${request.panelId}`);
       console.error(`🏗️ Project ID: ${projectId}`);
@@ -3393,7 +3736,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
       console.log(`🔍 Integrating visual continuity guidance for ${continuityGuidance.characterGuidance.length} characters`);
       
       const continuityInstructions = continuityGuidance.characterGuidance
-        .map(guidance => {
+        .map((guidance: any) => {
           let instruction = `${guidance.characterName}: ${guidance.prompt}`;
           
           // Add detailed attribute instructions
