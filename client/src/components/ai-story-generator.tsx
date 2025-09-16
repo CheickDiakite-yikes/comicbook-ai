@@ -332,15 +332,7 @@ export default function AIStoryGenerator({ isOpen, onClose }: AIStoryGeneratorPr
   };
 
   return (
-    <div 
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-2 sm:p-4"
-      onClick={(e) => {
-        // Close modal when clicking backdrop (but not when clicking inside modal)
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
-    >
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-2 sm:p-4">
       <Card className="w-full max-w-sm sm:max-w-lg lg:max-w-2xl max-h-[95vh] shadow-2xl overflow-hidden">
         <CardHeader className="text-center border-b px-3 py-3 sm:px-6 sm:py-4">
           <div className="flex items-center justify-between">
