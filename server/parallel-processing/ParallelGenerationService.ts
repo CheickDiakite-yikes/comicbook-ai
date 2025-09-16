@@ -75,7 +75,7 @@ export class ParallelGenerationService {
       
       // CHARACTER CONSISTENCY: Update character states after task completion
       if (result.status === 'completed') {
-        this.sharedStateManager.updateCharacterStates(taskId, result);
+        this.sharedStateManager.updateCharacterStates(sessionId, taskId, result);
       }
     });
 
@@ -100,6 +100,17 @@ export class ParallelGenerationService {
       // RESOURCE MANAGEMENT: Release resources when session is cancelled
       this.resourceManager.cancelSession(result.userId, sessionId);
     });
+  }
+
+  // Proxy event listener methods to the internal manager
+  on(event: string, listener: (...args: any[]) => void): this {
+    this.manager.on(event, listener);
+    return this;
+  }
+
+  removeListener(event: string, listener: (...args: any[]) => void): this {
+    this.manager.removeListener(event, listener);
+    return this;
   }
 
   /**
@@ -201,7 +212,7 @@ export class ParallelGenerationService {
 
       // Create parallel generation request
       const parallelRequest: ParallelGenerationRequest = {
-        sessionId,
+        id: sessionId,
         userId,
         projectId: request.projectId,
         tasks,

@@ -83,6 +83,8 @@ export interface GenerateImageResponse {
   panelId: string | number;
   generationId?: string;
   error?: string;
+  errorCategory?: string;
+  debugInfo?: any;
 }
 
 export interface GenerateReferencePortraitRequest {
@@ -3628,8 +3630,493 @@ Create a MOVIE-QUALITY script with the depth and precision of a professional fil
 
   /**
    * Generate a complete story with title, description, characters, and script
+   * NEW IMPROVED FLOW: Characters → Script → Description (using actual content)
    */
   async generateCompleteStory(request: {
+    genres: string[];
+    length: string;
+    artStyle: string;
+    tones: string[];
+    projectId?: string;
+  }): Promise<{
+    title: string;
+    genre: string;
+    description: string;
+    characters: Array<{
+      name: string;
+      role: string;
+      bio: string;
+      visualDescriptors: string;
+    }>;
+    structuredScript: any;
+  }> {
+    // Use the new orchestrator for better sequencing
+    return await this.generateCompleteStoryOrchestrator(request);
+  }
+
+  /**
+   * NEW: Orchestrated story generation with proper sequencing
+   * 1. Generate characters first
+   * 2. Generate script using those characters  
+   * 3. Generate description using actual characters and script content
+   */
+  async generateCompleteStoryOrchestrator(request: {
+    genres: string[];
+    length: string;
+    artStyle: string;
+    tones: string[];
+    projectId?: string;
+  }): Promise<{
+    title: string;
+    genre: string;
+    description: string;
+    characters: Array<{
+      name: string;
+      role: string;
+      bio: string;
+      visualDescriptors: string;
+    }>;
+    structuredScript: any;
+  }> {
+    try {
+      console.log("🎨 === NEW ORCHESTRATED STORY GENERATION ====");
+      console.log("🎯 Flow: Characters → Script → Description (using actual content)");
+      
+      // Map length to page count
+      const pageCounts = {
+        short: Math.floor(Math.random() * 7) + 6,  // 6-12 pages
+        medium: Math.floor(Math.random() * 9) + 12, // 12-20 pages
+        epic: Math.floor(Math.random() * 11) + 20   // 20-30 pages
+      };
+      
+      const pageCount = pageCounts[request.length as keyof typeof pageCounts] || 12;
+      console.log(`📊 Target page count: ${pageCount} (${request.length})`);
+      
+      // For longer stories (15+ pages), use chunked generation to avoid timeouts
+      if (pageCount > 15) {
+        console.log(`🎨 Long story detected (${pageCount} pages, ${request.length}) - using chunked generation...`);
+        return await this.generateLongStoryInChunksOrchestrated(request, pageCount);
+      }
+      
+      // === STEP 1: Generate Title and Characters First ===
+      console.log("🎭 STEP 1: Generating title and characters...");
+      const titleAndCharacters = await this.generateTitleAndCharacters(request);
+      
+      // === STEP 2: Generate Script Using Those Characters ===
+      console.log("📝 STEP 2: Generating script using the characters...");
+      const structuredScript = await this.generateScriptWithCharacters({
+        title: titleAndCharacters.title,
+        genre: titleAndCharacters.genre,
+        characters: titleAndCharacters.characters,
+        pageCount,
+        artStyle: request.artStyle,
+        tones: request.tones,
+        projectId: request.projectId
+      });
+      
+      // === STEP 3: Generate Description Using Actual Characters and Script ===
+      console.log("📖 STEP 3: Generating description using actual content...");
+      const description = await this.generateStoryDescriptionFromContent({
+        title: titleAndCharacters.title,
+        genre: titleAndCharacters.genre,
+        characters: titleAndCharacters.characters,
+        structuredScript,
+        tones: request.tones,
+        artStyle: request.artStyle
+      });
+      
+      // === Return Complete Story ===
+      const orchestratedStory = {
+        title: titleAndCharacters.title,
+        genre: titleAndCharacters.genre,
+        description,
+        characters: titleAndCharacters.characters,
+        structuredScript
+      };
+      
+      console.log("🎉 ORCHESTRATED STORY COMPLETE: All steps completed successfully!");
+      return orchestratedStory;
+    } catch (error) {
+      console.error("🔥 Error in orchestrated story generation:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      throw new Error("Failed to generate orchestrated story: " + errorMessage);
+    }
+  }
+
+  /**
+   * STEP 1: Generate title and characters with isolation constraints
+   */
+  async generateTitleAndCharacters(request: {
+    genres: string[];
+    length: string;
+    artStyle: string;
+    tones: string[];
+  }): Promise<{
+    title: string;
+    genre: string;
+    characters: Array<{
+      name: string;
+      role: string;
+      bio: string;
+      visualDescriptors: string;
+    }>;
+  }> {
+    console.log("🎭 Generating title and characters with strict isolation...");
+
+    const prompt = `You are a master storyteller creating original characters for a new comic series.
+
+REQUIREMENTS:
+- Genres: ${request.genres.join(" + ")} (blend these thoughtfully)
+- Art Style: ${request.artStyle}
+- Tones: ${request.tones.join(" + ")} (emotional elements)
+
+🚨 CRITICAL CHARACTER ISOLATION RULES:
+- NEVER use character names from existing franchises, books, movies, TV shows, or games
+- NEVER use names like: Lyra, Aria, Zara, Kai, Luna, Nova, Phoenix, Raven, or other common fantasy/fiction names
+- CREATE COMPLETELY ORIGINAL character names that are unique to this specific story
+- Use fresh, creative names that don't appear in popular culture or literature
+- Ensure character names are thematically appropriate for the genre but entirely new
+- Each character name must be original and not borrowed from any existing media
+
+GENERATE:
+1. TITLE: Creative, memorable title that captures the genre blend
+2. BLENDED GENRE: How the ${request.genres.join(" and ")} elements work together
+3. MAIN CHARACTERS: 3-4 well-developed characters with COMPLETELY ORIGINAL NAMES:
+   - ORIGINAL name (never used in fiction before) and role
+   - Personality and background
+   - Visual description (appearance, clothing, distinctive features)
+   - Character motivations and goals
+   - VERIFY each name is unique and not from existing media
+
+CRITICAL: Focus ONLY on title and characters. Do NOT include any script or story description.
+Generate professional-quality characters with 100% original names that comic creators would be excited to use.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-pro",
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "object",
+          properties: {
+            title: { type: "string" },
+            genre: { type: "string" },
+            characters: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  role: { type: "string" },
+                  bio: { type: "string" },
+                  visualDescriptors: { type: "string" }
+                },
+                required: ["name", "role", "bio", "visualDescriptors"]
+              }
+            }
+          },
+          required: ["title", "genre", "characters"]
+        }
+      },
+      contents: prompt,
+    });
+
+    const responseText = response.text;
+    if (!responseText) {
+      throw new Error("Empty response from Gemini API for title and characters");
+    }
+
+    const parsedResponse = JSON.parse(responseText);
+    
+    // 🚨 CHARACTER CONTAMINATION VALIDATION
+    console.log("🔍 Validating character names for contamination...");
+    const generatedCharacterNames = parsedResponse.characters?.map((char: any) => char.name) || [];
+    
+    const forbiddenNames = [
+      'lyra', 'aria', 'zara', 'kai', 'luna', 'nova', 'phoenix', 'raven', 
+      'sage', 'quinn', 'alex', 'blake', 'jamie', 'casey', 'riley', 'taylor',
+      'ember', 'storm', 'cloud', 'rain', 'sky', 'dawn', 'dusk', 'shadow',
+      'blade', 'hunter', 'wolf', 'fox', 'crow', 'sparrow', 'falcon',
+      'iris', 'ruby', 'jade', 'pearl', 'diamond', 'crystal', 'sapphire',
+      'rose', 'lily', 'violet', 'daisy', 'holly', 'ivy', 'jasmine',
+      'neo', 'matrix', 'cipher', 'echo', 'ghost', 'phantom', 'viper',
+      'axel', 'blaze', 'frost', 'steel', 'iron', 'chrome', 'titan'
+    ];
+    
+    const contaminatedNames = generatedCharacterNames.filter((name: string) =>
+      forbiddenNames.includes(name.toLowerCase())
+    );
+    
+    if (contaminatedNames.length > 0) {
+      console.error(`🚨 CHARACTER CONTAMINATION DETECTED: Found forbidden names: ${contaminatedNames.join(', ')}`);
+      throw new Error(`Character contamination detected. Forbidden character names found: ${contaminatedNames.join(', ')}. Please regenerate with completely original names.`);
+    }
+
+    console.log(`✅ Character validation passed for names: ${generatedCharacterNames.join(', ')}`);
+    console.log(`🎭 STEP 1 COMPLETE: Generated title "${parsedResponse.title}" with ${parsedResponse.characters.length} characters`);
+    
+    return parsedResponse;
+  }
+
+  /**
+   * STEP 2: Generate script using the actual characters from step 1
+   */
+  async generateScriptWithCharacters(request: {
+    title: string;
+    genre: string;
+    characters: Array<{ name: string; role: string; bio: string; visualDescriptors: string }>;
+    pageCount: number;
+    artStyle: string;
+    tones: string[];
+    projectId?: string;
+  }): Promise<any> {
+    console.log(`📝 Generating ${request.pageCount}-page script using actual characters...`);
+
+    const characterNames = request.characters.map(char => char.name);
+    const characterDescriptions = request.characters.map(char => 
+      `${char.name} (${char.role}): ${char.bio} Visual: ${char.visualDescriptors}`
+    ).join('\n');
+
+    const prompt = `Generate a detailed ${request.pageCount}-page comic script for "${request.title}".
+
+STORY CONTEXT:
+- Title: ${request.title}
+- Genre: ${request.genre}
+- Art Style: ${request.artStyle}
+- Tones: ${request.tones.join(" + ")}
+
+CHARACTERS (USE ONLY THESE EXACT NAMES):
+${characterDescriptions}
+
+🚨 CRITICAL CHARACTER ISOLATION RULES:
+- ONLY use these character names: ${characterNames.join(', ')}
+- NEVER introduce new characters not in the list above
+- NEVER use names from other franchises or popular culture
+- STRICT NAME CONSISTENCY: Only the character names provided above
+
+GENERATE A ${request.pageCount}-PAGE STRUCTURED SCRIPT WITH:
+- Page-by-page breakdown (exactly ${request.pageCount} pages)
+- Panel descriptions (2-5 panels per page)
+- Character dialogue with emotion (using ONLY the provided character names)
+- Visual notes and camera angles
+- Sound effects where appropriate
+- Complete story arc: strong opening, development, climax, and resolution
+
+Ensure the script tells a complete, satisfying story that fits the ${request.genre} genre and ${request.tones.join(", ")} tones.
+Use ONLY the character names provided: ${characterNames.join(', ')}.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-pro",
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "object",
+          properties: {
+            title: { type: "string" },
+            logline: { type: "string" },
+            pages: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  pageNumber: { type: "number" },
+                  title: { type: "string" },
+                  setting: { type: "string" },
+                  overallMood: { type: "string" },
+                  narrative: { type: "string" },
+                  characters: { type: "array", items: { type: "string" } },
+                  panels: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        panelNumber: { type: "number" },
+                        visualDescription: { type: "string" },
+                        cameraAngle: { type: "string" },
+                        shotType: { type: "string" },
+                        mood: { type: "string" },
+                        characterEmotions: { type: "object" },
+                        visualNotes: { type: "string" },
+                        timing: { type: "string" },
+                        soundEffects: { type: "array", items: { type: "string" } },
+                        dialogue: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            properties: {
+                              characterName: { type: "string" },
+                              text: { type: "string" },
+                              tone: { type: "string" },
+                              placement: { type: "string" }
+                            },
+                            required: ["characterName", "text", "tone", "placement"]
+                          }
+                        }
+                      },
+                      required: ["panelNumber", "visualDescription", "cameraAngle", "shotType", "mood"]
+                    }
+                  }
+                },
+                required: ["pageNumber", "title", "setting", "overallMood", "panels"]
+              }
+            }
+          },
+          required: ["title", "logline", "pages"]
+        }
+      },
+      contents: prompt,
+    });
+
+    const responseText = response.text;
+    if (!responseText) {
+      throw new Error("Empty response from Gemini API for script generation");
+    }
+
+    const parsedScript = JSON.parse(responseText);
+    
+    // Validate character names in script
+    if (request.projectId) {
+      try {
+        const { validateScriptCharacters } = await import("./utils/characterValidation");
+        const { storage } = await import("./storage");
+        
+        const validation = await validateScriptCharacters(parsedScript, request.projectId, storage);
+        if (!validation.isValid) {
+          console.warn(`⚠️ Script character validation warnings: ${validation.errors.map(e => e.characterName).join(', ')}`);
+        }
+      } catch (validationError) {
+        console.warn("Script character validation error:", validationError);
+      }
+    }
+
+    console.log(`📝 STEP 2 COMPLETE: Generated ${parsedScript.pages.length}-page script using characters: ${characterNames.join(', ')}`);
+    return parsedScript;
+  }
+
+  /**
+   * STEP 3: Generate description using actual characters and script content  
+   */
+  async generateStoryDescriptionFromContent(request: {
+    title: string;
+    genre: string;
+    characters: Array<{ name: string; role: string; bio: string; visualDescriptors: string }>;
+    structuredScript: any;
+    tones: string[];
+    artStyle: string;
+  }): Promise<string> {
+    console.log("📖 Generating description using actual characters and script content...");
+
+    const characterNames = request.characters.map(char => char.name);
+    const characterSummaries = request.characters.map(char => 
+      `${char.name} (${char.role}): ${char.bio.substring(0, 100)}...`
+    ).join('\n');
+
+    // Extract key plot points from the script
+    const plotSummary = request.structuredScript.pages?.slice(0, 3).map((page: any) => 
+      `Page ${page.pageNumber}: ${page.narrative || page.title}`
+    ).join(' ') || '';
+
+    const prompt = `Create a compelling 2-3 paragraph story description for the comic "${request.title}".
+
+ACTUAL STORY CONTENT TO BASE DESCRIPTION ON:
+- Title: ${request.title}
+- Genre: ${request.genre}
+- Art Style: ${request.artStyle}
+- Tones: ${request.tones.join(", ")}
+
+ACTUAL CHARACTERS IN THE STORY:
+${characterSummaries}
+
+ACTUAL PLOT BEGINNING:
+${plotSummary}
+
+🚨 CRITICAL RULES:
+- ONLY mention these character names: ${characterNames.join(', ')}
+- Base the description on the ACTUAL script content provided above
+- DO NOT invent characters or plot points not in the actual story
+- Create a compelling synopsis that accurately reflects the generated content
+- Keep it engaging but truthful to the actual story
+
+Generate a professional, engaging story description that comic readers would find compelling and that accurately represents the actual characters and plot generated above.
+Use ONLY the character names: ${characterNames.join(', ')}.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-pro",
+      contents: prompt,
+    });
+
+    const description = response.text?.trim();
+    if (!description) {
+      throw new Error("Empty response from Gemini API for description generation");
+    }
+
+    // Final validation: ensure only the correct character names appear
+    const descriptionWords = description.toLowerCase().split(/\s+/);
+    const forbiddenNames = ['lyra', 'aria', 'zara', 'kai', 'luna', 'nova', 'phoenix', 'raven'];
+    const foundForbidden = forbiddenNames.filter(name => descriptionWords.includes(name));
+    
+    if (foundForbidden.length > 0) {
+      console.error(`🚨 DESCRIPTION CONTAMINATION: Found forbidden names: ${foundForbidden.join(', ')}`);
+      throw new Error(`Description contamination detected: ${foundForbidden.join(', ')}`);
+    }
+
+    console.log(`📖 STEP 3 COMPLETE: Generated description using characters: ${characterNames.join(', ')}`);
+    return description;
+  }
+
+  /**
+   * Orchestrated long story generation for 15+ pages
+   */
+  async generateLongStoryInChunksOrchestrated(request: {
+    genres: string[];
+    length: string;
+    artStyle: string;
+    tones: string[];
+    projectId?: string;
+  }, pageCount: number): Promise<{
+    title: string;
+    genre: string;
+    description: string;
+    characters: Array<{
+      name: string;
+      role: string;
+      bio: string;
+      visualDescriptors: string;
+    }>;
+    structuredScript: any;
+  }> {
+    console.log("🎨 Using orchestrated chunked generation for long story...");
+    
+    // Step 1: Generate title and characters
+    const titleAndCharacters = await this.generateTitleAndCharacters(request);
+    
+    // Step 2: Use the existing chunked generation logic but with the characters
+    const longStory = await this.generateLongStoryInChunks({
+      ...request,
+      preGeneratedCharacters: titleAndCharacters.characters,
+      preGeneratedTitle: titleAndCharacters.title,
+      preGeneratedGenre: titleAndCharacters.genre
+    }, pageCount);
+    
+    // Step 3: Generate description using the actual content
+    const description = await this.generateStoryDescriptionFromContent({
+      title: longStory.title,
+      genre: longStory.genre,
+      characters: longStory.characters,
+      structuredScript: longStory.structuredScript,
+      tones: request.tones,
+      artStyle: request.artStyle
+    });
+    
+    return {
+      ...longStory,
+      description
+    };
+  }
+
+  /**
+   * LEGACY: Generate a complete story with title, description, characters, and script (OLD METHOD)
+   */
+  async generateCompleteStoryLegacy(request: {
     genres: string[];
     length: string;
     artStyle: string;
@@ -3655,12 +4142,6 @@ Create a MOVIE-QUALITY script with the depth and precision of a professional fil
       };
       
       const pageCount = pageCounts[request.length as keyof typeof pageCounts] || 12;
-      
-      // For longer stories (15+ pages), use chunked generation to avoid timeouts
-      if (pageCount > 15) {
-        console.log(`🎨 Long story detected (${pageCount} pages, ${request.length}) - using chunked generation...`);
-        return await this.generateLongStoryInChunks(request, pageCount);
-      }
       
       const prompt = `You are an expert storyteller and comic creator. Generate a complete, original comic story concept with all necessary details.
 
