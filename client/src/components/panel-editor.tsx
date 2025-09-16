@@ -1201,65 +1201,24 @@ export default function PanelEditor({
           </h3>
           <div className="space-y-3">
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium flex items-center">
-                  Panel Prompt
-                  {isLoadingScriptContent && (
-                    <Loader2 className="h-3 w-3 animate-spin ml-2 text-muted-foreground" />
-                  )}
-                  {isPromptFromScript && !hasUserEditedPrompt && (
-                    <span className="ml-2 text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-medium">
-                      📜 From Script
-                    </span>
-                  )}
-                  {hasUserEditedPrompt && (
-                    <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-medium">
-                      ✏️ Edited
-                    </span>
-                  )}
-                </label>
-                <div className="flex items-center space-x-2">
-                  {/* Enhance Characters Button */}
-                  {selectedPanel && projectCharacters.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        const enhancedPrompt = enhanceTextWithCharacterDetails(prompt, projectCharacters);
-                        if (enhancedPrompt !== prompt) {
-                          setPrompt(enhancedPrompt);
-                          setHasUserEditedPrompt(true);
-                          setIsPromptFromScript(false);
-                          toast({
-                            title: "Characters enhanced",
-                            description: "Character details added to prompt text.",
-                          });
-                        } else {
-                          toast({
-                            title: "No changes needed",
-                            description: "Character details are already included or no characters detected in prompt.",
-                          });
-                        }
-                      }}
-                      className="h-6 px-2 text-xs text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300"
-                      title="Add character appearance details directly to prompt text"
-                      data-testid="button-enhance-characters"
-                    >
-                      <Users className="h-3 w-3 mr-1" />
-                      Enhance Characters
-                    </Button>
-                  )}
-                  {hasUserEditedPrompt && selectedPanel && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={resetToScriptContent}
-                      className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
-                      data-testid="button-reset-to-script"
-                    >
-                      Reset to Script
-                    </Button>
-                  )}
+              <div className="mb-2">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-sm font-medium flex items-center">
+                    Panel Prompt
+                    {isLoadingScriptContent && (
+                      <Loader2 className="h-3 w-3 animate-spin ml-2 text-muted-foreground" />
+                    )}
+                    {isPromptFromScript && !hasUserEditedPrompt && (
+                      <span className="ml-2 text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-medium">
+                        📜 From Script
+                      </span>
+                    )}
+                    {hasUserEditedPrompt && (
+                      <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-medium">
+                        ✏️ Edited
+                      </span>
+                    )}
+                  </label>
                   {(prompt !== (currentPanelData?.prompt || "")) && !isLoadingScriptContent && (
                     <span className="text-xs text-muted-foreground flex items-center">
                       <Loader2 className="h-3 w-3 animate-spin mr-1" />
@@ -1267,6 +1226,52 @@ export default function PanelEditor({
                     </span>
                   )}
                 </div>
+                {/* Action buttons row */}
+                {(selectedPanel && projectCharacters.length > 0) || (hasUserEditedPrompt && selectedPanel) ? (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Enhance Characters Button */}
+                    {selectedPanel && projectCharacters.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const enhancedPrompt = enhanceTextWithCharacterDetails(prompt, projectCharacters);
+                          if (enhancedPrompt !== prompt) {
+                            setPrompt(enhancedPrompt);
+                            setHasUserEditedPrompt(true);
+                            setIsPromptFromScript(false);
+                            toast({
+                              title: "Characters enhanced",
+                              description: "Character details added to prompt text.",
+                            });
+                          } else {
+                            toast({
+                              title: "No changes needed",
+                              description: "Character details are already included or no characters detected in prompt.",
+                            });
+                          }
+                        }}
+                        className="h-6 px-2 text-xs text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 whitespace-nowrap"
+                        title="Add character appearance details directly to prompt text"
+                        data-testid="button-enhance-characters"
+                      >
+                        <Users className="h-3 w-3 mr-1" />
+                        Enhance Characters
+                      </Button>
+                    )}
+                    {hasUserEditedPrompt && selectedPanel && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={resetToScriptContent}
+                        className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground whitespace-nowrap"
+                        data-testid="button-reset-to-script"
+                      >
+                        Reset to Script
+                      </Button>
+                    )}
+                  </div>
+                ) : null}
               </div>
               <Textarea 
                 value={prompt}
