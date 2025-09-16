@@ -13,6 +13,14 @@ export interface CharacterNameValidationError {
   suggestedFix: string;
 }
 
+export interface NicknameMapping {
+  nickname: string;
+  canonicalName: string;
+  confidence: number; // 0-1 score indicating confidence in the mapping
+  context: string; // The context where this nickname was found
+  mappingSource: 'phonetic' | 'fuzzy' | 'contextual' | 'manual';
+}
+
 export interface CharacterNameValidationResult {
   isValid: boolean;
   errors: CharacterNameValidationError[];
@@ -24,12 +32,26 @@ export interface CharacterNameValidationResult {
     to: string;
     characterName: string;
   }>;
+  nicknameMappings?: NicknameMapping[]; // Detected nickname mappings
+  mappingStats?: {
+    totalNicknamesDetected: number;
+    highConfidenceMappings: number;
+    textReplacements: number;
+  };
 }
 
 export class CharacterNameValidationService {
+  private nicknameMappings: Map<string, NicknameMapping> = new Map();
+  private contextualHints: string[] = [
+    'character', 'protagonist', 'hero', 'villain', 'person', 'individual',
+    'friend', 'enemy', 'ally', 'companion', 'leader', 'warrior', 'mage',
+    'does', 'says', 'thinks', 'feels', 'walks', 'runs', 'speaks', 'looks',
+    'his', 'her', 'their', 'him', 'them', 'she', 'he', 'they'
+  ];
   
   /**
    * Validate character bible for name consistency and automatically fix issues
+   * Enhanced with dynamic nickname mapping
    */
   validateCharacterBible(characterBible: any, originalCharacterNames: string[]): CharacterNameValidationResult {
     const errors: CharacterNameValidationError[] = [];
@@ -52,6 +74,10 @@ export class CharacterNameValidationService {
     
     // Create deep copy for corrections
     const correctedBible = JSON.parse(JSON.stringify(characterBible));
+    
+    // PHASE 1: Pre-analysis - Build dynamic nickname mappings
+    console.log('🔍 VALIDATION: Phase 1 - Building dynamic nickname mappings...');
+    this.buildDynamicNicknameMappings(correctedBible, originalCharacterNames);
     
     // Check each character in the bible
     for (let charIndex = 0; charIndex < correctedBible.characters.length; charIndex++) {
@@ -173,7 +199,15 @@ export class CharacterNameValidationService {
     
     const isValid = errors.length === 0;
     
+    // Generate nickname mapping statistics
+    const mappingStats = {
+      totalNicknamesDetected: this.nicknameMappings.size,
+      highConfidenceMappings: Array.from(this.nicknameMappings.values()).filter(m => m.confidence >= 0.7).length,
+      textReplacements: correctionsMade.filter(c => c.characterName !== 'relationships').length
+    };
+    
     console.log(`🔍 VALIDATION: Complete. Valid: ${isValid}, Errors: ${errors.length}, Corrections: ${correctionsMade.length}`);
+    console.log(`🔍 NICKNAME MAPPINGS: Detected ${mappingStats.totalNicknamesDetected} nicknames, ${mappingStats.highConfidenceMappings} high confidence`);
     if (correctionsMade.length > 0) {
       console.log('🔧 CORRECTIONS MADE:', correctionsMade.length);
       correctionsMade.forEach(correction => {
@@ -189,12 +223,222 @@ export class CharacterNameValidationService {
       errors, 
       warnings, 
       correctedCharacterBible: correctedBible,
-      correctionsMade 
+      correctionsMade,
+      nicknameMappings: Array.from(this.nicknameMappings.values()),
+      mappingStats
     };
+  }
+
+  /**
+   * BUILD DYNAMIC NICKNAME MAPPINGS
+   * Phase 1: Analyze all text in character bible to identify potential nicknames
+   */
+  private buildDynamicNicknameMappings(characterBible: any, canonicalNames: string[]): void {
+    console.log('🔍 NICKNAME MAPPING: Starting dynamic analysis...');
+    
+    // Clear previous mappings
+    this.nicknameMappings.clear();
+    
+    // Extract all text content from the character bible
+    const allTextContent = this.extractAllTextContent(characterBible);
+    console.log(`🔍 NICKNAME MAPPING: Extracted ${allTextContent.length} text segments`);
+    
+    // Find all proper nouns that might be character references
+    const potentialNicknames = this.extractPotentialCharacterReferences(allTextContent, canonicalNames);
+    console.log(`🔍 NICKNAME MAPPING: Found ${potentialNicknames.length} potential nicknames`);
+    
+    // Build mappings using multiple strategies
+    for (const nickname of potentialNicknames) {
+      const mapping = this.createNicknameMappingForCandidate(nickname, canonicalNames, allTextContent);
+      if (mapping && mapping.confidence >= 0.5) {
+        this.nicknameMappings.set(nickname.name.toLowerCase(), mapping);
+        console.log(`🎯 MAPPED: "${nickname.name}" -> "${mapping.canonicalName}" (confidence: ${mapping.confidence.toFixed(2)})`);
+      }
+    }
+    
+    console.log(`🔍 NICKNAME MAPPING: Built ${this.nicknameMappings.size} nickname mappings`);
+  }
+
+  /**
+   * Extract all text content from character bible for analysis
+   */
+  private extractAllTextContent(characterBible: any): Array<{text: string; source: string; characterContext?: string}> {
+    const textSegments: Array<{text: string; source: string; characterContext?: string}> = [];
+    
+    if (!characterBible?.characters) return textSegments;
+    
+    for (const character of characterBible.characters) {
+      const characterName = character.name;
+      
+      // Extract text from various character fields
+      const fields = [
+        { path: 'bio', value: character.bio },
+        { path: 'personality.speechPattern', value: character.personality?.speechPattern },
+        { path: 'personality.voiceDescription', value: character.personality?.voiceDescription },
+        { path: 'defaultClothingState.styleDescription', value: character.defaultClothingState?.styleDescription },
+        { path: 'defaultClothingState.fittingNotes', value: character.defaultClothingState?.fittingNotes }
+      ];
+      
+      for (const field of fields) {
+        if (field.value && typeof field.value === 'string' && field.value.length > 10) {
+          textSegments.push({
+            text: field.value,
+            source: `character_${characterName}_${field.path}`,
+            characterContext: characterName
+          });
+        }
+      }
+      
+      // Extract from array fields
+      const arrayFields = [
+        character.personality?.commonPhrases || [],
+        character.personality?.coreTraits || [],
+        character.personality?.motivations || [],
+        character.personality?.fears || [],
+        character.personality?.quirks || [],
+        character.consistencyRules?.alwaysTraits || [],
+        character.consistencyRules?.neverTraits || [],
+        character.consistencyRules?.warningNotes || []
+      ];
+      
+      for (const array of arrayFields) {
+        if (Array.isArray(array)) {
+          for (const item of array) {
+            if (typeof item === 'string' && item.length > 5) {
+              textSegments.push({
+                text: item,
+                source: `character_${characterName}_array_field`,
+                characterContext: characterName
+              });
+            }
+          }
+        }
+      }
+    }
+    
+    // Extract from character relationships
+    if (characterBible.characterRelationships && Array.isArray(characterBible.characterRelationships)) {
+      for (const relationship of characterBible.characterRelationships) {
+        if (relationship.dynamicDescription && relationship.dynamicDescription.length > 10) {
+          textSegments.push({
+            text: relationship.dynamicDescription,
+            source: 'character_relationships',
+            characterContext: `${relationship.character1}_${relationship.character2}`
+          });
+        }
+      }
+    }
+    
+    return textSegments;
+  }
+
+  /**
+   * Extract potential character references (proper nouns) from text content
+   */
+  private extractPotentialCharacterReferences(
+    textSegments: Array<{text: string; source: string; characterContext?: string}>,
+    canonicalNames: string[]
+  ): Array<{name: string; contexts: Array<{text: string; source: string; characterContext?: string}>}> {
+    const potentialNicknames = new Map<string, Array<{text: string; source: string; characterContext?: string}>>();
+    
+    for (const segment of textSegments) {
+      // Extract proper nouns (capitalized words)
+      const properNouns = segment.text.match(/\b[A-Z][a-z]{2,12}\b/g) || [];
+      
+      for (const noun of properNouns) {
+        // Skip if it's already a canonical name or part of one
+        if (this.isCanonicalName(noun, canonicalNames)) {
+          continue;
+        }
+        
+        // Skip common words
+        if (this.isCommonWord(noun)) {
+          continue;
+        }
+        
+        // Check if this appears in character-like context
+        if (this.appearsInCharacterContext(noun, segment.text)) {
+          if (!potentialNicknames.has(noun.toLowerCase())) {
+            potentialNicknames.set(noun.toLowerCase(), []);
+          }
+          potentialNicknames.get(noun.toLowerCase())!.push(segment);
+        }
+      }
+    }
+    
+    // Convert to array format and filter by frequency
+    return Array.from(potentialNicknames.entries())
+      .filter(([name, contexts]) => contexts.length >= 1) // Must appear at least once in character context
+      .map(([name, contexts]) => ({ name, contexts }))
+      .sort((a, b) => b.contexts.length - a.contexts.length); // Sort by frequency
+  }
+
+  /**
+   * Create a nickname mapping for a candidate using multiple strategies
+   */
+  private createNicknameMappingForCandidate(
+    nickname: {name: string; contexts: Array<{text: string; source: string; characterContext?: string}>},
+    canonicalNames: string[],
+    allTextContent: Array<{text: string; source: string; characterContext?: string}>
+  ): NicknameMapping | null {
+    let bestMapping: NicknameMapping | null = null;
+    let bestScore = 0;
+    
+    for (const canonicalName of canonicalNames) {
+      // Strategy 1: Phonetic matching
+      const phoneticScore = this.calculatePhoneticSimilarity(nickname.name, canonicalName);
+      if (phoneticScore > 0.3) {
+        const mapping: NicknameMapping = {
+          nickname: nickname.name,
+          canonicalName,
+          confidence: phoneticScore * 0.8, // Slightly discount phonetic matches
+          context: nickname.contexts[0].text.substring(0, 100),
+          mappingSource: 'phonetic'
+        };
+        if (mapping.confidence > bestScore) {
+          bestMapping = mapping;
+          bestScore = mapping.confidence;
+        }
+      }
+      
+      // Strategy 2: Fuzzy matching (enhanced Levenshtein)
+      const fuzzyScore = this.calculateEnhancedFuzzySimilarity(nickname.name, canonicalName);
+      if (fuzzyScore > 0.4) {
+        const mapping: NicknameMapping = {
+          nickname: nickname.name,
+          canonicalName,
+          confidence: fuzzyScore * 0.9,
+          context: nickname.contexts[0].text.substring(0, 100),
+          mappingSource: 'fuzzy'
+        };
+        if (mapping.confidence > bestScore) {
+          bestMapping = mapping;
+          bestScore = mapping.confidence;
+        }
+      }
+      
+      // Strategy 3: Contextual analysis - check if they appear in similar contexts
+      const contextualScore = this.calculateContextualSimilarity(nickname, canonicalName, allTextContent);
+      if (contextualScore > 0.5) {
+        const mapping: NicknameMapping = {
+          nickname: nickname.name,
+          canonicalName,
+          confidence: contextualScore,
+          context: nickname.contexts[0].text.substring(0, 100),
+          mappingSource: 'contextual'
+        };
+        if (mapping.confidence > bestScore) {
+          bestMapping = mapping;
+          bestScore = mapping.confidence;
+        }
+      }
+    }
+    
+    return bestMapping;
   }
   
   /**
-   * Validate and correct text for character name consistency (NEW IMPLEMENTATION)
+   * ENHANCED text validation using dynamic nickname mappings
    */
   private validateAndCorrectText(
     text: string,
@@ -207,7 +451,18 @@ export class CharacterNameValidationService {
     
     console.log(`🔍 Checking text field: ${fieldName} for character: ${currentCharacterName}`);
     
-    // For each canonical character name, look for problematic patterns
+    // PHASE 1: Apply nickname mappings first (most important)
+    for (const [nickname, mapping] of this.nicknameMappings.entries()) {
+      const nicknamePattern = new RegExp(`\\b${mapping.nickname}\\b`, 'g');
+      if (correctedText.match(nicknamePattern)) {
+        const beforeText = correctedText;
+        correctedText = correctedText.replace(nicknamePattern, mapping.canonicalName);
+        console.log(`🎯 NICKNAME REPLACEMENT: "${mapping.nickname}" -> "${mapping.canonicalName}" (confidence: ${mapping.confidence.toFixed(2)})`);
+        console.log(`   Context: "${beforeText.substring(beforeText.indexOf(mapping.nickname) - 20, beforeText.indexOf(mapping.nickname) + 50)}"`);
+      }
+    }
+    
+    // PHASE 2: Traditional corrections for canonical names
     for (const canonicalName of allCharacterNames) {
       if (!canonicalName || !canonicalName.includes(' ')) continue; // Skip single word names
       
@@ -226,43 +481,223 @@ export class CharacterNameValidationService {
           console.log(`🔧 CORRECTION: Replaced "${firstName}" with "${canonicalName}" in ${fieldName}`);
         }
       }
+    }
+    
+    // PHASE 3: Check for remaining problematic patterns
+    const problematicPatterns = this.detectProblematicPatterns(correctedText, currentCharacterName, allCharacterNames);
+    errors.push(...problematicPatterns);
+    
+    return { correctedText, errors };
+  }
+
+  /**
+   * Check if a word is already a canonical character name or part of one
+   */
+  private isCanonicalName(word: string, canonicalNames: string[]): boolean {
+    for (const canonicalName of canonicalNames) {
+      if (canonicalName.toLowerCase().includes(word.toLowerCase())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Check if a word appears in character-like context
+   */
+  private appearsInCharacterContext(word: string, text: string): boolean {
+    const wordIndex = text.toLowerCase().indexOf(word.toLowerCase());
+    if (wordIndex === -1) return false;
+    
+    // Get context around the word (50 chars before and after)
+    const contextStart = Math.max(0, wordIndex - 50);
+    const contextEnd = Math.min(text.length, wordIndex + word.length + 50);
+    const context = text.substring(contextStart, contextEnd).toLowerCase();
+    
+    // Check for character-indicating patterns
+    const characterPatterns = [
+      // Action patterns
+      word.toLowerCase() + ' walks',
+      word.toLowerCase() + ' says',
+      word.toLowerCase() + ' thinks',
+      word.toLowerCase() + ' looks',
+      word.toLowerCase() + ' runs',
+      word.toLowerCase() + ' speaks',
+      word.toLowerCase() + ' feels',
+      word.toLowerCase() + ' does',
+      word.toLowerCase() + ' goes',
+      word.toLowerCase() + ' comes',
+      word.toLowerCase() + ' moves',
+      word.toLowerCase() + ' stands',
       
-      // Pattern 2: Look for potential nicknames or variations
-      // This is a generic approach that looks for uncommon names that might be nicknames
-      const wordsInText = correctedText.match(/\b[A-Z][a-z]+\b/g) || [];
-      for (const word of wordsInText) {
-        if (word.length >= 3 && word.length <= 8 && 
-            !allCharacterNames.some(name => name.includes(word)) &&
-            !['The', 'And', 'But', 'For', 'Not', 'Yet', 'So'].includes(word)) {
-          // This might be a nickname - check if it appears in context with character descriptions
-          const context = correctedText.toLowerCase();
-          const characterKeywords = ['character', 'person', 'individual', 'protagonist', 'hero', 'villain', 'friend'];
-          
-          if (characterKeywords.some(keyword => context.includes(keyword))) {
-            // Likely a character reference - suggest using canonical name instead
-            // But we'll only flag this as a warning, not auto-correct
-            console.log(`⚠️  Potential nickname "${word}" detected in ${fieldName} - may need manual review`);
-          }
+      // Pronoun references
+      word.toLowerCase() + ' is',
+      word.toLowerCase() + ' was',
+      word.toLowerCase() + ' has',
+      word.toLowerCase() + ' had',
+      word.toLowerCase() + ' will',
+      
+      // Possessive patterns
+      word.toLowerCase() + "'s",
+      word.toLowerCase() + ' his',
+      word.toLowerCase() + ' her',
+      word.toLowerCase() + ' their'
+    ];
+    
+    for (const pattern of characterPatterns) {
+      if (context.includes(pattern)) {
+        return true;
+      }
+    }
+    
+    // Check for contextual hints nearby
+    const characterHints = this.contextualHints;
+    for (const hint of characterHints) {
+      if (context.includes(hint.toLowerCase())) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * Calculate phonetic similarity using Soundex-like algorithm
+   */
+  private calculatePhoneticSimilarity(name1: string, name2: string): number {
+    const soundex1 = this.generateSoundex(name1);
+    const soundex2 = this.generateSoundex(name2);
+    
+    if (soundex1 === soundex2) {
+      return 0.9; // High confidence for exact phonetic match
+    }
+    
+    // Check if the first parts of the names sound similar
+    const firstName1 = name1.split(' ')[0];
+    const firstName2 = name2.split(' ')[0];
+    const firstSoundex1 = this.generateSoundex(firstName1);
+    const firstSoundex2 = this.generateSoundex(firstName2);
+    
+    if (firstSoundex1 === firstSoundex2) {
+      return 0.7; // Good confidence for first name phonetic match
+    }
+    
+    // Check for partial phonetic similarity
+    const similarity = this.calculateSimilarity(soundex1, soundex2);
+    return similarity > 0.6 ? similarity * 0.6 : 0; // Discount phonetic partial matches
+  }
+
+  /**
+   * Generate a simple Soundex-like code for phonetic matching
+   */
+  private generateSoundex(name: string): string {
+    if (!name || name.length === 0) return '';
+    
+    const cleaned = name.toLowerCase().replace(/[^a-z]/g, '');
+    if (cleaned.length === 0) return '';
+    
+    // Keep first letter
+    let soundex = cleaned[0].toUpperCase();
+    
+    // Replace letters with numbers based on sound groups
+    const replacements: { [key: string]: string } = {
+      'b': '1', 'f': '1', 'p': '1', 'v': '1',
+      'c': '2', 'g': '2', 'j': '2', 'k': '2', 'q': '2', 's': '2', 'x': '2', 'z': '2',
+      'd': '3', 't': '3',
+      'l': '4',
+      'm': '5', 'n': '5',
+      'r': '6'
+    };
+    
+    let code = '';
+    for (let i = 1; i < cleaned.length; i++) {
+      const char = cleaned[i];
+      if (replacements[char]) {
+        if (code[code.length - 1] !== replacements[char]) {
+          code += replacements[char];
         }
       }
     }
     
-    // Pattern 3: Check for mismatched character names in relationships/descriptions
-    for (const canonicalName of allCharacterNames) {
-      if (canonicalName !== currentCharacterName && correctedText.includes(canonicalName)) {
-        // This is correct usage - character descriptions can reference other characters
-        continue;
+    // Pad or truncate to 4 characters
+    soundex += code.padEnd(3, '0').substring(0, 3);
+    
+    return soundex;
+  }
+
+  /**
+   * Enhanced fuzzy similarity that considers name structure
+   */
+  private calculateEnhancedFuzzySimilarity(nickname: string, canonicalName: string): number {
+    // Check if nickname is a substring of any part of canonical name
+    const canonicalParts = canonicalName.toLowerCase().split(' ');
+    const nicknameLower = nickname.toLowerCase();
+    
+    for (const part of canonicalParts) {
+      if (part.includes(nicknameLower) || nicknameLower.includes(part)) {
+        return 0.8; // High confidence for substring match
       }
     }
     
-    // Only return errors for truly uncorrectable issues
-    if (correctedText === text) {
-      // No corrections were made, check for issues that need manual intervention
-      const problematicPatterns = this.detectProblematicPatterns(text, currentCharacterName, allCharacterNames);
-      errors.push(...problematicPatterns);
+    // Check edit distance similarity
+    const similarity = this.calculateSimilarity(nickname, canonicalName);
+    if (similarity > 0.6) {
+      return similarity;
     }
     
-    return { correctedText, errors };
+    // Check first name similarity specifically
+    const firstCanonical = canonicalParts[0];
+    const firstSimilarity = this.calculateSimilarity(nickname, firstCanonical);
+    if (firstSimilarity > 0.5) {
+      return firstSimilarity * 0.9; // Slightly discount partial name matches
+    }
+    
+    return 0;
+  }
+
+  /**
+   * Calculate contextual similarity based on how the names are used
+   */
+  private calculateContextualSimilarity(
+    nickname: {name: string; contexts: Array<{text: string; source: string; characterContext?: string}>},
+    canonicalName: string,
+    allTextContent: Array<{text: string; source: string; characterContext?: string}>
+  ): number {
+    // Find contexts where the canonical name appears
+    const canonicalContexts = allTextContent.filter(segment => 
+      segment.text.toLowerCase().includes(canonicalName.toLowerCase()) ||
+      segment.characterContext === canonicalName
+    );
+    
+    if (canonicalContexts.length === 0) {
+      return 0; // Can't compare if canonical name doesn't appear anywhere
+    }
+    
+    // Calculate similarity of contexts
+    let totalSimilarity = 0;
+    let comparisons = 0;
+    
+    for (const nicknameContext of nickname.contexts) {
+      for (const canonicalContext of canonicalContexts) {
+        // Compare the text contexts using word overlap
+        const nicknameWords = new Set(nicknameContext.text.toLowerCase().split(/\s+/));
+        const canonicalWords = new Set(canonicalContext.text.toLowerCase().split(/\s+/));
+        
+        const intersection = new Set([...nicknameWords].filter(word => canonicalWords.has(word)));
+        const union = new Set([...nicknameWords, ...canonicalWords]);
+        
+        const contextSimilarity = intersection.size / union.size;
+        totalSimilarity += contextSimilarity;
+        comparisons++;
+        
+        // Bonus if they appear in similar source types
+        if (nicknameContext.source.includes('character_') && canonicalContext.source.includes('character_')) {
+          totalSimilarity += 0.1;
+        }
+      }
+    }
+    
+    return comparisons > 0 ? totalSimilarity / comparisons : 0;
   }
   
   /**
