@@ -100,6 +100,7 @@ export interface IStorage {
 
   // Panel operations
   createPanel(panel: InsertPanel): Promise<Panel>;
+  getPanel(id: string): Promise<Panel | undefined>;
   getPagePanels(pageId: string): Promise<Panel[]>;
   updatePanel(id: string, updates: Partial<InsertPanel>): Promise<Panel | undefined>;
   deletePanel(id: string): Promise<boolean>;
@@ -217,6 +218,95 @@ export interface IStorage {
     appearance: Partial<PanelCharacterState>;
     timestamp: Date;
   }>>;
+
+  // Enhanced Visual Analysis operations
+  createPanelCharacterState(panelCharacterState: Partial<PanelCharacterState>): Promise<PanelCharacterState>;
+  updatePanelCharacterState(id: string, updates: Partial<PanelCharacterState>): Promise<PanelCharacterState | undefined>;
+  upsertPanelCharacterState(panelId: string, characterId: string, state: Partial<PanelCharacterState>): Promise<PanelCharacterState>;
+  
+  // Store visual analysis results from VisualContinuityService
+  storeVisualAnalysisResults(panelId: string, analysisResults: {
+    characters: Array<{
+      characterId: string;
+      characterName: string;
+      isPresent: boolean;
+      confidence: number;
+      visualDetails?: {
+        clothing: {
+          upperBody: string;
+          lowerBody: string;
+          outerwear?: string;
+          accessories?: string[];
+          colors: string[];
+          style: string;
+        };
+        hair: {
+          color: string;
+          style: string;
+          length: string;
+          texture: string;
+        };
+        physicalAppearance: {
+          skinTone: string;
+          eyeColor?: string;
+          facialExpression: string;
+          bodyLanguage: string;
+          pose: string;
+        };
+        accessories: {
+          jewelry?: string[];
+          glasses?: boolean;
+          hat?: string;
+          other?: string[];
+        };
+        location: {
+          position: string;
+          interaction: string;
+        };
+      };
+    }>;
+    rawAnalysisData: any;
+    analysisTimestamp: Date;
+  }): Promise<PanelCharacterState[]>;
+
+  // Batch visual analysis operations
+  getCharacterVisualHistoryDetailed(characterId: string, limit?: number): Promise<Array<{
+    panelId: string;
+    panelNumber?: number;
+    pageNumber?: number;
+    appearance: PanelCharacterState;
+    timestamp: Date;
+    confidenceScore?: number;
+    hasVisualAnalysis: boolean;
+  }>>;
+  
+  getProjectCharacterVisualSummary(projectId: string): Promise<Array<{
+    characterId: string;
+    characterName: string;
+    totalAppearances: number;
+    averageConfidenceScore: number;
+    visualAnalysisCount: number;
+    mostCommonClothing: {
+      upperBody?: string;
+      lowerBody?: string;
+      colors: string[];
+    };
+    consistentFeatures: string[];
+    lastAppearancePanel: string;
+    lastAnalysisTimestamp?: Date;
+  }>>;
+  
+  // Consistency tracking operations
+  identifyVisualInconsistencies(characterId: string, projectId: string): Promise<Array<{
+    panelIds: string[];
+    inconsistencyType: 'hair' | 'clothing' | 'physical' | 'accessories';
+    description: string;
+    severity: 'minor' | 'moderate' | 'major';
+    expectedValue: string;
+    actualValues: string[];
+  }>>;
+  
+  markVisualAnalysisComplete(panelId: string, characterIds: string[]): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -487,6 +577,10 @@ export class MemStorage implements IStorage {
     }
     
     return panel;
+  }
+
+  async getPanel(id: string): Promise<Panel | undefined> {
+    return this.panels.get(id);
   }
 
   async getPagePanels(pageId: string): Promise<Panel[]> {
@@ -1085,6 +1179,241 @@ export class MemStorage implements IStorage {
       timestamp: state.createdAt || new Date(),
     }));
   }
+
+  // Enhanced Visual Analysis operations - MemStorage implementation
+  async createPanelCharacterState(panelCharacterStateData: Partial<PanelCharacterState>): Promise<PanelCharacterState> {
+    const panelCharacterState: PanelCharacterState = {
+      id: randomUUID(),
+      panelId: panelCharacterStateData.panelId || '',
+      characterId: panelCharacterStateData.characterId || '',
+      clothingStateId: panelCharacterStateData.clothingStateId || null,
+      isPresent: panelCharacterStateData.isPresent || null,
+      confidenceScore: panelCharacterStateData.confidenceScore || null,
+      detectedUpperBody: panelCharacterStateData.detectedUpperBody || null,
+      detectedLowerBody: panelCharacterStateData.detectedLowerBody || null,
+      detectedOuterwear: panelCharacterStateData.detectedOuterwear || null,
+      detectedClothingColors: panelCharacterStateData.detectedClothingColors || null,
+      detectedClothingStyle: panelCharacterStateData.detectedClothingStyle || null,
+      detectedClothingAccessories: panelCharacterStateData.detectedClothingAccessories || null,
+      detectedHairColor: panelCharacterStateData.detectedHairColor || null,
+      detectedHairStyle: panelCharacterStateData.detectedHairStyle || null,
+      detectedHairLength: panelCharacterStateData.detectedHairLength || null,
+      detectedHairTexture: panelCharacterStateData.detectedHairTexture || null,
+      detectedSkinTone: panelCharacterStateData.detectedSkinTone || null,
+      detectedEyeColor: panelCharacterStateData.detectedEyeColor || null,
+      detectedJewelry: panelCharacterStateData.detectedJewelry || null,
+      detectedGlasses: panelCharacterStateData.detectedGlasses || null,
+      detectedHat: panelCharacterStateData.detectedHat || null,
+      detectedOtherAccessories: panelCharacterStateData.detectedOtherAccessories || null,
+      emotion: panelCharacterStateData.emotion || null,
+      facialExpression: panelCharacterStateData.facialExpression || null,
+      bodyLanguage: panelCharacterStateData.bodyLanguage || null,
+      position: panelCharacterStateData.position || null,
+      pose: panelCharacterStateData.pose || null,
+      detectedPose: panelCharacterStateData.detectedPose || null,
+      facingDirection: panelCharacterStateData.facingDirection || null,
+      visibility: panelCharacterStateData.visibility || null,
+      screenPosition: panelCharacterStateData.screenPosition || null,
+      detectedScreenPosition: panelCharacterStateData.detectedScreenPosition || null,
+      detectedInteraction: panelCharacterStateData.detectedInteraction || null,
+      lightingCondition: panelCharacterStateData.lightingCondition || null,
+      visualEffects: panelCharacterStateData.visualEffects || null,
+      temporaryChanges: panelCharacterStateData.temporaryChanges || null,
+      injuriesVisible: panelCharacterStateData.injuriesVisible || null,
+      interactingWith: panelCharacterStateData.interactingWith || null,
+      proximityToOthers: panelCharacterStateData.proximityToOthers || null,
+      generationPrompt: panelCharacterStateData.generationPrompt || null,
+      consistencyNotes: panelCharacterStateData.consistencyNotes || null,
+      visualAnalysisPerformed: panelCharacterStateData.visualAnalysisPerformed || null,
+      visualAnalysisTimestamp: panelCharacterStateData.visualAnalysisTimestamp || null,
+      visualAnalysisRawData: panelCharacterStateData.visualAnalysisRawData || null,
+      consistencyViolations: panelCharacterStateData.consistencyViolations || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Store in the panelCharacterStates map
+    if (!this.panelCharacterStates.has(panelCharacterState.panelId)) {
+      this.panelCharacterStates.set(panelCharacterState.panelId, []);
+    }
+    this.panelCharacterStates.get(panelCharacterState.panelId)!.push(panelCharacterState);
+
+    return panelCharacterState;
+  }
+
+  async updatePanelCharacterState(id: string, updates: Partial<PanelCharacterState>): Promise<PanelCharacterState | undefined> {
+    // Find the character state in all panels
+    for (const [panelId, states] of this.panelCharacterStates.entries()) {
+      const stateIndex = states.findIndex(state => state.id === id);
+      if (stateIndex !== -1) {
+        const updatedState = {
+          ...states[stateIndex],
+          ...updates,
+          updatedAt: new Date(),
+        };
+        states[stateIndex] = updatedState;
+        return updatedState;
+      }
+    }
+    return undefined;
+  }
+
+  async upsertPanelCharacterState(panelId: string, characterId: string, state: Partial<PanelCharacterState>): Promise<PanelCharacterState> {
+    // Try to find existing state for this panel and character
+    const existingStates = this.panelCharacterStates.get(panelId) || [];
+    const existingStateIndex = existingStates.findIndex(s => s.characterId === characterId);
+
+    if (existingStateIndex !== -1) {
+      // Update existing state
+      const updatedState = {
+        ...existingStates[existingStateIndex],
+        ...state,
+        updatedAt: new Date(),
+      };
+      existingStates[existingStateIndex] = updatedState;
+      return updatedState;
+    } else {
+      // Create new state
+      return await this.createPanelCharacterState({
+        ...state,
+        panelId,
+        characterId,
+      });
+    }
+  }
+
+  async storeVisualAnalysisResults(panelId: string, analysisResults: {
+    characters: Array<{
+      characterId: string;
+      characterName: string;
+      isPresent: boolean;
+      confidence: number;
+      visualDetails?: any;
+    }>;
+    rawAnalysisData: any;
+    analysisTimestamp: Date;
+  }): Promise<PanelCharacterState[]> {
+    const results: PanelCharacterState[] = [];
+
+    for (const characterResult of analysisResults.characters) {
+      const visualDetails = characterResult.visualDetails;
+      
+      const panelCharacterState = await this.upsertPanelCharacterState(
+        panelId,
+        characterResult.characterId,
+        {
+          isPresent: characterResult.isPresent,
+          confidenceScore: characterResult.confidence,
+          // Clothing details
+          detectedUpperBody: visualDetails?.clothing?.upperBody,
+          detectedLowerBody: visualDetails?.clothing?.lowerBody,
+          detectedOuterwear: visualDetails?.clothing?.outerwear,
+          detectedClothingColors: visualDetails?.clothing?.colors,
+          detectedClothingStyle: visualDetails?.clothing?.style,
+          detectedClothingAccessories: visualDetails?.clothing?.accessories,
+          // Hair details
+          detectedHairColor: visualDetails?.hair?.color,
+          detectedHairStyle: visualDetails?.hair?.style,
+          detectedHairLength: visualDetails?.hair?.length,
+          detectedHairTexture: visualDetails?.hair?.texture,
+          // Physical appearance
+          detectedSkinTone: visualDetails?.physicalAppearance?.skinTone,
+          detectedEyeColor: visualDetails?.physicalAppearance?.eyeColor,
+          detectedPose: visualDetails?.physicalAppearance?.pose,
+          // Accessories
+          detectedJewelry: visualDetails?.accessories?.jewelry,
+          detectedGlasses: visualDetails?.accessories?.glasses,
+          detectedHat: visualDetails?.accessories?.hat,
+          detectedOtherAccessories: visualDetails?.accessories?.other,
+          // Location
+          detectedScreenPosition: visualDetails?.location?.position,
+          detectedInteraction: visualDetails?.location?.interaction,
+          // Analysis metadata
+          visualAnalysisPerformed: true,
+          visualAnalysisTimestamp: analysisResults.analysisTimestamp,
+          visualAnalysisRawData: analysisResults.rawAnalysisData,
+        }
+      );
+      
+      results.push(panelCharacterState);
+    }
+
+    return results;
+  }
+
+  async getCharacterVisualHistoryDetailed(characterId: string, limit?: number): Promise<Array<{
+    panelId: string;
+    panelNumber?: number;
+    pageNumber?: number;
+    appearance: PanelCharacterState;
+    timestamp: Date;
+    confidenceScore?: number;
+    hasVisualAnalysis: boolean;
+  }>> {
+    const panelStates = await this.getCharacterPanelStates(characterId);
+    const result = panelStates.map(state => ({
+      panelId: state.panelId,
+      appearance: state,
+      timestamp: state.createdAt || new Date(),
+      confidenceScore: state.confidenceScore || undefined,
+      hasVisualAnalysis: state.visualAnalysisPerformed || false,
+    }));
+
+    return limit ? result.slice(0, limit) : result;
+  }
+
+  async getProjectCharacterVisualSummary(projectId: string): Promise<Array<{
+    characterId: string;
+    characterName: string;
+    totalAppearances: number;
+    averageConfidenceScore: number;
+    visualAnalysisCount: number;
+    mostCommonClothing: {
+      upperBody?: string;
+      lowerBody?: string;
+      colors: string[];
+    };
+    consistentFeatures: string[];
+    lastAppearancePanel: string;
+    lastAnalysisTimestamp?: Date;
+  }>> {
+    // This would require cross-referencing with projects and characters
+    // For MemStorage, return empty array as this is a complex aggregation
+    return [];
+  }
+
+  async identifyVisualInconsistencies(characterId: string, projectId: string): Promise<Array<{
+    panelIds: string[];
+    inconsistencyType: 'hair' | 'clothing' | 'physical' | 'accessories';
+    description: string;
+    severity: 'minor' | 'moderate' | 'major';
+    expectedValue: string;
+    actualValues: string[];
+  }>> {
+    // This would analyze all character appearances for inconsistencies
+    // For MemStorage, return empty array as this requires complex logic
+    return [];
+  }
+
+  async markVisualAnalysisComplete(panelId: string, characterIds: string[]): Promise<boolean> {
+    const panelStates = this.panelCharacterStates.get(panelId) || [];
+    let updated = false;
+
+    for (const characterId of characterIds) {
+      const stateIndex = panelStates.findIndex(s => s.characterId === characterId);
+      if (stateIndex !== -1) {
+        panelStates[stateIndex] = {
+          ...panelStates[stateIndex],
+          visualAnalysisPerformed: true,
+          visualAnalysisTimestamp: new Date(),
+          updatedAt: new Date(),
+        };
+        updated = true;
+      }
+    }
+
+    return updated;
+  }
 }
 
 // Database storage implementation
@@ -1462,6 +1791,11 @@ export class DatabaseStorage implements IStorage {
     // Trigger full resequencing to maintain chronological order
     await this.recalculateGlobalPanelNumbers(page.projectId);
     
+    return panel;
+  }
+
+  async getPanel(id: string): Promise<Panel | undefined> {
+    const [panel] = await db.select().from(panels).where(eq(panels.id, id));
     return panel;
   }
 
@@ -2803,6 +3137,310 @@ export class DatabaseStorage implements IStorage {
       },
       timestamp: state.createdAt || new Date(),
     }));
+  }
+
+  // Enhanced Visual Analysis operations - DatabaseStorage implementation
+  async createPanelCharacterState(panelCharacterState: Partial<PanelCharacterState>): Promise<PanelCharacterState> {
+    const { panelCharacterStates } = await import("@shared/schema");
+    const newState = {
+      ...panelCharacterState,
+      id: panelCharacterState.id || randomUUID(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    const [created] = await db.insert(panelCharacterStates).values(newState).returning();
+    return created;
+  }
+
+  async updatePanelCharacterState(id: string, updates: Partial<PanelCharacterState>): Promise<PanelCharacterState | undefined> {
+    const { panelCharacterStates } = await import("@shared/schema");
+    const [updated] = await db
+      .update(panelCharacterStates)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(panelCharacterStates.id, id))
+      .returning();
+    
+    return updated;
+  }
+
+  async upsertPanelCharacterState(panelId: string, characterId: string, state: Partial<PanelCharacterState>): Promise<PanelCharacterState> {
+    const { panelCharacterStates } = await import("@shared/schema");
+    
+    // Try to find existing state
+    const [existing] = await db
+      .select()
+      .from(panelCharacterStates)
+      .where(
+        and(
+          eq(panelCharacterStates.panelId, panelId),
+          eq(panelCharacterStates.characterId, characterId)
+        )
+      );
+
+    if (existing) {
+      // Update existing
+      return await this.updatePanelCharacterState(existing.id, state) || existing;
+    } else {
+      // Create new
+      return await this.createPanelCharacterState({
+        ...state,
+        panelId,
+        characterId,
+        id: randomUUID(),
+      });
+    }
+  }
+
+  async storeVisualAnalysisResults(panelId: string, analysisResults: {
+    characters: Array<{
+      characterId: string;
+      characterName: string;
+      isPresent: boolean;
+      confidence: number;
+      visualDetails?: any;
+    }>;
+    rawAnalysisData: any;
+    analysisTimestamp: Date;
+  }): Promise<PanelCharacterState[]> {
+    const results: PanelCharacterState[] = [];
+    
+    for (const character of analysisResults.characters) {
+      const visualDetails = character.visualDetails;
+      const state = await this.upsertPanelCharacterState(panelId, character.characterId, {
+        characterName: character.characterName,
+        isPresent: character.isPresent,
+        confidenceScore: character.confidence,
+        visualAnalysisPerformed: true,
+        visualAnalysisTimestamp: analysisResults.analysisTimestamp,
+        rawVisualAnalysisData: analysisResults.rawAnalysisData,
+        
+        // Extract visual details
+        detectedHairColor: visualDetails?.hair?.color,
+        detectedHairStyle: visualDetails?.hair?.style,
+        detectedHairLength: visualDetails?.hair?.length,
+        detectedHairTexture: visualDetails?.hair?.texture,
+        detectedUpperBody: visualDetails?.clothing?.upperBody,
+        detectedLowerBody: visualDetails?.clothing?.lowerBody,
+        detectedOuterwear: visualDetails?.clothing?.outerwear,
+        detectedClothingColors: visualDetails?.clothing?.colors,
+        detectedSkinTone: visualDetails?.physicalAppearance?.skinTone,
+        detectedEyeColor: visualDetails?.physicalAppearance?.eyeColor,
+        facialExpression: visualDetails?.physicalAppearance?.facialExpression,
+        bodyLanguage: visualDetails?.physicalAppearance?.bodyLanguage,
+        detectedPose: visualDetails?.physicalAppearance?.pose,
+        detectedJewelry: visualDetails?.accessories?.jewelry,
+        detectedGlasses: visualDetails?.accessories?.glasses,
+        detectedHat: visualDetails?.accessories?.hat,
+        detectedScreenPosition: visualDetails?.location?.position,
+      });
+      
+      results.push(state);
+    }
+    
+    return results;
+  }
+
+  async getCharacterVisualHistoryDetailed(characterId: string, limit?: number): Promise<Array<{
+    panelId: string;
+    panelNumber?: number;
+    pageNumber?: number;
+    appearance: PanelCharacterState;
+    timestamp: Date;
+    confidenceScore?: number;
+    hasVisualAnalysis: boolean;
+  }>> {
+    const { panelCharacterStates, panels, pages } = await import("@shared/schema");
+    
+    let query = db
+      .select({
+        state: panelCharacterStates,
+        panel: panels,
+        page: pages,
+      })
+      .from(panelCharacterStates)
+      .leftJoin(panels, eq(panelCharacterStates.panelId, panels.id))
+      .leftJoin(pages, eq(panels.pageId, pages.id))
+      .where(eq(panelCharacterStates.characterId, characterId))
+      .orderBy(desc(panelCharacterStates.createdAt));
+
+    if (limit) {
+      query = query.limit(limit);
+    }
+
+    const results = await query;
+    
+    return results.map(row => ({
+      panelId: row.state.panelId,
+      panelNumber: row.panel?.panelNumber,
+      pageNumber: row.page?.pageNumber,
+      appearance: row.state,
+      timestamp: row.state.createdAt || new Date(),
+      confidenceScore: row.state.confidenceScore || undefined,
+      hasVisualAnalysis: row.state.visualAnalysisPerformed || false,
+    }));
+  }
+
+  async getProjectCharacterVisualSummary(projectId: string): Promise<Array<{
+    characterId: string;
+    characterName: string;
+    totalAppearances: number;
+    averageConfidenceScore: number;
+    visualAnalysisCount: number;
+    mostCommonClothing: {
+      upperBody?: string;
+      lowerBody?: string;
+      colors: string[];
+    };
+    consistentFeatures: string[];
+    lastAppearancePanel: string;
+    lastAnalysisTimestamp?: Date;
+  }>> {
+    const { panelCharacterStates, panels, pages } = await import("@shared/schema");
+    
+    // Get all character states for the project
+    const states = await db
+      .select()
+      .from(panelCharacterStates)
+      .leftJoin(panels, eq(panelCharacterStates.panelId, panels.id))
+      .leftJoin(pages, eq(panels.pageId, pages.id))
+      .where(eq(pages.projectId, projectId));
+
+    // Group by character and calculate summaries
+    const characterGroups = new Map<string, any[]>();
+    states.forEach(row => {
+      const characterId = row.panel_character_states.characterId;
+      if (!characterGroups.has(characterId)) {
+        characterGroups.set(characterId, []);
+      }
+      characterGroups.get(characterId)!.push(row.panel_character_states);
+    });
+
+    const summaries = [];
+    for (const [characterId, characterStates] of characterGroups) {
+      const visualAnalysisStates = characterStates.filter(s => s.visualAnalysisPerformed);
+      const totalConfidence = visualAnalysisStates.reduce((sum, s) => sum + (s.confidenceScore || 0), 0);
+      
+      summaries.push({
+        characterId,
+        characterName: characterStates[0]?.characterName || '',
+        totalAppearances: characterStates.length,
+        averageConfidenceScore: visualAnalysisStates.length > 0 ? totalConfidence / visualAnalysisStates.length : 0,
+        visualAnalysisCount: visualAnalysisStates.length,
+        mostCommonClothing: {
+          upperBody: this.findMostCommon(characterStates.map(s => s.detectedUpperBody).filter(Boolean)),
+          lowerBody: this.findMostCommon(characterStates.map(s => s.detectedLowerBody).filter(Boolean)),
+          colors: this.extractAllClothingColors(characterStates),
+        },
+        consistentFeatures: this.identifyConsistentFeatures(characterStates),
+        lastAppearancePanel: characterStates[characterStates.length - 1]?.panelId || '',
+        lastAnalysisTimestamp: Math.max(...visualAnalysisStates.map(s => s.visualAnalysisTimestamp?.getTime() || 0)) || undefined,
+      });
+    }
+
+    return summaries;
+  }
+
+  async identifyVisualInconsistencies(characterId: string, projectId: string): Promise<Array<{
+    panelIds: string[];
+    inconsistencyType: 'hair' | 'clothing' | 'physical' | 'accessories';
+    description: string;
+    severity: 'minor' | 'moderate' | 'major';
+    expectedValue: string;
+    actualValues: string[];
+  }>> {
+    // Get character visual history
+    const history = await this.getCharacterVisualHistoryDetailed(characterId);
+    const inconsistencies = [];
+
+    // Check hair color consistency
+    const hairColors = history.map(h => h.appearance.detectedHairColor).filter(Boolean);
+    if (new Set(hairColors).size > 1) {
+      inconsistencies.push({
+        panelIds: history.filter(h => h.appearance.detectedHairColor).map(h => h.panelId),
+        inconsistencyType: 'hair' as const,
+        description: 'Hair color varies across panels',
+        severity: 'moderate' as const,
+        expectedValue: this.findMostCommon(hairColors) || '',
+        actualValues: Array.from(new Set(hairColors)),
+      });
+    }
+
+    // Add more consistency checks here...
+
+    return inconsistencies;
+  }
+
+  async markVisualAnalysisComplete(panelId: string, characterIds: string[]): Promise<boolean> {
+    const { panelCharacterStates } = await import("@shared/schema");
+    
+    try {
+      await db
+        .update(panelCharacterStates)
+        .set({ 
+          visualAnalysisPerformed: true,
+          updatedAt: new Date()
+        })
+        .where(
+          and(
+            eq(panelCharacterStates.panelId, panelId),
+            inArray(panelCharacterStates.characterId, characterIds)
+          )
+        );
+      
+      return true;
+    } catch (error) {
+      console.error('Error marking visual analysis complete:', error);
+      return false;
+    }
+  }
+
+  // Helper methods for visual analysis
+  private findMostCommon(items: string[]): string | undefined {
+    if (items.length === 0) return undefined;
+    
+    const counts = new Map<string, number>();
+    items.forEach(item => counts.set(item, (counts.get(item) || 0) + 1));
+    
+    let mostCommon = '';
+    let maxCount = 0;
+    counts.forEach((count, item) => {
+      if (count > maxCount) {
+        maxCount = count;
+        mostCommon = item;
+      }
+    });
+    
+    return mostCommon;
+  }
+
+  private extractAllClothingColors(states: any[]): string[] {
+    const colors = new Set<string>();
+    states.forEach(state => {
+      if (state.detectedClothingColors && Array.isArray(state.detectedClothingColors)) {
+        state.detectedClothingColors.forEach((color: string) => colors.add(color));
+      }
+    });
+    return Array.from(colors);
+  }
+
+  private identifyConsistentFeatures(states: any[]): string[] {
+    const features = [];
+    
+    // Check for consistent features across states
+    const hairColors = states.map(s => s.detectedHairColor).filter(Boolean);
+    if (new Set(hairColors).size === 1 && hairColors.length > 1) {
+      features.push(`Hair color: ${hairColors[0]}`);
+    }
+    
+    const hairStyles = states.map(s => s.detectedHairStyle).filter(Boolean);
+    if (new Set(hairStyles).size === 1 && hairStyles.length > 1) {
+      features.push(`Hair style: ${hairStyles[0]}`);
+    }
+    
+    // Add more feature checks...
+    
+    return features;
   }
 }
 

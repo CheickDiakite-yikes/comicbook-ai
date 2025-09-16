@@ -1,6 +1,7 @@
 import EventEmitter from 'events';
 import { IStorage } from '../storage';
 import { GenerateImageResponse } from '../gemini';
+import { PanelCharacterState } from '@shared/schema';
 
 export interface CharacterState {
   id: string;
@@ -11,6 +12,25 @@ export interface CharacterState {
     accessories: string[];
     mood: string;
     location: string;
+  };
+  // Enhanced visual analysis tracking
+  visualAnalysis: {
+    latestAnalysisTimestamp?: Date;
+    latestPanelState?: PanelCharacterState;
+    consistentFeatures: {
+      hair: { color?: string; style?: string; length?: string; texture?: string };
+      clothing: { upperBody?: string; lowerBody?: string; outerwear?: string; colors?: string[] };
+      physical: { skinTone?: string; eyeColor?: string };
+      accessories: { jewelry?: string[]; glasses?: boolean; hat?: string };
+    };
+    appearanceHistory: Array<{
+      panelId: string;
+      timestamp: Date;
+      confidence: number;
+      changes: string[];
+    }>;
+    averageConfidenceScore: number;
+    totalAnalysisCount: number;
   };
   lastSeenPanelId?: string;
   lastUpdated: Date;
@@ -68,6 +88,18 @@ export class SharedStateManager extends EventEmitter {
             accessories: [],
             mood: 'neutral',
             location: 'unknown'
+          },
+          // Initialize visual analysis tracking
+          visualAnalysis: {
+            consistentFeatures: {
+              hair: {},
+              clothing: {},
+              physical: {},
+              accessories: {}
+            },
+            appearanceHistory: [],
+            averageConfidenceScore: 0,
+            totalAnalysisCount: 0
           },
           lastUpdated: new Date(),
           consistencyRules: {
@@ -276,6 +308,223 @@ export class SharedStateManager extends EventEmitter {
   getAllCharacterStates(projectId: string): CharacterState[] {
     const state = this.projectStates.get(projectId);
     return state ? Array.from(state.characters.values()) : [];
+  }
+
+  /**
+   * Update character states with visual analysis results from PanelCharacterState data
+   */
+  async updateCharacterStatesWithVisualAnalysis(
+    projectId: string, 
+    panelId: string, 
+    panelCharacterStates: PanelCharacterState[]
+  ): Promise<void> {
+    const state = this.projectStates.get(projectId);
+    
+    if (!state) {
+      console.warn(`Project state not found for ${projectId}`);
+      return;
+    }
+
+    try {
+      console.log(`🔍 Updating character states with visual analysis for panel ${panelId}`);
+      
+      for (const panelState of panelCharacterStates) {
+        // Find character by ID or name
+        const character = this.findCharacterByIdOrName(state, panelState.characterId);
+        
+        if (!character) {
+          console.warn(`Character not found for panel state: ${panelState.characterId}`);
+          continue;
+        }
+
+        // Update latest panel state and timestamp
+        character.visualAnalysis.latestPanelState = panelState;
+        character.visualAnalysis.latestAnalysisTimestamp = panelState.visualAnalysisTimestamp || new Date();
+        
+        // Update consistent features based on detected values
+        this.updateConsistentFeatures(character, panelState);
+        
+        // Add to appearance history
+        this.addToAppearanceHistory(character, panelId, panelState);
+        
+        // Update confidence tracking
+        this.updateConfidenceTracking(character, panelState);
+        
+        // Update current appearance with visual analysis data
+        this.updateCurrentAppearanceFromAnalysis(character, panelState);
+        
+        character.lastSeenPanelId = panelId;
+        character.lastUpdated = new Date();
+        
+        console.log(`✅ Updated character state for ${character.name} with confidence ${panelState.confidenceScore}%`);
+      }
+
+      state.version++;
+      state.lastUpdated = new Date();
+      
+      const updatedCharacterNames = panelCharacterStates.map(ps => 
+        this.findCharacterByIdOrName(state, ps.characterId)?.name || ps.characterId
+      ).filter(Boolean);
+      
+      this.emit('characterStatesUpdatedWithVisualAnalysis', projectId, panelId, updatedCharacterNames);
+
+    } catch (error) {
+      console.error('Error updating character states with visual analysis:', error);
+      this.emit('error', error);
+    }
+  }
+
+  /**
+   * Get visual analysis summary for characters in a project
+   */
+  getCharacterVisualAnalysisSummary(projectId: string): Array<{
+    characterId: string;
+    characterName: string;
+    latestAnalysisTimestamp?: Date;
+    averageConfidenceScore: number;
+    totalAnalysisCount: number;
+    consistentFeatures: any;
+    lastSeenPanel?: string;
+  }> {
+    const state = this.projectStates.get(projectId);
+    
+    if (!state) {
+      return [];
+    }
+
+    return Array.from(state.characters.values()).map(character => ({
+      characterId: character.id,
+      characterName: character.name,
+      latestAnalysisTimestamp: character.visualAnalysis.latestAnalysisTimestamp,
+      averageConfidenceScore: character.visualAnalysis.averageConfidenceScore,
+      totalAnalysisCount: character.visualAnalysis.totalAnalysisCount,
+      consistentFeatures: character.visualAnalysis.consistentFeatures,
+      lastSeenPanel: character.lastSeenPanelId
+    }));
+  }
+
+  /**
+   * Get character appearance history for a specific character
+   */
+  getCharacterAppearanceHistory(projectId: string, characterName: string): Array<{
+    panelId: string;
+    timestamp: Date;
+    confidence: number;
+    changes: string[];
+  }> {
+    const state = this.projectStates.get(projectId);
+    
+    if (!state) {
+      return [];
+    }
+
+    const character = state.characters.get(characterName);
+    if (!character) {
+      return [];
+    }
+
+    return character.visualAnalysis.appearanceHistory;
+  }
+
+  // Helper methods for visual analysis integration
+  private findCharacterByIdOrName(state: ProjectSharedState, characterId: string): CharacterState | undefined {
+    // First try to find by ID
+    const characterList = Array.from(state.characters.values());
+    for (const character of characterList) {
+      if (character.id === characterId) {
+        return character;
+      }
+    }
+    
+    // Fallback to finding by name
+    return state.characters.get(characterId);
+  }
+
+  private updateConsistentFeatures(character: CharacterState, panelState: PanelCharacterState): void {
+    const features = character.visualAnalysis.consistentFeatures;
+    
+    // Update hair features if detected
+    if (panelState.detectedHairColor) features.hair.color = panelState.detectedHairColor;
+    if (panelState.detectedHairStyle) features.hair.style = panelState.detectedHairStyle;
+    if (panelState.detectedHairLength) features.hair.length = panelState.detectedHairLength;
+    if (panelState.detectedHairTexture) features.hair.texture = panelState.detectedHairTexture;
+    
+    // Update clothing features
+    if (panelState.detectedUpperBody) features.clothing.upperBody = panelState.detectedUpperBody;
+    if (panelState.detectedLowerBody) features.clothing.lowerBody = panelState.detectedLowerBody;
+    if (panelState.detectedOuterwear) features.clothing.outerwear = panelState.detectedOuterwear;
+    if (panelState.detectedClothingColors) features.clothing.colors = panelState.detectedClothingColors;
+    
+    // Update physical features
+    if (panelState.detectedSkinTone) features.physical.skinTone = panelState.detectedSkinTone;
+    if (panelState.detectedEyeColor) features.physical.eyeColor = panelState.detectedEyeColor;
+    
+    // Update accessories
+    if (panelState.detectedJewelry) features.accessories.jewelry = panelState.detectedJewelry;
+    if (panelState.detectedGlasses !== null) features.accessories.glasses = panelState.detectedGlasses;
+    if (panelState.detectedHat) features.accessories.hat = panelState.detectedHat;
+  }
+
+  private addToAppearanceHistory(character: CharacterState, panelId: string, panelState: PanelCharacterState): void {
+    const history = character.visualAnalysis.appearanceHistory;
+    const confidence = panelState.confidenceScore || 0;
+    
+    // Determine what changed compared to previous appearance
+    const changes: string[] = [];
+    if (panelState.detectedUpperBody) changes.push(`clothing: ${panelState.detectedUpperBody}`);
+    if (panelState.detectedHairStyle) changes.push(`hair: ${panelState.detectedHairStyle}`);
+    if (panelState.detectedPose) changes.push(`pose: ${panelState.detectedPose}`);
+    
+    history.push({
+      panelId,
+      timestamp: panelState.visualAnalysisTimestamp || new Date(),
+      confidence,
+      changes
+    });
+    
+    // Keep only the last 20 entries to avoid memory growth
+    if (history.length > 20) {
+      history.splice(0, history.length - 20);
+    }
+  }
+
+  private updateConfidenceTracking(character: CharacterState, panelState: PanelCharacterState): void {
+    const analysis = character.visualAnalysis;
+    const confidence = panelState.confidenceScore || 0;
+    
+    // Update rolling average confidence score
+    const currentTotal = analysis.averageConfidenceScore * analysis.totalAnalysisCount;
+    analysis.totalAnalysisCount++;
+    analysis.averageConfidenceScore = (currentTotal + confidence) / analysis.totalAnalysisCount;
+  }
+
+  private updateCurrentAppearanceFromAnalysis(character: CharacterState, panelState: PanelCharacterState): void {
+    const appearance = character.currentAppearance;
+    
+    // Update clothing
+    if (panelState.detectedUpperBody && panelState.detectedLowerBody) {
+      appearance.clothing = `${panelState.detectedUpperBody}, ${panelState.detectedLowerBody}`;
+      if (panelState.detectedOuterwear) {
+        appearance.clothing += `, ${panelState.detectedOuterwear}`;
+      }
+    }
+    
+    // Update accessories
+    const accessories: string[] = [];
+    if (panelState.detectedJewelry) accessories.push(...panelState.detectedJewelry);
+    if (panelState.detectedGlasses) accessories.push('glasses');
+    if (panelState.detectedHat) accessories.push(panelState.detectedHat);
+    appearance.accessories = accessories;
+    
+    // Update mood based on facial expression
+    if (panelState.facialExpression) {
+      appearance.mood = panelState.facialExpression;
+    }
+    
+    // Update location based on screen position
+    if (panelState.detectedScreenPosition) {
+      appearance.location = panelState.detectedScreenPosition;
+    }
   }
 
   cleanupProject(projectId: string): void {

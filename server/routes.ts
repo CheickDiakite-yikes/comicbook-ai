@@ -22,6 +22,8 @@ import {
 import { geminiService } from "./gemini";
 import { ParallelGenerationService } from "./parallel-processing";
 import { ScriptValidationService } from "./services/ScriptValidationService";
+import { SharedStateManager } from "./parallel-processing/SharedStateManager";
+import { PanelVisualAnalysisService } from "./services/PanelVisualAnalysisService";
 import { z } from "zod";
 import { requireCredits, getProjectIdFromParams, getProjectIdFromBody, getPanelIdFromBody, getPageIdFromRequest, createOperationMetadata, calculateParallelCredits } from "./creditMiddleware";
 import { isSocialCrawler, isLinkPreviewRequest } from "./utils/socialCrawlers";
@@ -70,6 +72,8 @@ function generateConsistencyRecommendations(characters: any[], pages: any[]): st
 // Initialize services
 const parallelGenerationService = new ParallelGenerationService(storage);
 const scriptValidationService = new ScriptValidationService(storage);
+const sharedStateManager = new SharedStateManager();
+const panelVisualAnalysisService = new PanelVisualAnalysisService(storage);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -435,6 +439,237 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting character:", error);
       res.status(500).json({ message: "Failed to delete character" });
+    }
+  });
+
+  // ========================================
+  // CHARACTER VISUAL ANALYSIS ENDPOINTS
+  // ========================================
+
+  // Get character visual analysis summary for a project
+  app.get("/api/projects/:projectId/character-visual-analysis", isAuthenticated, async (req: any, res) => {
+    try {
+      const project = await storage.getProject(req.params.projectId);
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Initialize project state if not already done
+      await sharedStateManager.initializeProject(req.params.projectId, storage);
+      
+      // Get visual analysis summary
+      const summary = sharedStateManager.getCharacterVisualAnalysisSummary(req.params.projectId);
+      
+      res.json({
+        projectId: req.params.projectId,
+        characters: summary,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error fetching character visual analysis:", error);
+      res.status(500).json({ message: "Failed to fetch character visual analysis" });
+    }
+  });
+
+  // Get character appearance history for a specific character
+  app.get("/api/projects/:projectId/characters/:characterName/appearance-history", isAuthenticated, async (req: any, res) => {
+    try {
+      const project = await storage.getProject(req.params.projectId);
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Initialize project state if not already done
+      await sharedStateManager.initializeProject(req.params.projectId, storage);
+      
+      // Get appearance history for the character
+      const history = sharedStateManager.getCharacterAppearanceHistory(
+        req.params.projectId, 
+        req.params.characterName
+      );
+      
+      res.json({
+        projectId: req.params.projectId,
+        characterName: req.params.characterName,
+        appearanceHistory: history,
+        totalEntries: history.length
+      });
+    } catch (error) {
+      console.error("Error fetching character appearance history:", error);
+      res.status(500).json({ message: "Failed to fetch character appearance history" });
+    }
+  });
+
+  // Get panel character states for a specific panel
+  app.get("/api/panels/:panelId/character-states", isAuthenticated, async (req: any, res) => {
+    try {
+      const panel = await storage.getPanel(req.params.panelId);
+      if (!panel) {
+        return res.status(404).json({ message: "Panel not found" });
+      }
+
+      const page = await storage.getPage(panel.pageId);
+      if (!page) {
+        return res.status(404).json({ message: "Page not found" });
+      }
+
+      const project = await storage.getProject(page.projectId);
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Get panel character states from storage
+      const panelCharacterStates = await storage.getPanelCharacterStates(req.params.panelId);
+      
+      res.json({
+        panelId: req.params.panelId,
+        characterStates: panelCharacterStates,
+        totalCharacters: panelCharacterStates.length
+      });
+    } catch (error) {
+      console.error("Error fetching panel character states:", error);
+      res.status(500).json({ message: "Failed to fetch panel character states" });
+    }
+  });
+
+  // Manually trigger visual analysis for a panel
+  app.post("/api/panels/:panelId/analyze-visual", 
+    isAuthenticated,
+    requireCredits({
+      operationType: "visual_analysis",
+      getResourceId: (req) => req.params.panelId,
+      getMetadata: (req) => createOperationMetadata(req, { 
+        panelId: req.params.panelId,
+        forceReanalyze: req.body.forceReanalyze 
+      })
+    }),
+    async (req: any, res) => {
+    try {
+      const panel = await storage.getPanel(req.params.panelId);
+      if (!panel) {
+        return res.status(404).json({ message: "Panel not found" });
+      }
+
+      const page = await storage.getPage(panel.pageId);
+      if (!page) {
+        return res.status(404).json({ message: "Page not found" });
+      }
+
+      const project = await storage.getProject(page.projectId);
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (!panel.imageUrl) {
+        return res.status(400).json({ message: "Panel has no image to analyze" });
+      }
+
+      const { forceReanalyze = false } = req.body;
+
+      // Get project characters for analysis context
+      const characters = await storage.getProjectCharacters(project.id);
+      
+      // Trigger visual analysis
+      const result = await panelVisualAnalysisService.captureVisualAnalysis(
+        req.params.panelId,
+        panel.imageUrl,
+        characters.map(c => ({ id: c.id, name: c.name })),
+        {
+          skipIfExists: !forceReanalyze,
+          retryOnFailure: true,
+          maxRetries: 2
+        }
+      );
+
+      // Update shared state manager with the results
+      if (result.length > 0) {
+        // Initialize project state if needed
+        await sharedStateManager.initializeProject(project.id, storage);
+        
+        // Update character states with visual analysis results
+        await sharedStateManager.updateCharacterStatesWithVisualAnalysis(
+          project.id,
+          req.params.panelId,
+          result
+        );
+      }
+
+      res.json({
+        panelId: req.params.panelId,
+        analysisResults: result,
+        analysisTimestamp: new Date().toISOString(),
+        charactersAnalyzed: result.length
+      });
+    } catch (error) {
+      console.error("Error performing visual analysis:", error);
+      res.status(500).json({ message: "Failed to perform visual analysis" });
+    }
+  });
+
+  // Get visual consistency report for project characters
+  app.get("/api/projects/:projectId/visual-consistency-report", isAuthenticated, async (req: any, res) => {
+    try {
+      const project = await storage.getProject(req.params.projectId);
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Initialize project state if not already done
+      await sharedStateManager.initializeProject(req.params.projectId, storage);
+      
+      // Get visual analysis summary
+      const summary = sharedStateManager.getCharacterVisualAnalysisSummary(req.params.projectId);
+      
+      // Calculate consistency scores and identify potential issues
+      const consistencyReport = summary.map(character => {
+        const consistencyScore = character.averageConfidenceScore;
+        const totalAnalyses = character.totalAnalysisCount;
+        
+        // Identify potential consistency issues
+        const issues: string[] = [];
+        if (consistencyScore < 75) {
+          issues.push("Low confidence in visual detection");
+        }
+        if (totalAnalyses < 3) {
+          issues.push("Insufficient analysis data");
+        }
+        
+        // Check for feature consistency
+        const features = character.consistentFeatures;
+        if (!features.hair.color && !features.hair.style) {
+          issues.push("Hair appearance not consistently detected");
+        }
+        if (!features.clothing.upperBody && !features.clothing.lowerBody) {
+          issues.push("Clothing not consistently detected");
+        }
+        
+        return {
+          ...character,
+          consistencyScore,
+          issues,
+          status: issues.length === 0 ? 'consistent' : 'needs_attention'
+        };
+      });
+
+      res.json({
+        projectId: req.params.projectId,
+        reportTimestamp: new Date().toISOString(),
+        characters: consistencyReport,
+        overallConsistency: {
+          totalCharacters: consistencyReport.length,
+          consistentCharacters: consistencyReport.filter(c => c.status === 'consistent').length,
+          charactersNeedingAttention: consistencyReport.filter(c => c.status === 'needs_attention').length,
+          averageConfidence: consistencyReport.reduce((sum, c) => sum + c.consistencyScore, 0) / (consistencyReport.length || 1)
+        }
+      });
+    } catch (error) {
+      console.error("Error generating visual consistency report:", error);
+      res.status(500).json({ message: "Failed to generate visual consistency report" });
     }
   });
 

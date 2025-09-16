@@ -179,19 +179,50 @@ export const panelCharacterStates = pgTable("panel_character_states", {
   characterId: varchar("character_id").notNull().references(() => characters.id),
   clothingStateId: varchar("clothing_state_id").references(() => characterClothingStates.id),
   
-  // Panel-specific appearance
+  // Visual Analysis Results - AI-detected appearance from generated panel
+  isPresent: boolean("is_present").default(true), // Whether character was detected in the panel
+  confidenceScore: integer("confidence_score"), // 0-100, AI confidence in character identification
+  
+  // Detailed Clothing Analysis (from VisualContinuityService)
+  detectedUpperBody: varchar("detected_upper_body"), // AI-detected upper body clothing
+  detectedLowerBody: varchar("detected_lower_body"), // AI-detected lower body clothing
+  detectedOuterwear: varchar("detected_outerwear"), // AI-detected outerwear
+  detectedClothingColors: text("detected_clothing_colors").array(), // AI-detected clothing colors
+  detectedClothingStyle: varchar("detected_clothing_style"), // AI-detected style (casual, formal, etc.)
+  detectedClothingAccessories: text("detected_clothing_accessories").array(), // AI-detected clothing accessories
+  
+  // Hair Analysis (from VisualContinuityService)
+  detectedHairColor: varchar("detected_hair_color"), // AI-detected hair color
+  detectedHairStyle: varchar("detected_hair_style"), // AI-detected hair style
+  detectedHairLength: varchar("detected_hair_length"), // AI-detected hair length
+  detectedHairTexture: varchar("detected_hair_texture"), // AI-detected hair texture
+  
+  // Physical Appearance Analysis (from VisualContinuityService)
+  detectedSkinTone: varchar("detected_skin_tone"), // AI-detected skin tone
+  detectedEyeColor: varchar("detected_eye_color"), // AI-detected eye color
+  
+  // Accessories Analysis (from VisualContinuityService)
+  detectedJewelry: text("detected_jewelry").array(), // AI-detected jewelry items
+  detectedGlasses: boolean("detected_glasses").default(false), // AI-detected glasses presence
+  detectedHat: varchar("detected_hat"), // AI-detected hat/headwear
+  detectedOtherAccessories: text("detected_other_accessories").array(), // AI-detected other accessories
+  
+  // Panel-specific appearance (manual/prompt-based)
   emotion: varchar("emotion"), // "happy", "angry", "sad", "surprised", "neutral", etc.
   facialExpression: varchar("facial_expression"), // "smiling", "frowning", "shocked", "focused", etc.
   bodyLanguage: varchar("body_language"), // "relaxed", "tense", "confident", "defensive", etc.
   
-  // Positioning & Pose
+  // Positioning & Pose (enhanced with AI detection)
   position: varchar("position"), // "standing", "sitting", "lying", "crouched", etc.
   pose: text("pose"), // "arms crossed", "pointing", "running", "thinking pose", etc.
+  detectedPose: text("detected_pose"), // AI-detected pose description
   facingDirection: varchar("facing_direction"), // "front", "back", "left_profile", "right_profile", "three_quarter", etc.
   
   // Visibility & Framing
   visibility: varchar("visibility"), // "full_body", "torso", "head_shot", "silhouette", "partially_hidden", etc.
   screenPosition: varchar("screen_position"), // "center", "left", "right", "background", "foreground", etc.
+  detectedScreenPosition: varchar("detected_screen_position"), // AI-detected position in panel
+  detectedInteraction: text("detected_interaction"), // AI-detected what character is doing
   
   // Lighting & Effects
   lightingCondition: varchar("lighting_condition"), // "bright", "dim", "backlit", "dramatic_shadow", etc.
@@ -208,6 +239,12 @@ export const panelCharacterStates = pgTable("panel_character_states", {
   // Panel Generation Notes
   generationPrompt: text("generation_prompt"), // The actual prompt used for AI generation
   consistencyNotes: text("consistency_notes"), // Notes about maintaining consistency with previous panels
+  
+  // Visual Analysis Metadata
+  visualAnalysisPerformed: boolean("visual_analysis_performed").default(false), // Whether AI visual analysis was run
+  visualAnalysisTimestamp: timestamp("visual_analysis_timestamp"), // When visual analysis was performed
+  visualAnalysisRawData: jsonb("visual_analysis_raw_data"), // Raw JSON response from VisualContinuityService
+  consistencyViolations: text("consistency_violations").array(), // Array of detected consistency issues
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

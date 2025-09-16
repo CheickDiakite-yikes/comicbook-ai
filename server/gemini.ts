@@ -6,6 +6,7 @@ import { imageEnhancer } from "./image-enhancer";
 import { ObjectStorageService } from "./objectStorage";
 import { characterNameService } from "./services/CharacterNameService";
 import { characterDescriptorService } from "./services/CharacterDescriptorService";
+import { PanelVisualAnalysisService } from "./services/PanelVisualAnalysisService";
 import { 
   createCharacterNameEnum, 
   buildCharacterConstraintInstructions,
@@ -506,6 +507,15 @@ export interface GenerateScriptResponse {
 
 export class GeminiService {
   private objectStorageService = new ObjectStorageService();
+  private panelVisualAnalysisService: PanelVisualAnalysisService | null = null;
+
+  /**
+   * Initialize the PanelVisualAnalysisService with storage
+   */
+  public initializeVisualAnalysisService(storage: any): void {
+    this.panelVisualAnalysisService = new PanelVisualAnalysisService(storage);
+    console.log('🔍 PanelVisualAnalysisService initialized');
+  }
 
   /**
    * Helper function to save image buffer to object storage
@@ -1664,6 +1674,39 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
           } catch (validationError) {
             console.warn(`⚠️ Automatic consistency validation failed:`, validationError);
             // Don't fail generation for validation errors
+          }
+          
+          // 🔍 PHASE 4: AUTOMATIC VISUAL ANALYSIS CAPTURE
+          try {
+            if (this.panelVisualAnalysisService && request.projectContext?.characters) {
+              console.log(`🔍 Capturing visual analysis for panel ${request.panelId}...`);
+              
+              // Prepare character data for analysis
+              const projectCharacters = request.projectContext.characters.map(char => ({
+                id: char.name, // Using name as ID for now - could be improved with actual character IDs
+                name: char.name
+              }));
+              
+              // Capture visual analysis in the background (don't wait for completion)
+              this.panelVisualAnalysisService.captureVisualAnalysis(
+                String(request.panelId),
+                finalImageUrl,
+                projectCharacters,
+                { 
+                  skipIfExists: true, 
+                  retryOnFailure: true, 
+                  maxRetries: 1 
+                }
+              ).then(states => {
+                console.log(`✅ Visual analysis captured for panel ${request.panelId}: ${states.length} character states stored`);
+              }).catch(analysisError => {
+                console.warn(`⚠️ Visual analysis capture failed for panel ${request.panelId}:`, analysisError);
+                // Don't fail panel generation for analysis errors
+              });
+            }
+          } catch (analysisError) {
+            console.warn(`⚠️ Visual analysis setup failed for panel ${request.panelId}:`, analysisError);
+            // Don't fail generation for analysis setup errors
           }
           
           return result;

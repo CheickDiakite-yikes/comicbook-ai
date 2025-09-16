@@ -22,6 +22,9 @@ export const CREDIT_COSTS = {
   
   // Script validation
   script_validation: 2,
+  
+  // Visual analysis
+  visual_analysis: 1,
 } as const;
 
 export type CreditOperationType = keyof typeof CREDIT_COSTS;
