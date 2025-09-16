@@ -3295,6 +3295,20 @@ Redress this character in the specified outfit while maintaining their core visu
       console.log(`🐛 Getting final script result...`);
       const fullScript = await storage.getProjectStructuredScript(projectId);
       console.log(`🐛 Final script:`, fullScript ? `SUCCESS (${fullScript.pages?.length} pages)` : "FAILED - NULL");
+      
+      // CRITICAL FIX: Also save the structured script to project.script field for Script View
+      if (fullScript) {
+        console.log(`🐛 CRITICAL FIX: Saving script to project.script field for Script View...`);
+        const scriptData = JSON.stringify({
+          title: fullScript.title,
+          logline: fullScript.logline,
+          pages: fullScript.pages || []
+        });
+        
+        await storage.updateProject(projectId, { script: scriptData });
+        console.log(`🐛 CRITICAL FIX: Script saved to project.script field - Script View should now work!`);
+      }
+      
       res.json(fullScript);
     } catch (error) {
       console.error("🐛 ERROR saving structured script:", error);
