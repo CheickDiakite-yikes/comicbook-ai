@@ -1299,7 +1299,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
     console.log(`📝 Prompt Length: ${request.prompt?.length || 0} characters`);
     console.log(`🎭 Characters in Request: ${request.projectContext?.characters?.length || 0}`);
     if (request.projectContext?.characters?.length) {
-      console.log(`👥 Character Names: ${request.projectContext.characters.map(c => c.name).join(', ')}`);
+      console.log(`👥 Character Names: ${request.projectContext.characters?.map(c => c.name).join(', ') || 'None'}`);
     }
     console.log(`📐 Panel Context: ${request.panelContext ? 'Present' : 'Missing'}`);
     if (request.panelContext) {
@@ -1401,6 +1401,9 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
         
         // Merge shared context with request context for enhanced consistency
         if (sharedContext.characters && sharedContext.characters.length > 0) {
+          if (!request.projectContext) {
+            request.projectContext = { title: 'Untitled' };
+          }
           request.projectContext.characters = sharedContext.characters;
           console.log(`🎯 Enhanced character context from SharedStateManager: ${sharedContext.characters.length} characters`);
         }
@@ -1601,7 +1604,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
           
           // 🔄 PHASE 4: UPDATE CHARACTER STATES AFTER SUCCESSFUL GENERATION
           try {
-            if (sharedStateManager && projectId && request.projectContext.characters) {
+            if (sharedStateManager && projectId && request.projectContext?.characters) {
               // Update character states with new panel information
               for (const character of request.projectContext.characters) {
                 await sharedStateManager.updateCharacterStates(
@@ -1632,7 +1635,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
           
           // 🎯 PHASE 3: VALIDATE CHARACTER CONSISTENCY (OPTIONAL)
           try {
-            if (sharedStateManager && projectId && request.projectContext.characters && request.projectContext.characters.length > 0) {
+            if (sharedStateManager && projectId && request.projectContext?.characters && request.projectContext.characters.length > 0) {
               // Perform automatic consistency validation for main character
               const mainCharacter = request.projectContext.characters[0];
               
@@ -2976,7 +2979,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
       }
     } else {
       // FALLBACK: Use generic genre-based suggestions only if no script data
-      if (request.projectContext.genre) {
+      if (request.projectContext?.genre) {
         const genre = request.projectContext.genre.toLowerCase();
         if (genre.includes("romance")) {
           prompt += "Soft romantic setting with gentle flowers, gardens, or dreamy landscapes. ";
@@ -2992,7 +2995,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
       }
 
       // Basic story context (only as fallback)
-      if (request.projectContext.description) {
+      if (request.projectContext?.description) {
         const description = request.projectContext.description.toLowerCase();
         if (description.includes("bee")) {
           prompt += "Flower fields, meadows, or garden settings with soft natural elements. ";
@@ -3005,7 +3008,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
     }
 
     // Art style context
-    if (request.projectContext.artStyle) {
+    if (request.projectContext?.artStyle) {
       prompt += `Rendered in ${request.projectContext.artStyle} art style. `;
     }
 
@@ -3159,13 +3162,13 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
     }
 
     // Add detailed art style context with consistency rules
-    if (request.projectContext.artStyle) {
+    if (request.projectContext?.artStyle) {
       prompt += `, in CONSISTENT ${request.projectContext.artStyle} art style`;
       prompt += `. STYLE CONSISTENCY: Use the EXACT same art style, line weight, shading technique, and color palette across ALL panels. Maintain consistent artistic rendering throughout.`;
     }
 
     // 🎯 PHASE 2: ENHANCED CHARACTER CONSISTENCY PROMPTING WITH REFERENCE PORTRAITS
-    if (request.projectContext.characters && request.projectContext.characters.length > 0) {
+    if (request.projectContext?.characters && request.projectContext.characters.length > 0) {
       const charactersWithRefs = request.projectContext.characters.filter(char => char.referenceImageUrl);
       
       // Build ultra-detailed character profiles with strong consistency enforcement
@@ -3222,12 +3225,12 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
     }
 
     // Add story context
-    if (request.projectContext.description) {
+    if (request.projectContext?.description) {
       prompt += `. Story context: ${request.projectContext.description}`;
     }
 
     // Add genre/mood context
-    if (request.projectContext.genre) {
+    if (request.projectContext?.genre) {
       prompt += `. Genre: ${request.projectContext.genre}`;
     }
 
@@ -3320,10 +3323,10 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
     prompt += `This is a high-quality comic book cover in ${request.projectContext.artStyle || 'comic book'} art style. `;
     
     // Genre-specific styling
-    if (request.projectContext.genre) {
+    if (request.projectContext?.genre) {
       prompt += `Genre: ${request.projectContext.genre}. `;
       
-      switch (request.projectContext.genre.toLowerCase()) {
+      switch (request.projectContext.genre?.toLowerCase()) {
         case 'superhero':
           prompt += `Dynamic superhero comic cover with bold action pose, dramatic lighting, and powerful composition. `;
           break;
@@ -3348,12 +3351,12 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
     }
     
     // Story context
-    if (request.projectContext.description) {
+    if (request.projectContext?.description) {
       prompt += `Story concept: ${request.projectContext.description}. `;
     }
     
     // Character focus for cover
-    if (request.projectContext.characters && request.projectContext.characters.length > 0) {
+    if (request.projectContext?.characters && request.projectContext.characters.length > 0) {
       const mainCharacters = request.projectContext.characters.slice(0, 3); // Focus on up to 3 main characters
       prompt += `Main characters for the cover: `;
       
@@ -3369,7 +3372,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
     }
     
     // Setting/environment context
-    if (request.projectContext.settings && request.projectContext.settings.length > 0) {
+    if (request.projectContext?.settings && request.projectContext.settings.length > 0) {
       const mainSetting = request.projectContext.settings[0];
       prompt += `Background setting: ${mainSetting.name} - ${mainSetting.description}. `;
       prompt += `Incorporate elements of this setting into the background composition. `;
@@ -3377,7 +3380,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
     
     // Cover design requirements
     prompt += `COVER DESIGN REQUIREMENTS: `;
-    prompt += `- Leave space at the TOP for the comic title "${request.projectContext.title}" `;
+    prompt += `- Leave space at the TOP for the comic title "${request.projectContext?.title || 'Untitled'}" `;
     prompt += `- Leave space at the BOTTOM for creator names and issue information `;
     prompt += `- Focus the main character(s) in the CENTER-LEFT or CENTER-RIGHT area `;
     prompt += `- Use dynamic poses and compelling composition that tells a story `;
@@ -4090,12 +4093,7 @@ Use ONLY the character names: ${characterNames.join(', ')}.`;
     const titleAndCharacters = await this.generateTitleAndCharacters(request);
     
     // Step 2: Use the existing chunked generation logic but with the characters
-    const longStory = await this.generateLongStoryInChunks({
-      ...request,
-      preGeneratedCharacters: titleAndCharacters.characters,
-      preGeneratedTitle: titleAndCharacters.title,
-      preGeneratedGenre: titleAndCharacters.genre
-    }, pageCount);
+    const longStory = await this.generateLongStoryInChunks(request, pageCount);
     
     // Step 3: Generate description using the actual content
     const description = await this.generateStoryDescriptionFromContent({
