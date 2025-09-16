@@ -7,6 +7,7 @@ import { ObjectStorageService } from "./objectStorage";
 import { characterNameService } from "./services/CharacterNameService";
 import { characterDescriptorService } from "./services/CharacterDescriptorService";
 import { PanelVisualAnalysisService } from "./services/PanelVisualAnalysisService";
+import { VisualContinuityService } from "./services/VisualContinuityService";
 import { 
   createCharacterNameEnum, 
   buildCharacterConstraintInstructions,
@@ -1425,6 +1426,91 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
       // Continue with generation even if state management fails
     }
     
+    // 🎯 PHASE 5: VISUAL CONTINUITY ANALYSIS - Analyze last 10 panels for character consistency
+    let continuityGuidance: any = null;
+    
+    try {
+      // Only perform visual analysis if we have characters in the project and we're not in edit mode
+      if (!isEditMode && request.projectContext?.characters && request.projectContext.characters.length > 0) {
+        console.log(`🔍 === VISUAL CONTINUITY ANALYSIS START ===`);
+        console.log(`📋 Project: ${projectId}`);
+        console.log(`👥 Characters to analyze: ${request.projectContext.characters.map(c => c.name).join(', ')}`);
+        
+        const { storage } = await import("./storage");
+        const visualContinuityService = new VisualContinuityService();
+        
+        // Get the last 10 panels from the same project, ordered by globalPanelNumber
+        const projectPanels = await storage.getProjectPanels(projectId);
+        const recentPanels = projectPanels
+          .filter(panel => panel.imageUrl && panel.imageUrl.trim() !== '') // Only panels with generated images
+          .sort((a, b) => (a.globalPanelNumber || 0) - (b.globalPanelNumber || 0)) // 🔧 FIX: Sort by globalPanelNumber ascending for deterministic chronological order
+          .slice(-10) // Get last 10 panels chronologically
+          .map(panel => ({
+            panelNumber: panel.globalPanelNumber || panel.panelNumber,
+            imageUrl: panel.imageUrl
+          }));
+          
+        console.log(`🔍 Panel ordering debug: Found ${projectPanels.length} total panels, ${recentPanels.length} recent panels with images`);
+        if (recentPanels.length > 0) {
+          console.log(`📊 Recent panel order (globalPanelNumbers): [${recentPanels.map(p => p.panelNumber).join(', ')}]`);
+        }
+        
+        console.log(`📊 Found ${recentPanels.length} recent panels to analyze for continuity`);
+        
+        if (recentPanels.length > 0) {
+          // Extract character names for analysis
+          const characterNames = request.projectContext.characters.map(char => char.name);
+          
+          console.log(`🎭 Analyzing character appearances for: ${characterNames.join(', ')}`);
+          
+          // Analyze character appearances in recent panels
+          const analysisResult = await visualContinuityService.analyzeCharacterAppearances({
+            panelImageUrls: recentPanels,
+            characterNames: characterNames,
+            projectContext: {
+              title: request.projectContext.title,
+              genre: request.projectContext.genre,
+              artStyle: request.projectContext.artStyle
+            },
+            analysisOptions: {
+              focusOnConsistency: true,
+              detailLevel: 'detailed',
+              maxPanelsToAnalyze: 10
+            }
+          });
+          
+          if (analysisResult.success && analysisResult.panelAnalyses.length > 0) {
+            console.log(`✅ Visual analysis completed: ${analysisResult.totalPanelsAnalyzed} panels analyzed`);
+            
+            // Generate continuity guidance based on analysis
+            continuityGuidance = await visualContinuityService.generateContinuityGuidance(analysisResult);
+            
+            if (continuityGuidance.success) {
+              console.log(`🎯 Continuity guidance generated for ${continuityGuidance.characterGuidance.length} characters`);
+              continuityGuidance.characterGuidance.forEach(guidance => {
+                console.log(`👤 ${guidance.characterName}: Consistency score ${guidance.consistencyScore}/100`);
+              });
+            } else {
+              console.warn(`⚠️ Failed to generate continuity guidance: ${continuityGuidance.error}`);
+              continuityGuidance = null;
+            }
+          } else {
+            console.warn(`⚠️ Visual analysis failed or found no panels: ${analysisResult.error || 'No results'}`);
+          }
+        } else {
+          console.log(`📝 No previous panels found for continuity analysis - this appears to be early in the project`);
+        }
+        
+        console.log(`🔍 === VISUAL CONTINUITY ANALYSIS COMPLETE ===`);
+      } else {
+        console.log(`⏭️ Skipping visual continuity analysis: Edit mode=${isEditMode}, Characters=${request.projectContext?.characters?.length || 0}`);
+      }
+    } catch (continuityError) {
+      console.warn(`⚠️ Visual continuity analysis failed, continuing with normal generation:`, continuityError);
+      continuityGuidance = null;
+      // Continue with generation even if continuity analysis fails
+    }
+    
     try {
       // Enhanced logging for debugging
       console.log(`🎨 === GEMINI IMAGE ${isEditMode ? 'EDITING' : 'GENERATION'} START ===`);
@@ -1435,11 +1521,32 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
       }
       console.log(`🎬 Project: ${request.projectContext?.title || 'Unknown'}`);
       console.log(`🎨 Art Style: ${request.styleOptions?.artStyle || request.projectContext?.artStyle || 'Default'}`);
+      console.log(`🔍 Continuity Guidance: ${continuityGuidance ? 'Available' : 'None'}`);
       
       // Build context-aware prompt (optimized for edit vs generation)
-      const contextualPrompt = this.buildContextualPrompt(request, isEditMode);
+      const contextualPrompt = this.buildContextualPrompt(request, isEditMode, continuityGuidance);
+      
+      // 🔧 ENHANCED DEBUG LOGGING: Verify continuity guidance integration
       console.log(`📝 Generated Prompt (${contextualPrompt.length} chars):`);
       console.log(`"${contextualPrompt.substring(0, 200)}${contextualPrompt.length > 200 ? '...' : ''}"`);
+      
+      // Verify continuity guidance was included in the prompt
+      if (continuityGuidance && continuityGuidance.success) {
+        const hasVisualGuidance = contextualPrompt.includes('VISUAL CONTINUITY GUIDANCE FROM RECENT PANELS');
+        const hasCriticalEnforcement = contextualPrompt.includes('🚨 CRITICAL: The above continuity guidance');
+        console.log(`✅ Continuity Guidance Integration Verification:`);
+        console.log(`   - Visual guidance section: ${hasVisualGuidance ? '✅ INCLUDED' : '❌ MISSING'}`);
+        console.log(`   - Critical enforcement: ${hasCriticalEnforcement ? '✅ INCLUDED' : '❌ MISSING'}`);
+        console.log(`   - Character guidance count: ${continuityGuidance.characterGuidance?.length || 0}`);
+        
+        if (hasVisualGuidance && hasCriticalEnforcement) {
+          console.log(`🎯 SUCCESS: Continuity guidance is properly integrated into the AI prompt!`);
+        } else {
+          console.warn(`⚠️ WARNING: Continuity guidance may not be properly integrated!`);
+        }
+      } else {
+        console.log(`ℹ️ No continuity guidance available for this panel generation`);
+      }
 
       let contentParts: any[];
       
@@ -3166,7 +3273,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
     return prompt;
   }
 
-  private buildContextualPrompt(request: GenerateImageRequest, isEditMode: boolean = false): string {
+  private buildContextualPrompt(request: GenerateImageRequest, isEditMode: boolean = false, continuityGuidance: any = null): string {
     // For image editing, use a much shorter, focused prompt
     if (isEditMode) {
       return this.buildEditingPrompt(request);
@@ -3279,6 +3386,72 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
         const refCharNames = charactersWithRefs.map(char => char.name).join(", ");
         prompt += ` Characters with mandatory reference portraits: ${refCharNames}.`;
       }
+    }
+    
+    // 🎯 PHASE 3: VISUAL CONTINUITY GUIDANCE FROM RECENT PANELS
+    if (continuityGuidance && continuityGuidance.success && continuityGuidance.characterGuidance) {
+      console.log(`🔍 Integrating visual continuity guidance for ${continuityGuidance.characterGuidance.length} characters`);
+      
+      const continuityInstructions = continuityGuidance.characterGuidance
+        .map(guidance => {
+          let instruction = `${guidance.characterName}: ${guidance.prompt}`;
+          
+          // Add detailed attribute instructions
+          if (guidance.keyAttributes) {
+            const attributes = [];
+            if (guidance.keyAttributes.hair && guidance.keyAttributes.hair.trim()) {
+              attributes.push(`HAIR: ${guidance.keyAttributes.hair}`);
+            }
+            if (guidance.keyAttributes.clothing && guidance.keyAttributes.clothing.trim()) {
+              attributes.push(`CLOTHING: ${guidance.keyAttributes.clothing}`);
+            }
+            if (guidance.keyAttributes.physicalFeatures && guidance.keyAttributes.physicalFeatures.trim()) {
+              attributes.push(`FEATURES: ${guidance.keyAttributes.physicalFeatures}`);
+            }
+            if (guidance.keyAttributes.accessories && guidance.keyAttributes.accessories.trim()) {
+              attributes.push(`ACCESSORIES: ${guidance.keyAttributes.accessories}`);
+            }
+            
+            if (attributes.length > 0) {
+              instruction += ` - ${attributes.join(', ')}`;
+            }
+          }
+          
+          // Add consistency score context
+          if (guidance.consistencyScore !== undefined) {
+            if (guidance.consistencyScore < 70) {
+              instruction += ` (⚠️ ATTENTION: This character showed inconsistencies in recent panels - be extra careful to match the described appearance exactly)`;
+            } else if (guidance.consistencyScore >= 90) {
+              instruction += ` (✅ EXCELLENT: This character has been very consistent - maintain this exact appearance)`;
+            }
+          }
+          
+          return instruction;
+        })
+        .join(" || ");
+      
+      prompt += `. 🔍 VISUAL CONTINUITY GUIDANCE FROM RECENT PANELS: Based on analysis of the last ${continuityGuidance.characterGuidance.length > 0 ? 'several' : 'few'} panels in this project, here are the EXACT character appearances you MUST maintain: ${continuityInstructions}`;
+      
+      // Add scene consistency if available
+      if (continuityGuidance.sceneGuidance) {
+        const sceneInstructions = [];
+        if (continuityGuidance.sceneGuidance.settingConsistency) {
+          sceneInstructions.push(`Setting consistency: ${continuityGuidance.sceneGuidance.settingConsistency}`);
+        }
+        if (continuityGuidance.sceneGuidance.lightingPattern) {
+          sceneInstructions.push(`Lighting: ${continuityGuidance.sceneGuidance.lightingPattern}`);
+        }
+        if (continuityGuidance.sceneGuidance.suggestedMood) {
+          sceneInstructions.push(`Mood: ${continuityGuidance.sceneGuidance.suggestedMood}`);
+        }
+        
+        if (sceneInstructions.length > 0) {
+          prompt += ` SCENE CONTINUITY: ${sceneInstructions.join(', ')}.`;
+        }
+      }
+      
+      // Add strong enforcement
+      prompt += ` 🚨 CRITICAL: The above continuity guidance is based on actual analysis of your recent panel artwork. You MUST follow these exact appearance descriptions to maintain visual consistency with the established character looks in this project.`;
     }
     
     // Fallback to old character context if new one isn't available
