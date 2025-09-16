@@ -8,6 +8,7 @@ import { characterNameService } from "./services/CharacterNameService";
 import { characterDescriptorService } from "./services/CharacterDescriptorService";
 import { PanelVisualAnalysisService } from "./services/PanelVisualAnalysisService";
 import { VisualContinuityService } from "./services/VisualContinuityService";
+import { CharacterNameValidationService } from "./services/CharacterNameValidationService";
 import { 
   createCharacterNameEnum, 
   buildCharacterConstraintInstructions,
@@ -3047,6 +3048,10 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
       console.log("👥 STAGE 2: Generating character bible...");
       console.log("Prompt length:", prompt.length);
 
+      // 🔒 CRITICAL: Create character name enum for schema enforcement
+      const validCharacterNames = createCharacterNameEnum(request.characters);
+      console.log(`🔒 SCHEMA ENFORCEMENT: Limiting character names to: ${validCharacterNames.join(', ')}`);
+
       const response = await ai.models.generateContent({
         model: "gemini-2.5-pro",
         config: {
@@ -3060,7 +3065,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
                   type: "object",
                   properties: {
                     id: { type: "string" },
-                    name: { type: "string" },
+                    name: { type: "string", enum: validCharacterNames },
                     role: { type: "string" },
                     bio: { type: "string" },
                     physicalProfile: {
@@ -3146,8 +3151,8 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
                 items: {
                   type: "object",
                   properties: {
-                    character1: { type: "string" },
-                    character2: { type: "string" },
+                    character1: { type: "string", enum: validCharacterNames },
+                    character2: { type: "string", enum: validCharacterNames },
                     relationshipType: { type: "string" },
                     dynamicDescription: { type: "string" },
                     conflictPoints: { type: "array", items: { type: "string" } },
@@ -3189,8 +3194,49 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
         throw new Error("No characters generated in character bible");
       }
 
-      console.log(`✅ STAGE 2 COMPLETE: Generated detailed profiles for ${characterBible.characters.length} characters`);
-      return characterBible;
+      // 🔍 CRITICAL: Validate and auto-correct character name consistency
+      const validator = new CharacterNameValidationService();
+      const originalCharacterNames = request.characters.map(char => char.name);
+      const validationResult = validator.validateCharacterBible(characterBible, originalCharacterNames);
+      
+      // Use corrected character bible if corrections were made
+      let finalCharacterBible = characterBible;
+      if (validationResult.correctedCharacterBible) {
+        finalCharacterBible = validationResult.correctedCharacterBible;
+      }
+      
+      if (validationResult.correctionsMade && validationResult.correctionsMade.length > 0) {
+        console.log(`🔧 CHARACTER NAME AUTO-CORRECTION: Applied ${validationResult.correctionsMade.length} corrections:`);
+        validationResult.correctionsMade.forEach(correction => {
+          console.log(`   ${correction.field}: "${correction.from}" → "${correction.to}"`);
+        });
+      }
+      
+      // Only fail if there are still unfixable errors after corrections
+      if (!validationResult.isValid && validationResult.errors.length > 0) {
+        console.error('🚨 CHARACTER NAME VALIDATION FAILED WITH UNFIXABLE ERRORS:');
+        console.error('Remaining errors after corrections:', validationResult.errors);
+        
+        // Generate mapping report for debugging
+        const mappingReport = validator.generateCharacterMappingReport(
+          request.characters,
+          finalCharacterBible
+        );
+        console.error('Character Mapping Report:', mappingReport);
+        
+        // Only throw error if there are critical unfixable issues
+        const criticalErrors = validationResult.errors.filter(error => error.type === 'name_mismatch');
+        if (criticalErrors.length > 0) {
+          throw new Error(`Character name validation failed with ${criticalErrors.length} critical errors after corrections: ${criticalErrors[0]?.description || 'Character names are inconsistent between bible and original characters.'}`);
+        } else {
+          console.warn(`⚠️  Character bible has ${validationResult.errors.length} non-critical validation warnings but proceeding with corrections applied`);
+        }
+      }
+      
+      console.log(`✅ STAGE 2 COMPLETE: Generated detailed profiles for ${finalCharacterBible.characters.length} characters with validated name consistency`);
+      console.log(`   Applied corrections: ${validationResult.correctionsMade.length}`);
+      console.log(`   Remaining warnings: ${validationResult.errors.length}`);
+      return finalCharacterBible;
 
     } catch (error) {
       console.error("Error generating character bible:", error);
@@ -5682,6 +5728,13 @@ ${storyOutline.storyBeats.map(beat => `- ${beat.beatTitle}: ${beat.description}`
 PRIMARY SETTINGS:
 ${storyOutline.worldBuildingElements.primarySettings.join(', ')}
 
+🚨 CRITICAL CHARACTER NAME CONSISTENCY RULES:
+- EACH CHARACTER MUST BE REFERENCED BY THEIR EXACT NAME THROUGHOUT ALL FIELDS
+${request.characters.map(char => `- The character "${char.name}" must ONLY be called "${char.name}" - NEVER use nicknames, shortened names, or alternatives`).join('\n')}
+- NO nicknames, aliases, or alternative names are allowed in any field (bio, personality, etc.)
+- ALL character references in bios, personality descriptions, and relationships MUST use the exact character name provided
+- This is MANDATORY for character synchronization with scripts and project data
+
 INSTRUCTIONS:
 Create detailed character profiles that ensure visual consistency throughout the comic. For each character, provide:
 
@@ -5705,10 +5758,11 @@ Create detailed character profiles that ensure visual consistency throughout the
    - Fears, quirks, and distinctive behaviors
 
 4. **Story Function**: Role in the narrative:
-   - Primary story function and character arc
+   - Primary story function and character arc  
    - Relationship to protagonist and other characters
    - Key scenes and emotional journey
    - Character growth throughout the story
+   - 🚨 REMINDER: When describing relationships or story function, use EXACT character names only
 
 5. **Consistency Rules**: Visual guidelines:
    - ALWAYS traits that must be maintained
@@ -5727,6 +5781,16 @@ Focus on creating characters that:
 - Work well in the comic book medium
 - Have consistent, recognizable designs
 - Support the narrative effectively
+
+🔥 FINAL CHARACTER NAME VALIDATION:
+Before generating the JSON, verify that:
+1. The "name" field contains the exact character name provided
+2. The "bio" field ONLY references the character by their exact name field value
+3. NO nicknames, shortened names, or aliases appear in any field
+4. Character relationships use exact names only
+
+EXAMPLE CORRECT BIO: "${request.characters[0]?.name || 'Character Name'} is a detailed character description. ${request.characters[0]?.name || 'Character Name'} has specific traits and behaviors."
+EXAMPLE INCORRECT BIO: "Nickname or shortened name..." (WRONG - must use exact character name provided)
 
 Generate comprehensive character profiles in the specified JSON format.`;
 

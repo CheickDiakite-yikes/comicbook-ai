@@ -353,10 +353,15 @@ export async function validatePanelCharacters(
 }
 
 /**
- * Create character name enum array for JSON schema
+ * Create character name enum array for JSON schema with validation
  */
 export function createCharacterNameEnum(characters: Array<{ name: string }>): string[] {
-  return characters.map(c => c.name).sort();
+  const names = characters.map(c => c.name).filter(name => name && name.trim().length > 0);
+  if (names.length === 0) {
+    console.warn('🚨 WARNING: No valid character names found for enum creation');
+    return ['PLACEHOLDER_CHARACTER'];
+  }
+  return names.sort();
 }
 
 /**
