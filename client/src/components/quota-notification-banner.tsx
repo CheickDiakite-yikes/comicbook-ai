@@ -9,12 +9,6 @@ export function QuotaNotificationBanner() {
   const { state, clearQuotaError, dismissTemporarily, isCurrentlyVisible } = useQuotaNotification();
   const [isExpanded, setIsExpanded] = useState(false);
 
-  console.log("🔔 QUOTA BANNER: Checking visibility", { 
-    isVisible: isCurrentlyVisible(), 
-    hasError: !!state.quotaError,
-    state: state
-  });
-
   // Don't render if not visible or no quota error
   if (!isCurrentlyVisible() || !state.quotaError) {
     return null;
@@ -51,8 +45,8 @@ export function QuotaNotificationBanner() {
   const quotaInfo = getQuotaMessage();
 
   return (
-    <div className="sticky top-0 z-50 border-b border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/50 dark:to-amber-950/50 dark:border-orange-800">
-      <Alert className="border-0 rounded-none bg-transparent">
+    <div className="fixed top-0 left-0 right-0 z-[9999] border-b border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/50 dark:to-amber-950/50 dark:border-orange-800 shadow-md">
+      <Alert className="border-0 rounded-none bg-transparent m-0">
         <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
         <AlertDescription className="ml-2">
           <div className="flex items-center justify-between w-full">

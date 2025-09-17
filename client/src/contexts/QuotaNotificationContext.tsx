@@ -33,7 +33,6 @@ export function QuotaNotificationProvider({ children }: { children: ReactNode })
   const [state, setState] = useState<QuotaNotificationState>(initialState);
 
   const setQuotaError = useCallback((error: QuotaError) => {
-    console.log("🚨 QUOTA NOTIFICATION: Setting quota error", error);
     setState(prev => ({
       ...prev,
       isQuotaExceeded: true,

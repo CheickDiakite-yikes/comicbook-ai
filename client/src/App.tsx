@@ -74,12 +74,16 @@ function AppWithQuotaHandler() {
     };
   }, [setQuotaError]);
   
+  const { isCurrentlyVisible } = useQuotaNotification();
+  
   return (
     <>
       <QuotaNotificationBanner />
-      <Toaster />
-      <BackgroundGenerationStatus />
-      <Router />
+      <div className={isCurrentlyVisible() ? "pt-16" : ""}>
+        <Toaster />
+        <BackgroundGenerationStatus />
+        <Router />
+      </div>
     </>
   );
 }
