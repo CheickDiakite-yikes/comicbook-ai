@@ -2949,9 +2949,11 @@ Redress this character in the specified outfit while maintaining their core visu
           // Save dialogue for this panel
           for (let i = 0; i < panelData.dialogue.length; i++) {
             const dialogueData = panelData.dialogue[i];
+            // CRITICAL FIX: Ensure character is never null - provide fallback for null/undefined
+            const characterName = dialogueData.characterName || 'UNKNOWN_CHARACTER';
             await storage.createScriptDialogue({
               scriptPanelId: savedPanel.id,
-              character: dialogueData.characterName,
+              character: characterName,
               text: dialogueData.text,
               tone: dialogueData.tone,
               orderIndex: i,
@@ -3220,9 +3222,11 @@ Redress this character in the specified outfit while maintaining their core visu
                 // Save dialogue for this panel
                 for (let i = 0; i < panelData.dialogue.length; i++) {
                   const dialogueData = panelData.dialogue[i];
+                  // CRITICAL FIX: Ensure character is never null - check both field name variants
+                  const characterName = dialogueData.characterName || dialogueData.character || 'UNKNOWN_CHARACTER';
                   await storage.createScriptDialogue({
                     scriptPanelId: savedPanel.id,
-                    character: dialogueData.characterName,
+                    character: characterName,
                     text: dialogueData.text,
                     tone: dialogueData.tone,
                     orderIndex: i,
@@ -3331,9 +3335,11 @@ Redress this character in the specified outfit while maintaining their core visu
           if (panelData.dialogue && Array.isArray(panelData.dialogue)) {
             for (let i = 0; i < panelData.dialogue.length; i++) {
               const dialogueData = panelData.dialogue[i];
+              // CRITICAL FIX: Ensure character is never null - check both field name variants
+              const characterName = dialogueData.characterName || dialogueData.character || 'UNKNOWN_CHARACTER';
               await storage.createScriptDialogue({
                 scriptPanelId: savedPanel.id,
-                character: dialogueData.characterName,
+                character: characterName,
                 text: dialogueData.text,
                 tone: dialogueData.tone,
                 orderIndex: i,
