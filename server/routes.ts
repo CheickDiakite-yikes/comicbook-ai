@@ -3222,8 +3222,8 @@ Redress this character in the specified outfit while maintaining their core visu
                 // Save dialogue for this panel
                 for (let i = 0; i < panelData.dialogue.length; i++) {
                   const dialogueData = panelData.dialogue[i];
-                  // CRITICAL FIX: Ensure character is never null - check both field name variants
-                  const characterName = dialogueData.characterName || dialogueData.character || 'UNKNOWN_CHARACTER';
+                  // CRITICAL FIX: Ensure character is never null - check both field name variants  
+                  const characterName = (dialogueData as any).characterName || (dialogueData as any).character || 'UNKNOWN_CHARACTER';
                   await storage.createScriptDialogue({
                     scriptPanelId: savedPanel.id,
                     character: characterName,

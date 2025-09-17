@@ -1,8 +1,91 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+// Global quota notification handler - will be set by the app
+let globalQuotaHandler: ((error: any) => void) | null = null;
+
+export function setGlobalQuotaHandler(handler: (error: any) => void) {
+  globalQuotaHandler = handler;
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
+    
+    // Check for quota exceeded errors (HTTP 429)
+    if (res.status === 429) {
+      try {
+        // Try to parse the error response to get quota details
+        let errorData;
+        try {
+          errorData = JSON.parse(text);
+        } catch {
+          // If parsing fails, create a basic error structure
+          errorData = { error: text };
+        }
+        
+        // Check if this is a quota-related error
+        const isQuotaError = (
+          text.toLowerCase().includes('quota') ||
+          text.toLowerCase().includes('rate limit') ||
+          text.toLowerCase().includes('resource_exhausted') ||
+          (errorData.errorCategory && errorData.errorCategory === 'quota_exceeded') ||
+          (errorData.error && typeof errorData.error === 'object' && errorData.error.code === 429)
+        );
+        
+        if (isQuotaError && globalQuotaHandler) {
+          // Extract quota information from the error
+          let quotaType = 'general';
+          let quotaMessage = 'API quota has been exceeded';
+          
+          // Parse quota details from Gemini API error structure
+          if (errorData.error && errorData.error.details) {
+            const violations = errorData.error.details.find((detail: any) => 
+              detail['@type'] === 'type.googleapis.com/google.rpc.QuotaFailure'
+            )?.violations;
+            
+            if (violations && violations.length > 0) {
+              const violation = violations[0];
+              quotaType = violation.quotaMetric || violation.quotaId || 'daily';
+              
+              // Make quota type more user-friendly
+              if (quotaType.includes('per_day') || quotaType.includes('daily')) {
+                quotaType = 'daily';
+              } else if (quotaType.includes('per_minute') || quotaType.includes('minute')) {
+                quotaType = 'per_minute';
+              }
+            }
+          }
+          
+          // Extract user-friendly message
+          if (errorData.error && errorData.error.message) {
+            quotaMessage = errorData.error.message;
+          } else if (errorData.message) {
+            quotaMessage = errorData.message;
+          }
+          
+          // Trigger global quota notification
+          globalQuotaHandler({
+            message: quotaMessage,
+            quotaType: quotaType,
+            timestamp: new Date(),
+            resetTime: quotaType === 'daily' ? 'midnight UTC' : 'a few minutes'
+          });
+        }
+      } catch (parseError) {
+        console.warn('Failed to parse quota error details:', parseError);
+        
+        // Still trigger quota notification with basic info if this looks like a quota error
+        if (text.toLowerCase().includes('quota') && globalQuotaHandler) {
+          globalQuotaHandler({
+            message: 'API quota has been exceeded. Please try again later.',
+            quotaType: 'daily',
+            timestamp: new Date(),
+            resetTime: 'midnight UTC'
+          });
+        }
+      }
+    }
+    
     throw new Error(`${res.status}: ${text}`);
   }
 }
