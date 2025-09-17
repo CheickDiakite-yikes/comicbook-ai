@@ -10,9 +10,11 @@ export function setGlobalQuotaHandler(handler: (error: any) => void) {
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
+    console.log("🔍 API ERROR DETECTED:", { status: res.status, text, hasGlobalHandler: !!globalQuotaHandler });
     
     // Check for quota exceeded errors (HTTP 429)
     if (res.status === 429) {
+      console.log("🚨 429 ERROR DETECTED - Processing quota error");
       try {
         // Try to parse the error response to get quota details
         let errorData;
@@ -31,6 +33,8 @@ async function throwIfResNotOk(res: Response) {
           (errorData.errorCategory && errorData.errorCategory === 'quota_exceeded') ||
           (errorData.error && typeof errorData.error === 'object' && errorData.error.code === 429)
         );
+        
+        console.log("🔍 QUOTA CHECK:", { isQuotaError, hasGlobalHandler: !!globalQuotaHandler, errorData });
         
         if (isQuotaError && globalQuotaHandler) {
           // Extract quota information from the error
@@ -63,13 +67,19 @@ async function throwIfResNotOk(res: Response) {
             quotaMessage = errorData.message;
           }
           
-          // Trigger global quota notification
-          globalQuotaHandler({
+          const quotaErrorObj = {
             message: quotaMessage,
             quotaType: quotaType,
             timestamp: new Date(),
             resetTime: quotaType === 'daily' ? 'midnight UTC' : 'a few minutes'
-          });
+          };
+          
+          console.log("🚨 TRIGGERING GLOBAL QUOTA HANDLER:", quotaErrorObj);
+          
+          // Trigger global quota notification
+          globalQuotaHandler(quotaErrorObj);
+        } else {
+          console.log("🚫 NOT TRIGGERING QUOTA HANDLER - Missing conditions");
         }
       } catch (parseError) {
         console.warn('Failed to parse quota error details:', parseError);

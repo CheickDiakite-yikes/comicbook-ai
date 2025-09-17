@@ -9,6 +9,12 @@ export function QuotaNotificationBanner() {
   const { state, clearQuotaError, dismissTemporarily, isCurrentlyVisible } = useQuotaNotification();
   const [isExpanded, setIsExpanded] = useState(false);
 
+  console.log("🔔 QUOTA BANNER: Checking visibility", { 
+    isVisible: isCurrentlyVisible(), 
+    hasError: !!state.quotaError,
+    state: state
+  });
+
   // Don't render if not visible or no quota error
   if (!isCurrentlyVisible() || !state.quotaError) {
     return null;
