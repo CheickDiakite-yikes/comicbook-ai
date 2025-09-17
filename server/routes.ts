@@ -1113,6 +1113,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         crossPageContext,
       });
       
+      // Check for quota exceeded errors and return HTTP 429
+      if (result.errorCategory === 'quota_exceeded') {
+        return res.status(429).json(result);
+      }
+      
       res.json(result);
     } catch (error) {
       console.error(`❌ === PANEL GENERATION API ENDPOINT FAILURE ===`);
@@ -1304,6 +1309,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateCharacter(character.id, {
           referenceImageUrl: portraitResult.referenceImageUrl
         });
+      }
+
+      // Check for quota exceeded errors and return HTTP 429
+      if (portraitResult.error && portraitResult.error.toLowerCase().includes('quota')) {
+        return res.status(429).json(portraitResult);
       }
 
       res.status(200).json(portraitResult);
@@ -1954,6 +1964,11 @@ Redress this character in the specified outfit while maintaining their core visu
         }
       }
 
+      // Check for quota exceeded errors and return HTTP 429
+      if (result.errorCategory === 'quota_exceeded') {
+        return res.status(429).json(result);
+      }
+
       res.json(result);
     } catch (error) {
       console.error("Background generation error:", error);
@@ -1989,6 +2004,21 @@ Redress this character in the specified outfit while maintaining their core visu
         layoutId
       );
       
+      // Check for quota exceeded errors in results
+      if (results && typeof results === 'object') {
+        // Handle array of results (multiple panels)
+        if (Array.isArray(results)) {
+          const quotaError = results.find(r => r.errorCategory === 'quota_exceeded');
+          if (quotaError) {
+            return res.status(429).json(results);
+          }
+        }
+        // Handle single result object
+        else if (results.errorCategory === 'quota_exceeded') {
+          return res.status(429).json(results);
+        }
+      }
+      
       res.json(results);
     } catch (error) {
       console.error("Error generating full page:", error);
@@ -2009,6 +2039,11 @@ Redress this character in the specified outfit while maintaining their core visu
       const scriptRequest = req.body;
       
       const result = await geminiService.generateScript(scriptRequest);
+      
+      // Check for quota exceeded errors and return HTTP 429
+      if (result && typeof result === 'object' && result.error && result.error.toLowerCase().includes('quota')) {
+        return res.status(429).json(result);
+      }
       
       res.json(result);
     } catch (error) {
@@ -2041,6 +2076,19 @@ Redress this character in the specified outfit while maintaining their core visu
       res.json({ text });
     } catch (error) {
       console.error("Error generating text:", error);
+      
+      // Check if this is a quota error and return HTTP 429
+      if (error instanceof Error) {
+        const errorMsg = error.message.toLowerCase();
+        if (errorMsg.includes('quota') || errorMsg.includes('limit') || errorMsg.includes('resource_exhausted')) {
+          return res.status(429).json({ 
+            message: "API quota exceeded. Please try again later.",
+            error: "quota_exceeded",
+            errorCategory: "quota_exceeded"
+          });
+        }
+      }
+      
       res.status(500).json({ message: "Failed to generate text" });
     }
   });
@@ -3413,6 +3461,15 @@ Redress this character in the specified outfit while maintaining their core visu
         tones
       });
       
+      // Check for quota exceeded errors and return HTTP 429
+      if (completeStory && typeof completeStory === 'object' && completeStory.error && completeStory.error.toLowerCase().includes('quota')) {
+        return res.status(429).json({
+          error: completeStory.error,
+          errorCategory: "quota_exceeded",
+          message: "API quota exceeded while generating complete story"
+        });
+      }
+      
       // Include the original user-selected genres for UI display
       const responseData = {
         ...completeStory,
@@ -3473,6 +3530,16 @@ Redress this character in the specified outfit while maintaining their core visu
         projectId,
         projectContext,
       });
+      
+      // Check for quota exceeded errors and return HTTP 429
+      if (result.error && result.error.toLowerCase().includes('quota')) {
+        return res.status(429).json({
+          success: false,
+          status: "failed",
+          error: result.error,
+          errorCategory: "quota_exceeded"
+        });
+      }
       
       if (result.status === "completed") {
         // Save cover art URL to project
