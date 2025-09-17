@@ -79,7 +79,7 @@ function AppWithQuotaHandler() {
   return (
     <>
       <QuotaNotificationBanner />
-      <div className={isCurrentlyVisible() ? "pt-16" : ""}>
+      <div className={isCurrentlyVisible() ? "pt-20 sm:pt-16" : ""}>
         <Toaster />
         <BackgroundGenerationStatus />
         <Router />

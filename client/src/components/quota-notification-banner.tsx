@@ -46,36 +46,41 @@ export function QuotaNotificationBanner() {
 
   return (
     <div className="fixed top-0 left-0 right-0 z-[9999] border-b border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/50 dark:to-amber-950/50 dark:border-orange-800 shadow-md">
-      <Alert className="border-0 rounded-none bg-transparent m-0">
-        <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-        <AlertDescription className="ml-2">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center space-x-3">
-              <div>
-                <span className="font-medium text-orange-800 dark:text-orange-200">
+      <Alert className="border-0 rounded-none bg-transparent m-0 p-3 sm:p-4">
+        <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400 flex-shrink-0" />
+        <AlertDescription className="ml-2 w-full">
+          {/* Mobile-first responsive layout */}
+          <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+            
+            {/* Main content area */}
+            <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-3 min-w-0 flex-1">
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-orange-800 dark:text-orange-200 text-sm sm:text-base">
                   {quotaInfo.title}
-                </span>
-                <span className="text-orange-700 dark:text-orange-300 ml-2">
+                </div>
+                <div className="text-orange-700 dark:text-orange-300 text-xs sm:text-sm mt-1">
                   {quotaInfo.description}
-                </span>
+                </div>
               </div>
               
-              <Badge variant="outline" className="border-orange-300 text-orange-700 dark:border-orange-600 dark:text-orange-300">
+              <Badge variant="outline" className="border-orange-300 text-orange-700 dark:border-orange-600 dark:text-orange-300 text-xs shrink-0 self-start sm:self-center">
                 <Clock className="h-3 w-3 mr-1" />
                 Resets in {quotaInfo.timeframe}
               </Badge>
             </div>
 
-            <div className="flex items-center space-x-2">
+            {/* Action buttons */}
+            <div className="flex items-center space-x-1 sm:space-x-2 shrink-0">
               {!isExpanded && (
                 <Button 
                   variant="ghost" 
                   size="sm" 
                   onClick={() => setIsExpanded(true)}
-                  className="text-orange-700 hover:text-orange-800 hover:bg-orange-100 dark:text-orange-300 dark:hover:text-orange-200 dark:hover:bg-orange-900/20"
+                  className="text-orange-700 hover:text-orange-800 hover:bg-orange-100 dark:text-orange-300 dark:hover:text-orange-200 dark:hover:bg-orange-900/20 text-xs sm:text-sm px-2 sm:px-3"
                   data-testid="button-expand-quota"
                 >
-                  More info
+                  <span className="hidden sm:inline">More info</span>
+                  <span className="sm:hidden">Info</span>
                 </Button>
               )}
               
@@ -83,18 +88,19 @@ export function QuotaNotificationBanner() {
                 variant="ghost" 
                 size="sm" 
                 onClick={() => dismissTemporarily(30)}
-                className="text-orange-700 hover:text-orange-800 hover:bg-orange-100 dark:text-orange-300 dark:hover:text-orange-200 dark:hover:bg-orange-900/20"
+                className="text-orange-700 hover:text-orange-800 hover:bg-orange-100 dark:text-orange-300 dark:hover:text-orange-200 dark:hover:bg-orange-900/20 text-xs sm:text-sm px-2 sm:px-3"
                 data-testid="button-dismiss-quota"
               >
                 <Clock className="h-3 w-3 mr-1" />
-                Dismiss 30min
+                <span className="hidden sm:inline">Dismiss 30min</span>
+                <span className="sm:hidden">30min</span>
               </Button>
               
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={clearQuotaError}
-                className="text-orange-700 hover:text-orange-800 hover:bg-orange-100 dark:text-orange-300 dark:hover:text-orange-200 dark:hover:bg-orange-900/20"
+                className="text-orange-700 hover:text-orange-800 hover:bg-orange-100 dark:text-orange-300 dark:hover:text-orange-200 dark:hover:bg-orange-900/20 p-2"
                 data-testid="button-close-quota"
               >
                 <X className="h-3 w-3" />
