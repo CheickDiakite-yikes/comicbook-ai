@@ -1113,8 +1113,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         crossPageContext,
       });
       
+      console.log("🔍 RESULT FROM GEMINI SERVICE:", { 
+        status: result.status, 
+        errorCategory: result.errorCategory,
+        hasError: !!result.error,
+        fullResult: result 
+      });
+      
       // Check for quota exceeded errors and return HTTP 429
       if (result.errorCategory === 'quota_exceeded') {
+        console.log("🚨 RETURNING HTTP 429 FOR QUOTA ERROR");
         return res.status(429).json(result);
       }
       
