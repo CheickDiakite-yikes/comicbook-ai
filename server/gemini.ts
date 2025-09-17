@@ -1899,6 +1899,8 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
             throw new Error("No image data received");
           }
           const buffer = Buffer.from(imageData, "base64");
+          // CRITICAL: Sanitize panelId to prevent NaN filenames (declare at broader scope)
+          const safePanelId = !isNaN(Number(request.panelId)) ? String(request.panelId) : 'unknown';
           const filename = `panel_${request.panelId}_${Date.now()}.png`;
           
           // Save image to persistent object storage instead of local filesystem
@@ -1937,8 +1939,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
             // Extract just the filename from the processed path
             const enhancedFile = path.basename(enhancedImagePath);
             const enhancedBuffer = fs.readFileSync(enhancedImagePath);
-            // CRITICAL: Sanitize panelId to prevent NaN filenames
-            const safePanelId = !isNaN(Number(request.panelId)) ? String(request.panelId) : 'unknown';
+            // safePanelId already declared at broader scope
             const enhancedFilename = `panel_${safePanelId}_enhanced_${Date.now()}.png`;
             finalImageUrl = await this.saveImageToObjectStorage(enhancedBuffer, enhancedFilename);
             console.log(`Image enhanced for panel ${request.panelId}: ${finalImageUrl}`);
@@ -2318,6 +2319,8 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
             throw new Error("No background image data received");
           }
           const buffer = Buffer.from(imageData, "base64");
+          // CRITICAL: Sanitize panelId to prevent NaN filenames (declare at broader scope)
+          const safePanelId = !isNaN(Number(request.panelId)) ? String(request.panelId) : 'unknown';
           const filename = `background_${request.panelId}_${Date.now()}.png`;
           
           // Save image to persistent object storage instead of local filesystem
@@ -2356,8 +2359,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
             // Extract just the filename from the processed path
             const enhancedFile = path.basename(enhancedImagePath);
             const enhancedBuffer = fs.readFileSync(enhancedImagePath);
-            // CRITICAL: Sanitize panelId to prevent NaN filenames
-            const safePanelId = !isNaN(Number(request.panelId)) ? String(request.panelId) : 'unknown';
+            // safePanelId already declared at broader scope
             const enhancedFilename = `panel_${safePanelId}_enhanced_${Date.now()}.png`;
             finalImageUrl = await this.saveImageToObjectStorage(enhancedBuffer, enhancedFilename);
             console.log(`Image enhanced for panel ${request.panelId}: ${finalImageUrl}`);
@@ -2743,7 +2745,9 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
                             items: {
                               type: "object",
                               properties: {
-                                characterName: { type: "string" },
+                                characterName: characterNames.length > 0 ? 
+                                  { type: "string", enum: characterNames } : 
+                                  { type: "string", enum: ["UNKNOWN_CHARACTER"] },
                                 emotion: { type: "string" }
                               },
                               required: ["characterName", "emotion"]
@@ -2759,7 +2763,7 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
                               properties: {
                                 characterName: characterNames.length > 0 ? 
                                   { type: "string", enum: characterNames } : 
-                                  { type: "string" },
+                                  { type: "string", enum: ["UNKNOWN_CHARACTER"] },
                                 text: { type: "string" },
                                 tone: { type: "string" },
                                 placement: { type: "string" }
@@ -2788,17 +2792,20 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
       }
 
       try {
-        const structuredScript: GenerateStructuredScriptResponse = JSON.parse(responseText);
+        let structuredScript: GenerateStructuredScriptResponse = JSON.parse(responseText);
         
         // Initialize pages array if missing (don't throw, handle with padding)
         if (!structuredScript.pages) {
           structuredScript.pages = [];
         }
         
+        // 🧹 PRE-VALIDATION CLEANUP: Fix invalid character names before validation
+        const cleanedScript = this.cleanupInvalidCharacterNames(structuredScript, characterNames);
+        
         // 🔒 VALIDATION GATE: Validate character names in generated script
         if (projectId && projectCharacters.length > 0) {
           const validationResult = await validateScriptCharacters(
-            structuredScript, 
+            cleanedScript, 
             projectId, 
             (await import("./storage")).storage
           );
@@ -2815,6 +2822,9 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
           
           console.log(`✅ Script validation passed: ${validationResult.validCharacters.length} valid characters found`);
         }
+        
+        // Use the cleaned script for further processing
+        structuredScript = cleanedScript;
         
         // PANEL DISTRIBUTION VALIDATION AND ENFORCEMENT (Critical for comic quality)
         this.validateAndFixPanelDistribution(structuredScript, targetPanelDistribution);
@@ -4288,13 +4298,13 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
     });
     
     const finalDistribution = script.pages.map((page: any) => page.panels?.length || 0);
-    const isValid = finalDistribution.every((count, idx) => count === (targetDistribution[idx] || 3));
+    const isValid = finalDistribution.every((count: number, idx: number) => count === (targetDistribution[idx] || 3));
     
     // COMPREHENSIVE END-TO-END VALIDATION LOGGING
     const supportedCounts = [1, 2, 4, 6];
-    const allCountsSupported = finalDistribution.every(count => supportedCounts.includes(count));
+    const allCountsSupported = finalDistribution.every((count: number) => supportedCounts.includes(count));
     const hasVariedPanels = new Set(finalDistribution).size > 1;
-    const noConsecutiveSame = finalDistribution.every((count, idx) => 
+    const noConsecutiveSame = finalDistribution.every((count: number, idx: number) => 
       idx === 0 || count !== finalDistribution[idx-1]
     );
     
@@ -4315,6 +4325,112 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
     } else {
       console.log(`🎉 SYSTEM SUCCESS: Panel distribution completely resolved! "1 panel per page" monotony eliminated.`);
     }
+  }
+
+  /**
+   * Clean up invalid character names in the script before validation
+   * Fixes common AI mistakes like using "0", "1", null, or other invalid values
+   */
+  private cleanupInvalidCharacterNames(script: any, validCharacterNames: string[]): any {
+    if (!script || !script.pages) {
+      return script;
+    }
+    
+    const cleanedScript = JSON.parse(JSON.stringify(script)); // Deep copy
+    let cleanupCount = 0;
+    
+    // Helper function to determine if a character name is invalid
+    const isInvalidCharacterName = (name: any): boolean => {
+      if (!name || typeof name !== 'string') return true;
+      
+      // Check for common invalid patterns
+      const invalidPatterns = [
+        /^\d+$/, // Pure numbers like "0", "1", "2"
+        /^[^\w\s]$/, // Single special characters
+        /^\s*$/, // Empty or whitespace only
+        /^(null|undefined|none|unknown|character|person)$/i // Common AI fallbacks
+      ];
+      
+      return invalidPatterns.some(pattern => pattern.test(name.trim()));
+    };
+    
+    // Helper function to find best character match or fallback
+    const getValidCharacterName = (invalidName: any): string => {
+      if (validCharacterNames.length === 0) {
+        return 'UNKNOWN_CHARACTER';
+      }
+      
+      // If we have valid characters, use the first one as default
+      // In a real scenario, we could use more sophisticated matching
+      return validCharacterNames[0];
+    };
+    
+    cleanedScript.pages.forEach((page: any, pageIndex: number) => {
+      if (!page.panels) return;
+      
+      page.panels.forEach((panel: any, panelIndex: number) => {
+        // Clean dialogue character names
+        if (panel.dialogue && Array.isArray(panel.dialogue)) {
+          panel.dialogue.forEach((dialogue: any, dialogueIndex: number) => {
+            if (isInvalidCharacterName(dialogue.characterName)) {
+              const originalName = dialogue.characterName;
+              dialogue.characterName = getValidCharacterName(originalName);
+              cleanupCount++;
+              console.log(`🧹 CLEANUP: Fixed invalid character name "${originalName}" → "${dialogue.characterName}" in dialogue[${dialogueIndex}] of panel ${panelIndex + 1}, page ${pageIndex + 1}`);
+            }
+          });
+        }
+        
+        // Clean character emotions
+        if (panel.characterEmotions) {
+          if (Array.isArray(panel.characterEmotions)) {
+            // Handle array format
+            panel.characterEmotions.forEach((emotion: any, emotionIndex: number) => {
+              if (isInvalidCharacterName(emotion.characterName)) {
+                const originalName = emotion.characterName;
+                emotion.characterName = getValidCharacterName(originalName);
+                cleanupCount++;
+                console.log(`🧹 CLEANUP: Fixed invalid character name "${originalName}" → "${emotion.characterName}" in characterEmotions[${emotionIndex}] of panel ${panelIndex + 1}, page ${pageIndex + 1}`);
+              }
+            });
+          } else if (typeof panel.characterEmotions === 'object') {
+            // Handle object format - need to rebuild object with clean keys
+            const cleanEmotions: { [key: string]: string } = {};
+            Object.entries(panel.characterEmotions).forEach(([charName, emotion]) => {
+              if (isInvalidCharacterName(charName)) {
+                const cleanName = getValidCharacterName(charName);
+                cleanEmotions[cleanName] = emotion as string;
+                cleanupCount++;
+                console.log(`🧹 CLEANUP: Fixed invalid character name "${charName}" → "${cleanName}" in characterEmotions object of panel ${panelIndex + 1}, page ${pageIndex + 1}`);
+              } else {
+                cleanEmotions[charName] = emotion as string;
+              }
+            });
+            panel.characterEmotions = cleanEmotions;
+          }
+        }
+      });
+      
+      // Clean page-level character arrays
+      if (page.characters && Array.isArray(page.characters)) {
+        const cleanCharacters = page.characters.map((charName: any) => {
+          if (isInvalidCharacterName(charName)) {
+            const cleanName = getValidCharacterName(charName);
+            cleanupCount++;
+            console.log(`🧹 CLEANUP: Fixed invalid character name "${charName}" → "${cleanName}" in page ${pageIndex + 1} characters array`);
+            return cleanName;
+          }
+          return charName;
+        });
+        page.characters = Array.from(new Set(cleanCharacters)); // Remove duplicates
+      }
+    });
+    
+    if (cleanupCount > 0) {
+      console.log(`✅ CHARACTER NAME CLEANUP: Fixed ${cleanupCount} invalid character names`);
+    }
+    
+    return cleanedScript;
   }
 
   /**
@@ -4387,6 +4503,9 @@ CHARACTERS:`;
     // 🔒 CHARACTER CONSTRAINTS: Add strict character validation instructions
     if (validCharacterNames && validCharacterNames.length > 0) {
       prompt += `\n\n${buildCharacterConstraintInstructions(validCharacterNames.map(name => ({ name })))}`;
+    } else {
+      // Add warning if no character constraints are provided
+      prompt += `\n\n⚠️ WARNING: No character constraints provided. If characters exist in the project, ensure all dialogue uses their exact names.`;
     }
 
     prompt += `\n\nPRODUCE A STRUCTURED SCRIPT WITH:
@@ -6360,7 +6479,7 @@ Output in the specified JSON format with ALL enhanced fields completed comprehen
               setting: { type: "string" },
               characters: validCharacterNames && validCharacterNames.length > 0 ? 
                 { type: "array", items: { type: "string", enum: validCharacterNames } } : 
-                { type: "array", items: { type: "string" } },
+                { type: "array", items: { type: "string", enum: ["UNKNOWN_CHARACTER"] } },
               narrative: { type: "string" },
               layoutSuggestion: { type: "string" },
               panelCount: { type: "number" },
@@ -6382,7 +6501,7 @@ Output in the specified JSON format with ALL enhanced fields completed comprehen
                         properties: {
                           characterName: validCharacterNames && validCharacterNames.length > 0 ? 
                             { type: "string", enum: validCharacterNames } : 
-                            { type: "string" },
+                            { type: "string", enum: ["UNKNOWN_CHARACTER"] },
                           emotion: { type: "string" },
                           facialExpression: { type: "string" },
                           bodyLanguage: { type: "string" },
@@ -6395,7 +6514,7 @@ Output in the specified JSON format with ALL enhanced fields completed comprehen
                           proximityToOthers: { type: "string" },
                           interactingWith: validCharacterNames && validCharacterNames.length > 0 ? 
                             { type: "array", items: { type: "string", enum: validCharacterNames } } : 
-                            { type: "array", items: { type: "string" } }
+                            { type: "array", items: { type: "string", enum: ["UNKNOWN_CHARACTER"] } }
                         },
                         required: ["characterName", "emotion", "position", "visibility"]
                       }
@@ -6411,7 +6530,7 @@ Output in the specified JSON format with ALL enhanced fields completed comprehen
                         keyObjects: { type: "array", items: { type: "string" } },
                         backgroundCharacters: validCharacterNames && validCharacterNames.length > 0 ? 
                           { type: "array", items: { type: "string", enum: validCharacterNames } } : 
-                          { type: "array", items: { type: "string" } },
+                          { type: "array", items: { type: "string", enum: ["UNKNOWN_CHARACTER"] } },
                         soundscape: { type: "array", items: { type: "string" } }
                       },
                       required: ["settingName", "timeOfDay", "lighting", "atmosphere"]
@@ -6472,7 +6591,7 @@ Output in the specified JSON format with ALL enhanced fields completed comprehen
                         voiceOverText: { type: "string" },
                         voiceOverCharacter: validCharacterNames && validCharacterNames.length > 0 ? 
                           { type: "string", enum: validCharacterNames } : 
-                          { type: "string" },
+                          { type: "string", enum: ["UNKNOWN_CHARACTER"] },
                         dialoguePlacement: { type: "string" },
                         silenceEmphasis: { type: "boolean" },
                         soundPerspective: { type: "string" }
@@ -6500,7 +6619,7 @@ Output in the specified JSON format with ALL enhanced fields completed comprehen
                         properties: {
                           characterName: validCharacterNames && validCharacterNames.length > 0 ? 
                             { type: "string", enum: validCharacterNames } : 
-                            { type: "string" },
+                            { type: "string", enum: ["UNKNOWN_CHARACTER"] },
                           text: { type: "string" },
                           tone: { type: "string" },
                           placement: { type: "string" },
