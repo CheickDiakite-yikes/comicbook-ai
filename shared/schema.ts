@@ -33,6 +33,8 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  role: varchar("role").notNull().default('user'),
+  plan: varchar("plan").notNull().default('free'),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -647,6 +649,55 @@ export const creditTransactions = pgTable("credit_transactions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const userFeatureEntitlements = pgTable("user_feature_entitlements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  featureKey: varchar("feature_key").notNull(),
+  isEnabled: boolean("is_enabled").notNull().default(false),
+  plan: varchar("plan"),
+  isAdminOverride: boolean("is_admin_override").notNull().default(false),
+  grantedBy: varchar("granted_by").references(() => users.id),
+  grantedReason: text("granted_reason"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("unique_user_feature").on(table.userId, table.featureKey),
+]);
+
+export const animationRenderJobs = pgTable("animation_render_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  prompt: text("prompt").notNull(),
+  promptDiff: jsonb("prompt_diff"),
+  model: varchar("model"),
+  settings: jsonb("settings"),
+  status: varchar("status").notNull().default('pending'),
+  resultAssetUri: varchar("result_asset_uri"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const veoSafetyOverrideLogs = pgTable("veo_safety_override_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  renderJobId: varchar("render_job_id").references(() => animationRenderJobs.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  justification: text("justification"),
+  requestedSettings: jsonb("requested_settings").notNull(),
+  defaultSettings: jsonb("default_settings").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  action: varchar("action").notNull(),
+  resourceType: varchar("resource_type"),
+  resourceId: varchar("resource_id"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   id: true,
@@ -654,6 +705,8 @@ export const insertUserSchema = createInsertSchema(users).pick({
   firstName: true,
   lastName: true,
   profileImageUrl: true,
+  role: true,
+  plan: true,
 });
 
 export const insertProjectSchema = createInsertSchema(projects).omit({
@@ -794,6 +847,28 @@ export const insertUserCreditsSchema = createInsertSchema(userCredits).omit({
 });
 
 export const insertCreditTransactionSchema = createInsertSchema(creditTransactions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertUserFeatureEntitlementSchema = createInsertSchema(userFeatureEntitlements).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAnimationRenderJobSchema = createInsertSchema(animationRenderJobs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertVeoSafetyOverrideLogSchema = createInsertSchema(veoSafetyOverrideLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
   id: true,
   createdAt: true,
 });
@@ -1058,6 +1133,16 @@ export type UserCredits = typeof userCredits.$inferSelect;
 export type InsertUserCredits = z.infer<typeof insertUserCreditsSchema>;
 export type CreditTransaction = typeof creditTransactions.$inferSelect;
 export type InsertCreditTransaction = z.infer<typeof insertCreditTransactionSchema>;
+
+// Feature entitlement & compliance types
+export type UserFeatureEntitlement = typeof userFeatureEntitlements.$inferSelect;
+export type InsertUserFeatureEntitlement = z.infer<typeof insertUserFeatureEntitlementSchema>;
+export type AnimationRenderJob = typeof animationRenderJobs.$inferSelect;
+export type InsertAnimationRenderJob = z.infer<typeof insertAnimationRenderJobSchema>;
+export type VeoSafetyOverrideLog = typeof veoSafetyOverrideLogs.$inferSelect;
+export type InsertVeoSafetyOverrideLog = z.infer<typeof insertVeoSafetyOverrideLogSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 
 // Script Validation types
 export type ScriptValidationReport = typeof scriptValidationReports.$inferSelect;

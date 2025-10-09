@@ -36,6 +36,11 @@ import { z } from "zod";
 import { requireCredits, getProjectIdFromParams, getProjectIdFromBody, getPanelIdFromBody, getPageIdFromRequest, createOperationMetadata, calculateParallelCredits } from "./creditMiddleware";
 import { isSocialCrawler, isLinkPreviewRequest } from "./utils/socialCrawlers";
 import { generateSSRHTML, generateFallbackHTML } from "./utils/htmlGenerator";
+import { resolveUserId } from "./utils/authHelpers";
+import { requireFeatureEntitlement } from "./middleware/featureEntitlements";
+import { Veo3JobService } from "./services/Veo3JobService";
+import { requireAdmin } from "./middleware/requireAdmin";
+import { logger } from "./logger";
 import { ContinuityContextService } from "./services/ContinuityContextService";
 import { promptOrchestrator } from "./services/PromptOrchestrator";
 import { veo3JobService, PanelVideoJobEvent, PanelAnimationRateLimitError } from "./services/Veo3JobService";
@@ -87,6 +92,36 @@ const continuityContextService = new ContinuityContextService(storage);
 const sharedStateManager = new SharedStateManager();
 const multiPageConsistencyTracker = new MultiPageConsistencyTracker();
 const panelVisualAnalysisService = new PanelVisualAnalysisService(storage, multiPageConsistencyTracker);
+const veo3JobService = new Veo3JobService();
+
+const ANIMATION_ALLOWED_PLANS = ["pro", "enterprise"];
+
+const animationJobSchema = z.object({
+  prompt: z.string().min(1),
+  safetySettings: z
+    .array(
+      z.object({
+        category: z.string().min(1),
+        threshold: z.string().min(1),
+      }),
+    )
+    .optional(),
+  justification: z.string().min(10).optional(),
+  model: z.string().min(1).optional(),
+  generationConfig: z.record(z.any()).optional(),
+  tools: z.array(z.record(z.any())).optional(),
+  responseMimeType: z.string().optional(),
+  mediaFormats: z.array(z.string()).optional(),
+});
+
+const featureEntitlementMutationSchema = z.object({
+  userId: z.string().min(1),
+  enabled: z.boolean().optional(),
+  adminOverride: z.boolean().optional(),
+  plan: z.string().min(1).optional(),
+  grantedReason: z.string().min(3).optional(),
+  metadata: z.record(z.any()).optional(),
+});
 const panelVideoQAService = new PanelVideoQAService(storage);
 const continuityContextService = new ContinuityContextService(storage, sharedStateManager);
 
@@ -100,7 +135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -112,7 +147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Credits API endpoint
   app.get('/api/credits', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const user = await storage.getUser(userId);
 
       // Check if user is admin (unlimited credits)
@@ -161,7 +196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const { firstName, lastName } = req.body;
 
       const updatedUser = await storage.updateUser(userId, {
@@ -176,6 +211,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post(
+    '/api/animations/jobs',
+    isAuthenticated,
+    requireFeatureEntitlement('animation_generation', { allowedPlans: ANIMATION_ALLOWED_PLANS }),
+    async (req: any, res, next) => {
+      try {
+        const payload = animationJobSchema.parse(req.body);
+        const userId = resolveUserId(req.user);
+        const job = await veo3JobService.createJob(userId, payload);
+        res.status(202).json({ job });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  app.get(
+    '/api/animations/jobs/recent',
+    isAuthenticated,
+    requireFeatureEntitlement('animation_generation', { allowedPlans: ANIMATION_ALLOWED_PLANS }),
+    async (req: any, res, next) => {
+      try {
+        const userId = resolveUserId(req.user);
+        const job = await storage.getMostRecentAnimationRenderJob(userId);
+        if (!job) {
+          return res.status(404).json({ message: 'No animation jobs found.' });
+        }
+        res.json({ job });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  app.post(
+    '/api/admin/features/:featureKey/entitlements',
+    isAuthenticated,
+    requireAdmin,
+    async (req: any, res, next) => {
+      try {
+        const { featureKey } = req.params;
+        const payload = featureEntitlementMutationSchema.parse(req.body);
+        const adminUserId = resolveUserId(req.user);
+
+        const entitlement = await storage.upsertUserFeatureEntitlement({
+          userId: payload.userId,
+          featureKey,
+          isEnabled: payload.enabled ?? false,
+          isAdminOverride: payload.adminOverride ?? false,
+          plan: payload.plan ?? null,
+          grantedReason: payload.grantedReason ?? null,
+          metadata: payload.metadata ?? null,
+          grantedBy: adminUserId,
+        });
+
+        await logger.audit('feature.entitlement.updated', {
+          userId: adminUserId,
+          resourceType: 'feature',
+          resourceId: featureKey,
+          metadata: {
+            targetUserId: payload.userId,
+            isEnabled: entitlement.isEnabled,
+            isAdminOverride: entitlement.isAdminOverride,
+            plan: entitlement.plan,
+          },
+        });
+
+        res.json({ entitlement });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  app.delete(
+    '/api/admin/features/:featureKey/entitlements/:userId',
+    isAuthenticated,
+    requireAdmin,
+    async (req: any, res, next) => {
+      try {
+        const { featureKey, userId: targetUserId } = req.params;
+        const adminUserId = resolveUserId(req.user);
+        const removed = await storage.removeUserFeatureEntitlement(targetUserId, featureKey);
+
+        await logger.audit('feature.entitlement.removed', {
+          userId: adminUserId,
+          resourceType: 'feature',
+          resourceId: featureKey,
+          metadata: { targetUserId, removed },
+        });
+
+        if (!removed) {
+          return res.status(404).json({ message: 'Entitlement not found.' });
+        }
+
+        res.status(204).send();
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
   // Animation job status routes
   app.get('/api/animation-jobs', isAuthenticated, (req: any, res) => {
     const userId = getUserId(req.user);
@@ -252,7 +388,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update user profile image
   app.put("/api/auth/user/profile-image", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const { imageURL } = req.body;
 
       if (!imageURL) {
@@ -287,7 +423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update user banner image
   app.put("/api/auth/user/banner-image", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const { imageURL } = req.body;
 
       if (!imageURL) {
@@ -347,7 +483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Project routes
   app.post("/api/projects", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const projectData = insertProjectSchema.parse(req.body);
       const project = await storage.createProject(userId, projectData);
       res.json(project);
@@ -359,7 +495,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/projects", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const projects = await storage.getUserProjects(userId);
       res.json(projects);
     } catch (error) {
@@ -370,7 +506,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/projects/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const project = await storage.getProject(req.params.id);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
@@ -384,7 +520,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/projects/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const project = await storage.getProject(req.params.id);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
@@ -402,7 +538,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/projects/:id", isAuthenticated, async (req: any, res) => {
     try {
       const project = await storage.getProject(req.params.id);
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -419,7 +555,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/projects/:projectId/characters", isAuthenticated, async (req: any, res) => {
     try {
       const project = await storage.getProject(req.params.projectId);
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -461,7 +597,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/projects/:projectId/characters", isAuthenticated, async (req: any, res) => {
     try {
       const project = await storage.getProject(req.params.projectId);
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -488,7 +624,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const project = await storage.getProject(character.projectId);
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -538,7 +674,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const project = await storage.getProject(character.projectId);
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -563,7 +699,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/projects/:projectId/character-visual-analysis", isAuthenticated, async (req: any, res) => {
     try {
       const project = await storage.getProject(req.params.projectId);
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -589,7 +725,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/projects/:projectId/characters/:characterName/appearance-history", isAuthenticated, async (req: any, res) => {
     try {
       const project = await storage.getProject(req.params.projectId);
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -629,7 +765,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const project = await storage.getProject(page.projectId);
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -701,7 +837,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const project = await storage.getProject(page.projectId);
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -1029,7 +1165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/projects/:projectId/visual-consistency-report", isAuthenticated, async (req: any, res) => {
     try {
       const project = await storage.getProject(req.params.projectId);
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -1092,7 +1228,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/projects/:projectId/script-characters", isAuthenticated, async (req: any, res) => {
     try {
       const project = await storage.getProject(req.params.projectId);
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -1108,7 +1244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/projects/:projectId/characters/from-script", isAuthenticated, async (req: any, res) => {
     try {
       const project = await storage.getProject(req.params.projectId);
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -1158,7 +1294,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/projects/:projectId/pages", isAuthenticated, async (req: any, res) => {
     try {
       const project = await storage.getProject(req.params.projectId);
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -1178,7 +1314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/projects/:projectId/pages", isAuthenticated, async (req: any, res) => {
     try {
       const project = await storage.getProject(req.params.projectId);
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -1200,7 +1336,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const project = await storage.getProject(page.projectId);
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -1230,7 +1366,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const project = await storage.getProject(page.projectId);
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -1256,7 +1392,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const project = await storage.getProject(page.projectId);
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -1281,7 +1417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const project = await storage.getProject(page.projectId);
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -1322,7 +1458,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // SECURITY FIX: projectId now comes from authenticated route params, not user-controlled request body
       const projectId = req.params.projectId;
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       
       // Verify user owns the project before any processing
       const project = await storage.getProject(projectId);
@@ -1550,7 +1686,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Log detailed request context
       console.error(`📋 === REQUEST DETAILS ===`);
       console.error(`🏗️ Project ID: ${req.params.projectId}`);
-      console.error(`👤 User ID: ${getUserId(req.user)}`);
+      console.error(`👤 User ID: ${resolveUserId(req.user)}`);
       
       if (req.body) {
         console.error(`📝 Panel ID: ${req.body.panelId || 'Unknown'}`);
@@ -1669,7 +1805,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { characterId } = req.params;
       const { forceRegenerate = false } = req.body;
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
 
       // Get character data
       const character = await storage.getCharacter(characterId);
@@ -1766,7 +1902,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req: any, res) => {
     try {
       const { projectId } = req.params;
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
 
       // Verify project ownership
       const project = await storage.getProject(projectId);
@@ -1809,7 +1945,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         previousPanelImageUrls = [],
         toleranceLevel = 'moderate' 
       } = req.body;
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
 
       // Validate required parameters
       if (!characterId || !characterName || !currentPanelImageUrl) {
@@ -1870,7 +2006,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         validationTasks, // Array of { panelId, characterId, characterName, imageUrl }
         toleranceLevel = 'moderate' 
       } = req.body;
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
 
       // Verify project ownership
       const project = await storage.getProject(projectId);
@@ -1978,7 +2114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         consistencyCheckpoints = [],
         maxInconsistencyScore = 70
       } = req.body;
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
 
       // Verify project ownership
       const project = await storage.getProject(projectId);
@@ -2029,7 +2165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req: any, res) => {
     try {
       const { projectId } = req.params;
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
 
       // Verify project ownership
       const project = await storage.getProject(projectId);
@@ -2132,7 +2268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Verify user ownership
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       if (project.userId !== userId) {
         return res.status(403).json({ message: "Unauthorized access to project" });
       }
@@ -2300,7 +2436,7 @@ Redress this character in the specified outfit while maintaining their core visu
     try {
       // SECURITY FIX: projectId now comes from authenticated route params, not user-controlled request body
       const projectId = req.params.projectId;
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       
       // Verify user owns the project before any processing
       const project = await storage.getProject(projectId);
@@ -2526,7 +2662,7 @@ Redress this character in the specified outfit while maintaining their core visu
     // SECURITY FIX: projectId now from authenticated route params, not user-controlled request body
     async (req: any, res: any, next: any) => {
       try {
-        const userId = getUserId(req.user);
+        const userId = resolveUserId(req.user);
         const projectId = req.params.projectId;
         const panelCount = req.body?.panels?.length || 0;
         
@@ -2593,7 +2729,7 @@ Redress this character in the specified outfit while maintaining their core visu
     },
     async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       
       // CRITICAL: Add strict Zod validation for security
       const validationResult = parallelPanelGenerationSchema.safeParse(req.body);
@@ -2634,7 +2770,7 @@ Redress this character in the specified outfit while maintaining their core visu
     // SECURITY FIX: projectId now from authenticated route params, not user-controlled request body
     async (req: any, res: any, next: any) => {
       try {
-        const userId = getUserId(req.user);
+        const userId = resolveUserId(req.user);
         const projectId = req.params.projectId;
         const pageCount = req.body?.pages?.length || 0;
         
@@ -2701,7 +2837,7 @@ Redress this character in the specified outfit while maintaining their core visu
     },
     async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       
       // CRITICAL: Add strict Zod validation for security
       const validationResult = parallelPageGenerationSchema.safeParse(req.body);
@@ -2742,7 +2878,7 @@ Redress this character in the specified outfit while maintaining their core visu
     // SECURITY FIX: projectId now from authenticated route params, not user-controlled request body
     async (req: any, res: any, next: any) => {
       try {
-        const userId = getUserId(req.user);
+        const userId = resolveUserId(req.user);
         const projectId = req.params.projectId;
         const batchCount = req.body?.batches?.length || 0;
         
@@ -2809,7 +2945,7 @@ Redress this character in the specified outfit while maintaining their core visu
     },
     async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       
       // CRITICAL: Add strict Zod validation for security
       const validationResult = parallelBatchGenerationSchema.safeParse(req.body);
@@ -2850,7 +2986,7 @@ Redress this character in the specified outfit while maintaining their core visu
     async (req: any, res) => {
     try {
       const { sessionId } = req.params;
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       
       const status = parallelGenerationService.getSessionStatus(sessionId);
       
@@ -2880,7 +3016,7 @@ Redress this character in the specified outfit while maintaining their core visu
     async (req: any, res) => {
     try {
       const { sessionId } = req.params;
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       
       // SECURITY: Verify session ownership before allowing cancellation
       const sessionOwner = parallelGenerationService.getSessionOwner(sessionId);
@@ -2913,7 +3049,7 @@ Redress this character in the specified outfit while maintaining their core visu
     isAuthenticated,
     async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const sessions = parallelGenerationService.getUserSessions(userId);
       res.json(sessions);
     } catch (error) {
@@ -2928,7 +3064,7 @@ Redress this character in the specified outfit while maintaining their core visu
     async (req: any, res) => {
     try {
       const { sessionId } = req.params;
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       
       // CRITICAL SECURITY: Verify session ownership before allowing SSE connection
       const sessionStatus = parallelGenerationService.getSessionStatus(sessionId);
@@ -3034,7 +3170,7 @@ Redress this character in the specified outfit while maintaining their core visu
     async (req: any, res) => {
     try {
       const project = await storage.getProject(req.params.projectId);
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
       }
@@ -3168,7 +3304,7 @@ Redress this character in the specified outfit while maintaining their core visu
   app.post("/api/projects/:projectId/fix-script", isAuthenticated, async (req: any, res) => {
     try {
       const { projectId } = req.params;
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       
       console.log(`🚨 SCRIPT RECOVERY: Attempting to fix script for project ${projectId}`);
       
@@ -3742,7 +3878,7 @@ Redress this character in the specified outfit while maintaining their core visu
       
       // Verify user owns the project
       const project = await storage.getProject(projectId);
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       console.log(`🐛 Project found:`, project ? "YES" : "NO");
       console.log(`🐛 User ID:`, userId);
       
@@ -3919,7 +4055,7 @@ Redress this character in the specified outfit while maintaining their core visu
     }),
     async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const projectId = req.params.projectId;
       
       // Verify user owns the project
@@ -4012,7 +4148,7 @@ Redress this character in the specified outfit while maintaining their core visu
   // Profile routes
   app.get("/api/profile", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const profile = await storage.getUserProfile(userId);
       res.json(profile);
     } catch (error) {
@@ -4023,7 +4159,7 @@ Redress this character in the specified outfit while maintaining their core visu
 
   app.put("/api/profile", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const profileData = insertUserProfileSchema.parse({
         ...req.body,
         userId,
@@ -4038,7 +4174,7 @@ Redress this character in the specified outfit while maintaining their core visu
 
   app.get("/api/profile/projects", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const projects = await storage.getUserProjectsWithStats(userId);
       res.json(projects);
     } catch (error) {
@@ -4050,7 +4186,7 @@ Redress this character in the specified outfit while maintaining their core visu
   // Project public status
   app.put("/api/projects/:id/public", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const project = await storage.getProject(req.params.id);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
@@ -4068,7 +4204,7 @@ Redress this character in the specified outfit while maintaining their core visu
   // Like/Unlike project
   app.post("/api/projects/:id/like", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const projectId = req.params.id;
       
       // Check if project exists and is public
@@ -4087,7 +4223,7 @@ Redress this character in the specified outfit while maintaining their core visu
 
   app.post("/api/projects/:id/unlike", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const projectId = req.params.id;
       
       await storage.unlikeProject(projectId, userId);
@@ -4119,7 +4255,7 @@ Redress this character in the specified outfit while maintaining their core visu
 
   app.post("/api/projects/:id/comments", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const projectId = req.params.id;
       
       // Check if project exists and is public
@@ -4152,7 +4288,7 @@ Redress this character in the specified outfit while maintaining their core visu
   // Get user's library characters
   app.get("/api/characters/library", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const characters = await storage.getUserLibraryCharacters(userId);
       res.json(characters);
     } catch (error) {
@@ -4164,7 +4300,7 @@ Redress this character in the specified outfit while maintaining their core visu
   // Create library character
   app.post("/api/characters/library", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       
       // Validate character data (without projectId)
       const characterData = {
@@ -4210,7 +4346,7 @@ Redress this character in the specified outfit while maintaining their core visu
   // Update library character
   app.put("/api/characters/library/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const characterId = req.params.id;
       
       const updates = {
@@ -4260,7 +4396,7 @@ Redress this character in the specified outfit while maintaining their core visu
   // Delete library character
   app.delete("/api/characters/library/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const characterId = req.params.id;
       
       const success = await storage.deleteLibraryCharacter(characterId, userId);
@@ -4278,7 +4414,7 @@ Redress this character in the specified outfit while maintaining their core visu
   // Copy library character to project
   app.post("/api/characters/library/:id/copy", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const characterId = req.params.id;
       const { projectId } = req.body;
       
@@ -4483,7 +4619,7 @@ Redress this character in the specified outfit while maintaining their core visu
     }),
     async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const projectId = req.params.id;
       
       // Verify project ownership
@@ -4520,7 +4656,7 @@ Redress this character in the specified outfit while maintaining their core visu
     isAuthenticated, 
     async (req: any, res) => {
     try {
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const projectId = req.params.id;
       
       // Verify project ownership
@@ -4549,7 +4685,7 @@ Redress this character in the specified outfit while maintaining their core visu
       }
 
       // Verify project ownership
-      const userId = getUserId(req.user);
+      const userId = resolveUserId(req.user);
       const project = await storage.getProject(report.projectId);
       if (!project || project.userId !== userId) {
         return res.status(404).json({ message: "Project not found" });
@@ -4583,7 +4719,7 @@ Redress this character in the specified outfit while maintaining their core visu
 
       // Verify project ownership if it's a project character
       if (character.projectId) {
-        const userId = getUserId(req.user);
+        const userId = resolveUserId(req.user);
         const project = await storage.getProject(character.projectId);
         if (!project || project.userId !== userId) {
           return res.status(404).json({ message: "Character not found" });

@@ -13,6 +13,10 @@ import {
   projectComments,
   userCredits,
   creditTransactions,
+  userFeatureEntitlements,
+  animationRenderJobs,
+  veoSafetyOverrideLogs,
+  auditLogs,
   panelVideoRequests,
   panelVideoVersions,
   sceneVideoSequences,
@@ -47,6 +51,14 @@ import {
   type InsertUserCredits,
   type CreditTransaction,
   type InsertCreditTransaction,
+  type UserFeatureEntitlement,
+  type InsertUserFeatureEntitlement,
+  type AnimationRenderJob,
+  type InsertAnimationRenderJob,
+  type VeoSafetyOverrideLog,
+  type InsertVeoSafetyOverrideLog,
+  type AuditLog,
+  type InsertAuditLog,
   type ScriptValidationReport,
   type InsertScriptValidationReport,
   type ValidationIssue,
@@ -193,9 +205,25 @@ export interface IStorage {
   getCreditTransactions(userId: string, limit?: number): Promise<CreditTransaction[]>;
   resetMonthlyCredits(userId: string, monthlyLimit?: number): Promise<UserCredits>;
   grantBonusCredits(userEmail: string, bonusCredits: number): Promise<{success: boolean, newLimit: number, message: string}>;
-  
+
+  // Feature entitlement operations
+  getUserFeatureEntitlements(userId: string): Promise<UserFeatureEntitlement[]>;
+  getUserFeatureEntitlement(userId: string, featureKey: string): Promise<UserFeatureEntitlement | undefined>;
+  upsertUserFeatureEntitlement(params: InsertUserFeatureEntitlement): Promise<UserFeatureEntitlement>;
+  removeUserFeatureEntitlement(userId: string, featureKey: string): Promise<boolean>;
+  hasFeatureAccess(userId: string, featureKey: string, allowedPlans?: string[]): Promise<boolean>;
+
+  // Animation render job operations
+  createAnimationRenderJob(job: InsertAnimationRenderJob): Promise<AnimationRenderJob>;
+  updateAnimationRenderJobStatus(jobId: string, status: string, resultAssetUri?: string | null): Promise<AnimationRenderJob | undefined>;
+  getMostRecentAnimationRenderJob(userId: string): Promise<AnimationRenderJob | undefined>;
+
+  // Compliance logging
+  logVeoSafetyOverride(entry: InsertVeoSafetyOverrideLog): Promise<VeoSafetyOverrideLog>;
+  createAuditLogEntry(entry: InsertAuditLog): Promise<AuditLog>;
+
   // Public projects
-  getPublicProjects(genre?: string): Promise<Array<Project & { 
+  getPublicProjects(genre?: string): Promise<Array<Project & {
     user: Pick<User, 'id' | 'firstName' | 'lastName'>;
     likesCount: number;
     commentsCount: number;
@@ -387,11 +415,17 @@ export class MemStorage implements IStorage {
   private validationReports: Map<string, ScriptValidationReport> = new Map();
   private validationIssues: Map<string, ValidationIssue[]> = new Map();
   private characterConsistencyViolations: Map<string, CharacterConsistencyViolation[]> = new Map();
-  
+
   // Character consistency storage
   private characterAppearanceProfiles: Map<string, CharacterAppearanceProfile> = new Map();
   private characterConsistencyRules: Map<string, CharacterConsistencyRule[]> = new Map();
   private panelCharacterStates: Map<string, PanelCharacterState[]> = new Map();
+
+  // Feature entitlements & compliance storage
+  private featureEntitlements: Map<string, UserFeatureEntitlement[]> = new Map();
+  private renderJobs: Map<string, AnimationRenderJob> = new Map();
+  private safetyOverrides: Map<string, VeoSafetyOverrideLog> = new Map();
+  private auditLogEntries: Map<string, AuditLog> = new Map();
 
   // User operations
   async getUser(id: string): Promise<User | undefined> {
@@ -406,6 +440,8 @@ export class MemStorage implements IStorage {
         const updatedUser: User = {
           ...existingUserById,
           ...userData,
+          role: userData.role || existingUserById.role || 'user',
+          plan: userData.plan || existingUserById.plan || 'free',
           updatedAt: new Date(),
         };
         this.users.set(existingUserById.id, updatedUser);
@@ -420,6 +456,8 @@ export class MemStorage implements IStorage {
         ...existingUserByEmail,
         ...userData,
         id: userData.id || existingUserByEmail.id, // Preserve provided ID or keep existing ID
+        role: userData.role || existingUserByEmail.role || 'user',
+        plan: userData.plan || existingUserByEmail.plan || 'free',
         updatedAt: new Date(),
       };
       // If ID changed, remove old entry and add new one
@@ -437,6 +475,8 @@ export class MemStorage implements IStorage {
       firstName: userData.firstName || null,
       lastName: userData.lastName || null,
       profileImageUrl: userData.profileImageUrl || null,
+      role: userData.role || 'user',
+      plan: userData.plan || 'free',
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -1210,6 +1250,155 @@ export class MemStorage implements IStorage {
     };
   }
 
+  async getUserFeatureEntitlements(userId: string): Promise<UserFeatureEntitlement[]> {
+    return this.featureEntitlements.get(userId) ?? [];
+  }
+
+  async getUserFeatureEntitlement(userId: string, featureKey: string): Promise<UserFeatureEntitlement | undefined> {
+    return (this.featureEntitlements.get(userId) ?? []).find(ent => ent.featureKey === featureKey);
+  }
+
+  async upsertUserFeatureEntitlement(params: InsertUserFeatureEntitlement): Promise<UserFeatureEntitlement> {
+    const list = this.featureEntitlements.get(params.userId) ?? [];
+    const now = new Date();
+    const existingIndex = list.findIndex(ent => ent.featureKey === params.featureKey);
+
+    if (existingIndex >= 0) {
+      const existing = list[existingIndex];
+      const updated: UserFeatureEntitlement = {
+        ...existing,
+        ...params,
+        metadata: params.metadata ?? existing.metadata ?? null,
+        grantedBy: params.grantedBy ?? existing.grantedBy ?? null,
+        grantedReason: params.grantedReason ?? existing.grantedReason ?? null,
+        updatedAt: now,
+      };
+      list[existingIndex] = updated;
+      this.featureEntitlements.set(params.userId, list);
+      return updated;
+    }
+
+    const record: UserFeatureEntitlement = {
+      id: randomUUID(),
+      userId: params.userId,
+      featureKey: params.featureKey,
+      isEnabled: params.isEnabled ?? false,
+      plan: params.plan ?? null,
+      isAdminOverride: params.isAdminOverride ?? false,
+      grantedBy: params.grantedBy ?? null,
+      grantedReason: params.grantedReason ?? null,
+      metadata: params.metadata ?? null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.featureEntitlements.set(params.userId, [...list, record]);
+    return record;
+  }
+
+  async removeUserFeatureEntitlement(userId: string, featureKey: string): Promise<boolean> {
+    const list = this.featureEntitlements.get(userId);
+    if (!list) return false;
+    const next = list.filter(ent => ent.featureKey !== featureKey);
+    this.featureEntitlements.set(userId, next);
+    return next.length !== list.length;
+  }
+
+  async hasFeatureAccess(userId: string, featureKey: string, allowedPlans: string[] = []): Promise<boolean> {
+    const user = this.users.get(userId);
+    if (!user) return false;
+    if ((user.role ?? 'user') === 'admin') {
+      return true;
+    }
+
+    if (allowedPlans.length > 0 && allowedPlans.includes(user.plan ?? '')) {
+      return true;
+    }
+
+    const entitlement = await this.getUserFeatureEntitlement(userId, featureKey);
+    if (!entitlement) {
+      return false;
+    }
+
+    if (entitlement.isAdminOverride) {
+      return true;
+    }
+
+    if (entitlement.isEnabled) {
+      return true;
+    }
+
+    if (entitlement.plan && entitlement.plan === user.plan) {
+      return true;
+    }
+
+    return false;
+  }
+
+  async createAnimationRenderJob(job: InsertAnimationRenderJob): Promise<AnimationRenderJob> {
+    const now = new Date();
+    const record: AnimationRenderJob = {
+      id: randomUUID(),
+      userId: job.userId,
+      prompt: job.prompt,
+      promptDiff: job.promptDiff ?? null,
+      model: job.model ?? null,
+      settings: job.settings ?? null,
+      status: job.status ?? 'pending',
+      resultAssetUri: job.resultAssetUri ?? null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.renderJobs.set(record.id, record);
+    return record;
+  }
+
+  async updateAnimationRenderJobStatus(jobId: string, status: string, resultAssetUri?: string | null): Promise<AnimationRenderJob | undefined> {
+    const existing = this.renderJobs.get(jobId);
+    if (!existing) return undefined;
+
+    const updated: AnimationRenderJob = {
+      ...existing,
+      status,
+      resultAssetUri: resultAssetUri ?? existing.resultAssetUri,
+      updatedAt: new Date(),
+    };
+    this.renderJobs.set(jobId, updated);
+    return updated;
+  }
+
+  async getMostRecentAnimationRenderJob(userId: string): Promise<AnimationRenderJob | undefined> {
+    const jobs = Array.from(this.renderJobs.values()).filter(job => job.userId === userId);
+    return jobs.sort((a, b) => (b.createdAt?.getTime?.() ?? 0) - (a.createdAt?.getTime?.() ?? 0))[0];
+  }
+
+  async logVeoSafetyOverride(entry: InsertVeoSafetyOverrideLog): Promise<VeoSafetyOverrideLog> {
+    const record: VeoSafetyOverrideLog = {
+      id: randomUUID(),
+      renderJobId: entry.renderJobId ?? null,
+      userId: entry.userId,
+      justification: entry.justification ?? null,
+      requestedSettings: entry.requestedSettings,
+      defaultSettings: entry.defaultSettings,
+      createdAt: new Date(),
+    };
+    this.safetyOverrides.set(record.id, record);
+    return record;
+  }
+
+  async createAuditLogEntry(entry: InsertAuditLog): Promise<AuditLog> {
+    const record: AuditLog = {
+      id: randomUUID(),
+      userId: entry.userId ?? null,
+      action: entry.action,
+      resourceType: entry.resourceType ?? null,
+      resourceId: entry.resourceId ?? null,
+      metadata: entry.metadata ?? null,
+      createdAt: new Date(),
+    };
+    this.auditLogEntries.set(record.id, record);
+    return record;
+  }
+
   async getPublicProjects(genre?: string): Promise<any[]> {
     return []; // Not implemented for in-memory storage
   }
@@ -1796,6 +1985,8 @@ export class DatabaseStorage implements IStorage {
           .values({
             ...userData,
             id: userData.id, // Explicitly set the ID to override column default
+            role: userData.role ?? 'user',
+            plan: userData.plan ?? 'free',
           })
           .onConflictDoUpdate({
             target: users.id,
@@ -1804,6 +1995,8 @@ export class DatabaseStorage implements IStorage {
               firstName: userData.firstName,
               lastName: userData.lastName,
               profileImageUrl: userData.profileImageUrl,
+              ...(userData.role ? { role: userData.role } : {}),
+              ...(userData.plan ? { plan: userData.plan } : {}),
               updatedAt: new Date(),
             },
           })
@@ -1827,6 +2020,8 @@ export class DatabaseStorage implements IStorage {
             firstName: userData.firstName,
             lastName: userData.lastName,
             profileImageUrl: userData.profileImageUrl,
+            role: userData.role ?? 'user',
+            plan: userData.plan ?? 'free',
           })
           .onConflictDoUpdate({
             target: users.email, // Use email as conflict target when no ID provided
@@ -1834,6 +2029,8 @@ export class DatabaseStorage implements IStorage {
               firstName: userData.firstName,
               lastName: userData.lastName,
               profileImageUrl: userData.profileImageUrl,
+              ...(userData.role ? { role: userData.role } : {}),
+              ...(userData.plan ? { plan: userData.plan } : {}),
               updatedAt: new Date(),
             },
           })
@@ -3113,6 +3310,176 @@ export class DatabaseStorage implements IStorage {
         message: `Failed to grant credits: ${error instanceof Error ? error.message : 'Unknown error'}`
       };
     }
+  }
+
+  async getUserFeatureEntitlements(userId: string): Promise<UserFeatureEntitlement[]> {
+    return await db
+      .select()
+      .from(userFeatureEntitlements)
+      .where(eq(userFeatureEntitlements.userId, userId));
+  }
+
+  async getUserFeatureEntitlement(userId: string, featureKey: string): Promise<UserFeatureEntitlement | undefined> {
+    const [entitlement] = await db
+      .select()
+      .from(userFeatureEntitlements)
+      .where(
+        and(
+          eq(userFeatureEntitlements.userId, userId),
+          eq(userFeatureEntitlements.featureKey, featureKey)
+        )
+      )
+      .limit(1);
+    return entitlement || undefined;
+  }
+
+  async upsertUserFeatureEntitlement(params: InsertUserFeatureEntitlement): Promise<UserFeatureEntitlement> {
+    const now = new Date();
+    const [record] = await db
+      .insert(userFeatureEntitlements)
+      .values({
+        userId: params.userId,
+        featureKey: params.featureKey,
+        isEnabled: params.isEnabled ?? false,
+        plan: params.plan ?? null,
+        isAdminOverride: params.isAdminOverride ?? false,
+        grantedBy: params.grantedBy ?? null,
+        grantedReason: params.grantedReason ?? null,
+        metadata: params.metadata ?? null,
+      })
+      .onConflictDoUpdate({
+        target: [userFeatureEntitlements.userId, userFeatureEntitlements.featureKey],
+        set: {
+          isEnabled: params.isEnabled ?? false,
+          plan: params.plan ?? null,
+          isAdminOverride: params.isAdminOverride ?? false,
+          grantedBy: params.grantedBy ?? null,
+          grantedReason: params.grantedReason ?? null,
+          metadata: params.metadata ?? null,
+          updatedAt: now,
+        },
+      })
+      .returning();
+
+    return record;
+  }
+
+  async removeUserFeatureEntitlement(userId: string, featureKey: string): Promise<boolean> {
+    const result = await db
+      .delete(userFeatureEntitlements)
+      .where(
+        and(
+          eq(userFeatureEntitlements.userId, userId),
+          eq(userFeatureEntitlements.featureKey, featureKey)
+        )
+      );
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async hasFeatureAccess(userId: string, featureKey: string, allowedPlans: string[] = []): Promise<boolean> {
+    const user = await this.getUser(userId);
+    if (!user) {
+      return false;
+    }
+
+    if (user.role === 'admin') {
+      return true;
+    }
+
+    if (allowedPlans.length > 0 && allowedPlans.includes(user.plan ?? '')) {
+      return true;
+    }
+
+    const entitlement = await this.getUserFeatureEntitlement(userId, featureKey);
+    if (!entitlement) {
+      return false;
+    }
+
+    if (entitlement.isAdminOverride) {
+      return true;
+    }
+
+    if (entitlement.isEnabled) {
+      return true;
+    }
+
+    if (entitlement.plan && entitlement.plan === user.plan) {
+      return true;
+    }
+
+    return false;
+  }
+
+  async createAnimationRenderJob(job: InsertAnimationRenderJob): Promise<AnimationRenderJob> {
+    const [record] = await db
+      .insert(animationRenderJobs)
+      .values({
+        userId: job.userId,
+        prompt: job.prompt,
+        promptDiff: job.promptDiff ?? null,
+        model: job.model ?? null,
+        settings: job.settings ?? null,
+        status: job.status ?? 'pending',
+        resultAssetUri: job.resultAssetUri ?? null,
+      })
+      .returning();
+
+    return record;
+  }
+
+  async updateAnimationRenderJobStatus(jobId: string, status: string, resultAssetUri?: string | null): Promise<AnimationRenderJob | undefined> {
+    const [record] = await db
+      .update(animationRenderJobs)
+      .set({
+        status,
+        ...(resultAssetUri !== undefined ? { resultAssetUri } : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(animationRenderJobs.id, jobId))
+      .returning();
+
+    return record || undefined;
+  }
+
+  async getMostRecentAnimationRenderJob(userId: string): Promise<AnimationRenderJob | undefined> {
+    const [record] = await db
+      .select()
+      .from(animationRenderJobs)
+      .where(eq(animationRenderJobs.userId, userId))
+      .orderBy(desc(animationRenderJobs.createdAt))
+      .limit(1);
+
+    return record || undefined;
+  }
+
+  async logVeoSafetyOverride(entry: InsertVeoSafetyOverrideLog): Promise<VeoSafetyOverrideLog> {
+    const [record] = await db
+      .insert(veoSafetyOverrideLogs)
+      .values({
+        renderJobId: entry.renderJobId ?? null,
+        userId: entry.userId,
+        justification: entry.justification ?? null,
+        requestedSettings: entry.requestedSettings,
+        defaultSettings: entry.defaultSettings,
+      })
+      .returning();
+
+    return record;
+  }
+
+  async createAuditLogEntry(entry: InsertAuditLog): Promise<AuditLog> {
+    const [record] = await db
+      .insert(auditLogs)
+      .values({
+        userId: entry.userId ?? null,
+        action: entry.action,
+        resourceType: entry.resourceType ?? null,
+        resourceId: entry.resourceId ?? null,
+        metadata: entry.metadata ?? null,
+      })
+      .returning();
+
+    return record;
   }
 
   // Public projects with like/comment counts

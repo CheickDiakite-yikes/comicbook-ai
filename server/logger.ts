@@ -1,4 +1,12 @@
 import { inspect } from "util";
+import { storage } from "./storage";
+
+interface AuditLogContext {
+  userId?: string | null;
+  resourceType?: string;
+  resourceId?: string;
+  metadata?: LogMetadata;
+}
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -100,6 +108,33 @@ export class AppLogger {
     }
 
     this.write("error", message, errorOrMetadata);
+  }
+
+  async audit(action: string, context: AuditLogContext = {}) {
+    const { userId = null, resourceType, resourceId, metadata } = context;
+    this.write("info", `AUDIT ${action}`, {
+      userId,
+      resourceType,
+      resourceId,
+      metadata,
+    });
+
+    try {
+      await storage.createAuditLogEntry({
+        action,
+        userId,
+        resourceType,
+        resourceId,
+        metadata: metadata ?? null,
+      });
+    } catch (error) {
+      this.error("Failed to persist audit log entry", error as Error, {
+        action,
+        userId,
+        resourceType,
+        resourceId,
+      });
+    }
   }
 
   private shouldLog(level: LogLevel) {

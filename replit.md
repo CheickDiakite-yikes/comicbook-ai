@@ -120,3 +120,18 @@ The panel animation workflow provides asynchronous Veo3 video renders for any ge
 **Server Logs**: Use `refresh_all_logs` tool for backend errors, API responses, database queries
 **Browser Console**: Check for frontend errors, generation debug output, network failures
 **Pattern**: "Failed to fetch" errors usually indicate JSON parsing issues in frontend code
+
+## Secrets Management
+
+### Veo Credentials
+
+- Store Veo access tokens using the existing environment secret path (`VEO_API_KEY`). The backend automatically falls back to `GEMINI_API_KEY` if a dedicated Veo key is not configured.
+- Optional project metadata can be provided through `VEO_PROJECT_ID` and `VEO_LOCATION` when regional scoping is required by the API.
+
+#### Rotation Procedure
+
+1. Generate a new Veo API key in Google AI Studio.
+2. Add the new value to the secrets manager as `VEO_API_KEY_NEW`, deploy, and trigger a smoke test render to validate the credentials.
+3. Update the primary `VEO_API_KEY` entry with the new value and remove the temporary secret after validation succeeds.
+4. Document the rotation (date, operator, justification) in the compliance log and record an admin audit event through the feature entitlement endpoint for traceability.
+5. Rotate related service accounts and update `VEO_PROJECT_ID`/`VEO_LOCATION` if the new key is bound to a different project or region.
