@@ -22,6 +22,7 @@ interface ExtendedRequest extends Request {
     operationType: string;
     creditsDeducted: number;
     remainingCredits: number;
+    renderCount: number;
   };
 }
 
@@ -38,6 +39,14 @@ const createMockRes = (): Response => {
   const res = {} as any;
   res.status = jest.fn().mockReturnValue(res);
   res.json = jest.fn().mockReturnValue(res);
+  res.setHeader = jest.fn();
+  res.locals = {};
+  res.on = jest.fn().mockImplementation((event, handler) => {
+    if (event === 'finish') {
+      res.__onFinish = handler;
+    }
+    return res;
+  });
   return res as Response;
 };
 
@@ -48,6 +57,10 @@ describe('Credit Enforcement Security Tests', () => {
     jest.clearAllMocks();
     // Mock storage globally
     (global as any).storage = mockStorage;
+    mockStorage.getCurrentMonthCredits.mockResolvedValue({
+      monthlyLimit: 100,
+      creditsUsed: 0,
+    });
   });
 
   describe('CRITICAL: Project ID Extraction Fix', () => {
@@ -110,7 +123,6 @@ describe('Credit Enforcement Security Tests', () => {
       );
       const res = createMockRes();
 
-      mockStorage.hasEnoughCredits.mockResolvedValue(false);
       mockStorage.getCurrentMonthCredits.mockResolvedValue({
         monthlyLimit: 100,
         creditsUsed: 95
@@ -142,7 +154,10 @@ describe('Credit Enforcement Security Tests', () => {
       );
       const res = createMockRes();
 
-      mockStorage.hasEnoughCredits.mockResolvedValue(true);
+      mockStorage.getCurrentMonthCredits.mockResolvedValue({
+        monthlyLimit: 100,
+        creditsUsed: 10
+      });
       mockStorage.deductCredits.mockResolvedValue({
         success: true,
         remainingCredits: 50
@@ -161,8 +176,10 @@ describe('Credit Enforcement Security Tests', () => {
       expect(req.creditInfo).toEqual({
         operationType: 'panel_generation',
         creditsDeducted: CREDIT_COSTS.panel_generation,
-        remainingCredits: 50
+        remainingCredits: 50,
+        renderCount: 1
       });
+      expect(res.setHeader).toHaveBeenCalledWith('X-Remaining-Credits', '50');
     });
 
     it('should BYPASS credit check for admin users', async () => {
@@ -216,7 +233,10 @@ describe('Credit Enforcement Security Tests', () => {
       );
       const res = createMockRes();
 
-      mockStorage.hasEnoughCredits.mockResolvedValue(true);
+      mockStorage.getCurrentMonthCredits.mockResolvedValue({
+        monthlyLimit: 100,
+        creditsUsed: 10
+      });
       mockStorage.deductCredits.mockResolvedValue({
         success: false
       });
