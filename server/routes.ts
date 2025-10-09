@@ -30,6 +30,7 @@ import { ContinuityContextService } from "./services/ContinuityContextService";
 import { SharedStateManager } from "./parallel-processing/SharedStateManager";
 import { PanelVisualAnalysisService } from "./services/PanelVisualAnalysisService";
 import { MultiPageConsistencyTracker } from "./MultiPageConsistencyTracker";
+import { AnimationJobError, veo3JobService } from "./services/Veo3JobService";
 import { z } from "zod";
 import { requireCredits, getProjectIdFromParams, getProjectIdFromBody, getPanelIdFromBody, getPageIdFromRequest, createOperationMetadata, calculateParallelCredits } from "./creditMiddleware";
 import { isSocialCrawler, isLinkPreviewRequest } from "./utils/socialCrawlers";
@@ -160,17 +161,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = getUserId(req.user);
       const { firstName, lastName } = req.body;
-      
+
       const updatedUser = await storage.updateUser(userId, {
         firstName: firstName || null,
         lastName: lastName || null,
       });
-      
+
       res.json(updatedUser);
     } catch (error) {
       console.error("Error updating user:", error);
       res.status(500).json({ message: "Failed to update user" });
     }
+  });
+
+  // Animation job status routes
+  app.get('/api/animation-jobs', isAuthenticated, (req: any, res) => {
+    const userId = getUserId(req.user);
+    const jobs = veo3JobService.getJobsForUser(userId);
+    res.json({ jobs });
+  });
+
+  app.post('/api/animation-jobs/:jobId/retry', isAuthenticated, (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const jobId = req.params.jobId;
+      const job = veo3JobService.retryJob(jobId, userId, req.body?.metadata);
+      res.json({ job });
+    } catch (error) {
+      if (error instanceof AnimationJobError) {
+        return res.status(error.statusCode).json({ message: error.message });
+      }
+
+      console.error('Error retrying animation job:', error);
+      res.status(500).json({ message: 'Failed to retry animation job' });
+    }
+  });
+
+  app.get('/api/animation-jobs/stream', isAuthenticated, (req: any, res) => {
+    const userId = getUserId(req.user);
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    res.flushHeaders?.();
+
+    const sendSnapshot = () => {
+      const snapshot = veo3JobService.getJobsForUser(userId);
+      res.write(`event: snapshot\ndata: ${JSON.stringify(snapshot)}\n\n`);
+    };
+
+    const heartbeat = setInterval(() => {
+      res.write(`event: heartbeat\ndata: {"ts":${Date.now()}}\n\n`);
+    }, 25000);
+
+    const unsubscribe = veo3JobService.subscribe((job) => {
+      if (job.userId !== userId) {
+        return;
+      }
+
+      res.write(`event: status\ndata: ${JSON.stringify(job)}\n\n`);
+    });
+
+    sendSnapshot();
+
+    const close = () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+      res.end();
+    };
+
+    req.on('close', close);
+    req.on('error', close);
   });
 
   // Image upload routes
