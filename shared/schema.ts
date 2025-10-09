@@ -779,6 +779,56 @@ export const validationResultSchema = z.object({
   })),
 });
 
+export const panelVideoRequests = pgTable(
+  "panel_video_requests",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    panelId: varchar("panel_id").notNull().references(() => panels.id),
+    model: varchar("model").notNull(),
+    modelVariant: varchar("model_variant"),
+    prompt: text("prompt").notNull(),
+    operationName: varchar("operation_name"),
+    status: varchar("status").notNull().default("queued"),
+    retryCount: integer("retry_count").notNull().default(0),
+    maxRetries: integer("max_retries").notNull().default(3),
+    failureReason: text("failure_reason"),
+    requestConfig: jsonb("request_config"),
+    requestPayload: jsonb("request_payload"),
+    nextPollAt: timestamp("next_poll_at"),
+    lastPolledAt: timestamp("last_polled_at"),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => ({
+    panelStatusIdx: index("panel_video_requests_status_idx").on(
+      table.status,
+      table.nextPollAt,
+    ),
+    panelIdIdx: index("panel_video_requests_panel_idx").on(table.panelId),
+  }),
+);
+
+export const panelVideoVersions = pgTable(
+  "panel_video_versions",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    requestId: varchar("request_id").notNull().references(() => panelVideoRequests.id),
+    videoPath: varchar("video_path").notNull(),
+    posterPath: varchar("poster_path"),
+    durationMs: integer("duration_ms"),
+    metadata: jsonb("metadata"),
+    videoPrimedAt: timestamp("video_primed_at"),
+    posterPrimedAt: timestamp("poster_primed_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    panelVideoRequestIdx: index("panel_video_versions_request_idx").on(
+      table.requestId,
+    ),
+  }),
+);
+
 // Types
 export type UpsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -818,6 +868,10 @@ export type ProjectLike = typeof projectLikes.$inferSelect;
 export type InsertProjectLike = z.infer<typeof insertProjectLikeSchema>;
 export type ProjectComment = typeof projectComments.$inferSelect;
 export type InsertProjectComment = z.infer<typeof insertProjectCommentSchema>;
+export type PanelVideoRequest = typeof panelVideoRequests.$inferSelect;
+export type InsertPanelVideoRequest = typeof panelVideoRequests.$inferInsert;
+export type PanelVideoVersion = typeof panelVideoVersions.$inferSelect;
+export type InsertPanelVideoVersion = typeof panelVideoVersions.$inferInsert;
 export type UserFollow = typeof userFollows.$inferSelect;
 export type InsertUserFollow = z.infer<typeof insertUserFollowSchema>;
 
