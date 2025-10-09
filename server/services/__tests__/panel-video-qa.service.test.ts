@@ -1,8 +1,58 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
-import { PanelVideoQAService } from '../PanelVideoQAService';
+import { PanelVideoQAService, type PanelVideoQAStorage } from '../PanelVideoQAService';
 import { VisualContinuityService, VideoVersionAnalysis } from '../VisualContinuityService';
-import type { IStorage } from '../../storage';
-import type { PanelVideoVersion, PanelVideoQaResult } from '@shared/schema';
+
+interface PanelVideoVersionRecord {
+  id: string;
+  panelId: string;
+  versionLabel: string | null;
+  storageKey: string | null;
+  posterFrameUrl: string;
+  thumbnailUrls: string[];
+  durationMs: number | null;
+  frameRate: number | null;
+  timelineOrder: number | null;
+  metadata: Record<string, unknown> | null;
+  requestId: string;
+  videoPath: string;
+  posterPath: string;
+  videoPrimedAt: Date | null;
+  posterPrimedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface PanelVideoQaResultRecord {
+  id: string;
+  videoVersionId: string;
+  qualityScore: number;
+  driftWarnings: unknown;
+  issues: unknown;
+  continuityContextSnapshot: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+type UpsertPanelVideoVersionParams = {
+  id?: string;
+  panelId: string;
+  versionLabel?: string | null;
+  storageKey?: string | null;
+  posterFrameUrl: string;
+  thumbnailUrls?: string[];
+  durationMs?: number | null;
+  frameRate?: number | null;
+  timelineOrder?: number | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+type StorePanelVideoQaResultParams = {
+  videoVersionId: string;
+  qualityScore: number;
+  continuityContextSnapshot: unknown;
+  driftWarnings?: unknown;
+  issues?: unknown;
+};
 
 describe('PanelVideoQAService', () => {
   afterEach(() => {
@@ -10,43 +60,52 @@ describe('PanelVideoQAService', () => {
   });
 
   it('persists QA results with continuity snapshots', async () => {
-    const upsertPanelVideoVersion = jest.fn<Promise<PanelVideoVersion>, any[]>(async (input) => ({
-      id: input.id ?? 'v1',
-      panelId: input.panelId,
-      versionLabel: input.versionLabel ?? null,
-      storageKey: input.storageKey ?? null,
-      posterFrameUrl: input.posterFrameUrl,
-      thumbnailUrls: input.thumbnailUrls ?? [],
-      durationMs: input.durationMs ?? null,
-      frameRate: input.frameRate ?? null,
-      timelineOrder: input.timelineOrder ?? null,
-      metadata: input.metadata ?? null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }));
+    const upsertPanelVideoVersion = jest.fn(
+      async (input: UpsertPanelVideoVersionParams): Promise<PanelVideoVersionRecord> => ({
+        id: input.id ?? 'v1',
+        panelId: input.panelId,
+        versionLabel: input.versionLabel ?? null,
+        storageKey: input.storageKey ?? null,
+        posterFrameUrl: input.posterFrameUrl,
+        thumbnailUrls: input.thumbnailUrls ?? [],
+        durationMs: input.durationMs ?? null,
+        frameRate: input.frameRate ?? null,
+        timelineOrder: input.timelineOrder ?? null,
+        metadata: input.metadata ?? null,
+        requestId: 'req-1',
+        videoPath: '/videos/v1.mp4',
+        posterPath: '/videos/v1.jpg',
+        videoPrimedAt: null,
+        posterPrimedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+    );
 
-    const storePanelVideoQaResult = jest.fn<Promise<PanelVideoQaResult>, any[]>(async ({
-      videoVersionId,
-      qualityScore,
-      continuityContextSnapshot,
-      driftWarnings,
-      issues,
-    }) => ({
-      id: 'qa-1',
-      videoVersionId,
-      qualityScore,
-      driftWarnings,
-      issues,
-      continuityContextSnapshot,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }));
+    const storePanelVideoQaResult = jest.fn(
+      async ({
+        videoVersionId,
+        qualityScore,
+        continuityContextSnapshot,
+        driftWarnings,
+        issues,
+      }: StorePanelVideoQaResultParams): Promise<PanelVideoQaResultRecord> => ({
+        id: 'qa-1',
+        videoVersionId,
+        qualityScore,
+        driftWarnings: driftWarnings ?? [],
+        issues: issues ?? [],
+        continuityContextSnapshot,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+    );
 
-    const storage = {
+    const storage: PanelVideoQAStorage = {
       upsertPanelVideoVersion,
       storePanelVideoQaResult,
-      getPanelVideoVersionsWithQA: jest.fn(),
-    } as unknown as IStorage;
+      getPanelVideoVersionsWithQA: jest.fn(async () => []),
+    };
 
     const visualService = new VisualContinuityService();
 
