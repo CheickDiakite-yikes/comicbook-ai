@@ -7,6 +7,7 @@ import PanelEditor from "@/components/panel-editor";
 import LayoutChangeModal from "@/components/layout-change-modal";
 import ComicPageLayout from "@/components/comic-page-layout";
 import StructuredScriptViewer from "@/components/structured-script-viewer";
+import { PanelAnimationTimeline } from "@/components/panel-animation/PanelAnimationTimeline";
 import { ComicReader } from "@/components/comic-reader";
 import { ShareDialog } from "@/components/share-dialog";
 import { exportComicAsPDF, exportCurrentPage } from "@/lib/comic-export";
@@ -1444,21 +1445,10 @@ export default function Editor() {
 
 
                   <TabsContent value="animate" className="space-y-4">
-                    <div className="flex items-center justify-center min-h-[400px]">
-                      <div className="text-center max-w-md mx-auto p-8">
-                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 flex items-center justify-center">
-                          <Zap className="h-8 w-8 text-purple-600 dark:text-purple-400" />
-                        </div>
-                        <h3 className="text-lg font-semibold mb-2">Panel Animation Studio</h3>
-                        <p className="text-muted-foreground mb-4">
-                          Bring your comic panels to life with smooth transitions, character movement, and dynamic effects.
-                        </p>
-                        <div className="inline-flex items-center px-3 py-1.5 rounded-full bg-muted text-sm text-muted-foreground">
-                          <Zap className="h-3 w-3 mr-1" />
-                          Coming Soon!
-                        </div>
-                      </div>
-                    </div>
+                    <PanelAnimationTimeline
+                      panelId={currentPanelData?.id}
+                      panelNumber={selectedPanel ?? undefined}
+                    />
                   </TabsContent>
                 </Tabs>
 

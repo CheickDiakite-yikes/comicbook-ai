@@ -53,6 +53,12 @@ import {
   type CharacterAppearanceProfile,
   type CharacterConsistencyRule,
   type PanelCharacterState,
+  panelVideoVersions,
+  panelVideoQaResults,
+  type PanelVideoVersion,
+  type InsertPanelVideoVersion,
+  type PanelVideoQaResult,
+  type InsertPanelVideoQaResult,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -269,6 +275,28 @@ export interface IStorage {
     analysisTimestamp: Date;
   }): Promise<PanelCharacterState[]>;
 
+  // Panel animation QA operations
+  upsertPanelVideoVersion(version: {
+    id?: string;
+    panelId: string;
+    versionLabel?: string | null;
+    storageKey?: string | null;
+    posterFrameUrl: string;
+    thumbnailUrls?: string[];
+    durationMs?: number | null;
+    frameRate?: number | null;
+    timelineOrder?: number | null;
+    metadata?: Record<string, unknown> | null;
+  }): Promise<PanelVideoVersion>;
+  getPanelVideoVersionsWithQA(panelId: string): Promise<Array<{ version: PanelVideoVersion; qaResult?: PanelVideoQaResult }>>;
+  storePanelVideoQaResult(result: {
+    videoVersionId: string;
+    qualityScore: number;
+    continuityContextSnapshot: any;
+    driftWarnings?: any;
+    issues?: any;
+  }): Promise<PanelVideoQaResult>;
+
   // Batch visual analysis operations
   getCharacterVisualHistoryDetailed(characterId: string, limit?: number): Promise<Array<{
     panelId: string;
@@ -315,7 +343,9 @@ export class MemStorage implements IStorage {
   private characters: Map<string, Character> = new Map();
   private pages: Map<string, Page> = new Map();
   private panels: Map<string, Panel> = new Map();
-  
+  private panelVideoVersionsMap: Map<string, PanelVideoVersion> = new Map();
+  private panelVideoQaResultsMap: Map<string, PanelVideoQaResult> = new Map();
+
   // Validation storage
   private validationReports: Map<string, ScriptValidationReport> = new Map();
   private validationIssues: Map<string, ValidationIssue[]> = new Map();
@@ -1339,6 +1369,85 @@ export class MemStorage implements IStorage {
     }
 
     return results;
+  }
+
+  async upsertPanelVideoVersion(version: {
+    id?: string;
+    panelId: string;
+    versionLabel?: string | null;
+    storageKey?: string | null;
+    posterFrameUrl: string;
+    thumbnailUrls?: string[];
+    durationMs?: number | null;
+    frameRate?: number | null;
+    timelineOrder?: number | null;
+    metadata?: Record<string, unknown> | null;
+  }): Promise<PanelVideoVersion> {
+    const id = version.id ?? randomUUID();
+    const now = new Date();
+    const existing = this.panelVideoVersionsMap.get(id);
+
+    const record: PanelVideoVersion = {
+      id,
+      panelId: version.panelId,
+      versionLabel: version.versionLabel ?? existing?.versionLabel ?? null,
+      storageKey: version.storageKey ?? existing?.storageKey ?? null,
+      posterFrameUrl: version.posterFrameUrl,
+      thumbnailUrls: version.thumbnailUrls ?? existing?.thumbnailUrls ?? [],
+      durationMs: version.durationMs ?? existing?.durationMs ?? null,
+      frameRate: version.frameRate ?? existing?.frameRate ?? null,
+      timelineOrder: version.timelineOrder ?? existing?.timelineOrder ?? null,
+      metadata: (version.metadata ?? existing?.metadata ?? null) as any,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+
+    this.panelVideoVersionsMap.set(id, record);
+    return record;
+  }
+
+  async getPanelVideoVersionsWithQA(panelId: string): Promise<Array<{ version: PanelVideoVersion; qaResult?: PanelVideoQaResult }>> {
+    const versions = Array.from(this.panelVideoVersionsMap.values()).filter(version => version.panelId === panelId);
+
+    versions.sort((a, b) => {
+      const aOrder = a.timelineOrder ?? a.createdAt?.getTime() ?? 0;
+      const bOrder = b.timelineOrder ?? b.createdAt?.getTime() ?? 0;
+      if (aOrder === bOrder) {
+        return a.id.localeCompare(b.id);
+      }
+      return aOrder - bOrder;
+    });
+
+    return versions.map(version => ({
+      version,
+      qaResult: this.panelVideoQaResultsMap.get(version.id)
+    }));
+  }
+
+  async storePanelVideoQaResult(result: {
+    videoVersionId: string;
+    qualityScore: number;
+    continuityContextSnapshot: any;
+    driftWarnings?: any;
+    issues?: any;
+  }): Promise<PanelVideoQaResult> {
+    const now = new Date();
+    const existing = this.panelVideoQaResultsMap.get(result.videoVersionId);
+    const id = existing?.id ?? randomUUID();
+
+    const record: PanelVideoQaResult = {
+      id,
+      videoVersionId: result.videoVersionId,
+      qualityScore: result.qualityScore,
+      driftWarnings: result.driftWarnings ?? existing?.driftWarnings ?? [],
+      issues: result.issues ?? existing?.issues ?? [],
+      continuityContextSnapshot: result.continuityContextSnapshot,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    } as PanelVideoQaResult;
+
+    this.panelVideoQaResultsMap.set(result.videoVersionId, record);
+    return record;
   }
 
   async getCharacterVisualHistoryDetailed(characterId: string, limit?: number): Promise<Array<{
@@ -3237,8 +3346,120 @@ export class DatabaseStorage implements IStorage {
       
       results.push(state);
     }
-    
+
     return results;
+  }
+
+  async upsertPanelVideoVersion(version: {
+    id?: string;
+    panelId: string;
+    versionLabel?: string | null;
+    storageKey?: string | null;
+    posterFrameUrl: string;
+    thumbnailUrls?: string[];
+    durationMs?: number | null;
+    frameRate?: number | null;
+    timelineOrder?: number | null;
+    metadata?: Record<string, unknown> | null;
+  }): Promise<PanelVideoVersion> {
+    const now = new Date();
+    const id = version.id ?? randomUUID();
+
+    const [record] = await db
+      .insert(panelVideoVersions)
+      .values({
+        id,
+        panelId: version.panelId,
+        versionLabel: version.versionLabel ?? null,
+        storageKey: version.storageKey ?? null,
+        posterFrameUrl: version.posterFrameUrl,
+        thumbnailUrls: version.thumbnailUrls ?? [],
+        durationMs: version.durationMs ?? null,
+        frameRate: version.frameRate ?? null,
+        timelineOrder: version.timelineOrder ?? null,
+        metadata: version.metadata ?? null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: panelVideoVersions.id,
+        set: {
+          panelId: version.panelId,
+          versionLabel: version.versionLabel ?? null,
+          storageKey: version.storageKey ?? null,
+          posterFrameUrl: version.posterFrameUrl,
+          thumbnailUrls: version.thumbnailUrls ?? [],
+          durationMs: version.durationMs ?? null,
+          frameRate: version.frameRate ?? null,
+          timelineOrder: version.timelineOrder ?? null,
+          metadata: version.metadata ?? null,
+          updatedAt: now,
+        },
+      })
+      .returning();
+
+    return record;
+  }
+
+  async getPanelVideoVersionsWithQA(panelId: string): Promise<Array<{ version: PanelVideoVersion; qaResult?: PanelVideoQaResult }>> {
+    const rows = await db
+      .select({
+        version: panelVideoVersions,
+        qa: panelVideoQaResults,
+      })
+      .from(panelVideoVersions)
+      .leftJoin(panelVideoQaResults, eq(panelVideoVersions.id, panelVideoQaResults.videoVersionId))
+      .where(eq(panelVideoVersions.panelId, panelId));
+
+    return rows
+      .map(row => ({
+        version: row.version,
+        qaResult: row.qa ?? undefined,
+      }))
+      .sort((a, b) => {
+        const aOrder = a.version.timelineOrder ?? (a.version.createdAt ? a.version.createdAt.getTime() : 0);
+        const bOrder = b.version.timelineOrder ?? (b.version.createdAt ? b.version.createdAt.getTime() : 0);
+        if (aOrder === bOrder) {
+          return a.version.id.localeCompare(b.version.id);
+        }
+        return aOrder - bOrder;
+      });
+  }
+
+  async storePanelVideoQaResult(result: {
+    videoVersionId: string;
+    qualityScore: number;
+    continuityContextSnapshot: any;
+    driftWarnings?: any;
+    issues?: any;
+  }): Promise<PanelVideoQaResult> {
+    const now = new Date();
+
+    const [record] = await db
+      .insert(panelVideoQaResults)
+      .values({
+        id: randomUUID(),
+        videoVersionId: result.videoVersionId,
+        qualityScore: result.qualityScore,
+        driftWarnings: result.driftWarnings ?? [],
+        issues: result.issues ?? [],
+        continuityContextSnapshot: result.continuityContextSnapshot,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: panelVideoQaResults.videoVersionId,
+        set: {
+          qualityScore: result.qualityScore,
+          driftWarnings: result.driftWarnings ?? [],
+          issues: result.issues ?? [],
+          continuityContextSnapshot: result.continuityContextSnapshot,
+          updatedAt: now,
+        },
+      })
+      .returning();
+
+    return record;
   }
 
   async getCharacterVisualHistoryDetailed(characterId: string, limit?: number): Promise<Array<{

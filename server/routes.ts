@@ -24,6 +24,7 @@ import { ParallelGenerationService } from "./parallel-processing";
 import { ScriptValidationService } from "./services/ScriptValidationService";
 import { SharedStateManager } from "./parallel-processing/SharedStateManager";
 import { PanelVisualAnalysisService } from "./services/PanelVisualAnalysisService";
+import { PanelVideoQAService } from "./services/PanelVideoQAService";
 import { MultiPageConsistencyTracker } from "./MultiPageConsistencyTracker";
 import { z } from "zod";
 import { requireCredits, getProjectIdFromParams, getProjectIdFromBody, getPanelIdFromBody, getPageIdFromRequest, createOperationMetadata, calculateParallelCredits } from "./creditMiddleware";
@@ -76,6 +77,7 @@ const scriptValidationService = new ScriptValidationService(storage);
 const sharedStateManager = new SharedStateManager();
 const multiPageConsistencyTracker = new MultiPageConsistencyTracker();
 const panelVisualAnalysisService = new PanelVisualAnalysisService(storage, multiPageConsistencyTracker);
+const panelVideoQAService = new PanelVideoQAService(storage);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -547,8 +549,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/panels/:panelId/video-qa", isAuthenticated, async (req: any, res) => {
+    try {
+      const panel = await storage.getPanel(req.params.panelId);
+      if (!panel) {
+        return res.status(404).json({ message: "Panel not found" });
+      }
+
+      const page = await storage.getPage(panel.pageId);
+      if (!page) {
+        return res.status(404).json({ message: "Page not found" });
+      }
+
+      const project = await storage.getProject(page.projectId);
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      const timeline = await panelVideoQAService.getTimeline(req.params.panelId);
+      res.json({
+        panelId: req.params.panelId,
+        timeline
+      });
+    } catch (error) {
+      console.error("Error fetching panel video QA timeline:", error);
+      res.status(500).json({ message: "Failed to fetch panel video QA timeline" });
+    }
+  });
+
   // Manually trigger visual analysis for a panel
-  app.post("/api/panels/:panelId/analyze-visual", 
+  app.post("/api/panels/:panelId/analyze-visual",
     isAuthenticated,
     requireCredits({
       operationType: "visual_analysis",
@@ -619,6 +650,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error performing visual analysis:", error);
       res.status(500).json({ message: "Failed to perform visual analysis" });
+    }
+  });
+
+  app.post("/api/panels/:panelId/video-qa/run", isAuthenticated, async (req: any, res) => {
+    try {
+      const { videoVersions, projectCharacters, projectContext } = req.body || {};
+
+      if (!Array.isArray(videoVersions) || videoVersions.length === 0) {
+        return res.status(400).json({ message: "videoVersions array is required" });
+      }
+
+      if (!Array.isArray(projectCharacters) || projectCharacters.length === 0) {
+        return res.status(400).json({ message: "projectCharacters array is required" });
+      }
+
+      const panel = await storage.getPanel(req.params.panelId);
+      if (!panel) {
+        return res.status(404).json({ message: "Panel not found" });
+      }
+
+      const page = await storage.getPage(panel.pageId);
+      if (!page) {
+        return res.status(404).json({ message: "Page not found" });
+      }
+
+      const project = await storage.getProject(page.projectId);
+      const userId = getUserId(req.user);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      const results = await panelVideoQAService.runQA({
+        panelId: req.params.panelId,
+        videoVersions,
+        projectCharacters,
+        projectContext
+      });
+
+      res.json({
+        panelId: req.params.panelId,
+        results
+      });
+    } catch (error) {
+      console.error("Error running panel video QA:", error);
+      res.status(500).json({ message: "Failed to run panel video QA" });
     }
   });
 

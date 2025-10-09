@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals';
+import { afterEach, describe, expect, it } from '@jest/globals';
 import { CharacterAppearanceAnalysis, VisualContinuityService } from '../VisualContinuityService';
 
 describe('VisualContinuityService.extractCharacterAnalyses', () => {
@@ -31,5 +31,98 @@ describe('VisualContinuityService.extractCharacterAnalyses', () => {
     expect(maryJane).toBeDefined();
     expect(maryJane?.isPresent).toBe(true);
     expect(maryJane?.confidence).toBe(87);
+  });
+});
+
+describe('VisualContinuityService video QA analysis', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('flags temporal drift when poster frames diverge', async () => {
+    const service = new VisualContinuityService();
+
+    const heroFrame: CharacterAppearanceAnalysis = {
+      characterName: 'Hero',
+      isPresent: true,
+      confidence: 96,
+      visualDetails: {
+        clothing: {
+          upperBody: 'red jacket',
+          lowerBody: 'black pants',
+          outerwear: undefined,
+          accessories: ['utility belt'],
+          colors: ['red', 'black'],
+          style: 'action-ready',
+        },
+        hair: {
+          color: 'brown',
+          style: 'spiky',
+          length: 'short',
+          texture: 'straight',
+        },
+        physicalAppearance: {
+          skinTone: 'medium',
+          eyeColor: 'green',
+          facialExpression: 'focused',
+          bodyLanguage: 'ready stance',
+          pose: 'heroic',
+        },
+        accessories: {
+          jewelry: [],
+          glasses: false,
+          hat: undefined,
+          other: ['visor'],
+        },
+        location: {
+          position: 'center',
+          interaction: 'charging forward',
+        },
+      },
+    };
+
+    const alteredFrame: CharacterAppearanceAnalysis = {
+      ...heroFrame,
+      visualDetails: {
+        ...heroFrame.visualDetails!,
+        clothing: {
+          ...heroFrame.visualDetails!.clothing,
+          upperBody: 'blue coat',
+          style: 'formal',
+        },
+        hair: {
+          color: 'blonde',
+          style: 'slicked back',
+          length: 'medium',
+          texture: 'wavy',
+        },
+      },
+    };
+
+    jest
+      .spyOn(service as any, 'analyzeFrameCharacters')
+      .mockResolvedValueOnce([heroFrame])
+      .mockResolvedValueOnce([alteredFrame]);
+
+    const response = await service.analyzeCharacterAppearances({
+      panelImageUrls: [],
+      panelVideoVersions: [
+        {
+          versionId: 'video-1',
+          panelNumber: 5,
+          posterFrameUrl: 'frame-1.png',
+          thumbnailUrls: ['frame-2.png'],
+        },
+      ],
+      characterNames: ['Hero'],
+    });
+
+    expect(response.videoVersionAnalyses).toBeDefined();
+    expect(response.videoVersionAnalyses).toHaveLength(1);
+
+    const analysis = response.videoVersionAnalyses![0];
+    expect(analysis.driftDetected).toBe(true);
+    expect(analysis.qualityScore).toBeLessThan(80);
+    expect(analysis.warnings.some(warning => warning.characterName === 'Hero')).toBe(true);
   });
 });

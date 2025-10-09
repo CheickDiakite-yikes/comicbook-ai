@@ -290,6 +290,34 @@ export const characterConsistencyRules = pgTable("character_consistency_rules", 
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const panelVideoVersions = pgTable("panel_video_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  panelId: varchar("panel_id").notNull().references(() => panels.id),
+  versionLabel: varchar("version_label"),
+  storageKey: varchar("storage_key"),
+  posterFrameUrl: varchar("poster_frame_url").notNull(),
+  thumbnailUrls: text("thumbnail_urls").array().default(sql`ARRAY[]::text[]`),
+  durationMs: integer("duration_ms"),
+  frameRate: integer("frame_rate"),
+  timelineOrder: integer("timeline_order"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_panel_video_versions_panel").on(table.panelId),
+]);
+
+export const panelVideoQaResults = pgTable("panel_video_qa_results", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  videoVersionId: varchar("video_version_id").notNull().references(() => panelVideoVersions.id).unique(),
+  qualityScore: integer("quality_score").notNull(),
+  driftWarnings: jsonb("drift_warnings").default(sql`'[]'::jsonb`),
+  issues: jsonb("issues").default(sql`'[]'::jsonb`),
+  continuityContextSnapshot: jsonb("continuity_context_snapshot").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Comic pages table
 export const pages = pgTable("pages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -595,6 +623,18 @@ export const insertPanelCharacterStateSchema = createInsertSchema(panelCharacter
   updatedAt: true,
 });
 
+export const insertPanelVideoVersionSchema = createInsertSchema(panelVideoVersions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPanelVideoQaResultSchema = createInsertSchema(panelVideoQaResults).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertCharacterConsistencyRuleSchema = createInsertSchema(characterConsistencyRules).omit({
   id: true,
   createdAt: true,
@@ -808,6 +848,10 @@ export type CharacterClothingState = typeof characterClothingStates.$inferSelect
 export type InsertCharacterClothingState = z.infer<typeof insertCharacterClothingStateSchema>;
 export type PanelCharacterState = typeof panelCharacterStates.$inferSelect;
 export type InsertPanelCharacterState = z.infer<typeof insertPanelCharacterStateSchema>;
+export type PanelVideoVersion = typeof panelVideoVersions.$inferSelect;
+export type InsertPanelVideoVersion = z.infer<typeof insertPanelVideoVersionSchema>;
+export type PanelVideoQaResult = typeof panelVideoQaResults.$inferSelect;
+export type InsertPanelVideoQaResult = z.infer<typeof insertPanelVideoQaResultSchema>;
 export type CharacterConsistencyRule = typeof characterConsistencyRules.$inferSelect;
 export type InsertCharacterConsistencyRule = z.infer<typeof insertCharacterConsistencyRuleSchema>;
 
