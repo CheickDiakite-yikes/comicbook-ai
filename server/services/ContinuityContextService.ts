@@ -17,30 +17,31 @@ export class ContinuityContextService {
   ) {}
 
   async buildPanelContext(panelId: string): Promise<PanelContinuityContext> {
-import type {
-  Character,
-  FullStructuredScript,
-  PanelCharacterState,
-  ScriptPanelWithDialogue,
-  ScriptPageWithPanels,
-} from "@shared/schema";
-import type {
-  CharacterAppearanceAnalysis,
-  PanelVisualAnalysis,
-} from "./VisualContinuityService";
-import type { IStorage } from "../storage";
+    const panel = await this.storage.getPanel(panelId);
+    if (!panel) {
+      throw new Error(`Panel not found: ${panelId}`);
+    }
 
-export interface ContinuityVideoVersion {
-  id: string;
-  videoUrl: string;
-  label?: string;
-  thumbnailUrl?: string;
-  approvedAt?: string;
-  durationSeconds?: number;
-  aspectRatio?: string;
+    const page = await this.storage.getPage(panel.pageId);
+    const project = page ? await this.storage.getProject(page.projectId) : undefined;
+    const characterStates = await this.storage.getPanelCharacterStates(panelId);
+
+    let sharedContext;
+    if (this.sharedStateManager && project) {
+      sharedContext = await this.sharedStateManager.getProjectState(project.id);
+    }
+
+    return {
+      panel,
+      page,
+      project,
+      characterStates,
+      sharedContext,
+    };
+  }
 }
 
-export interface CharacterSnapshot {
+interface CharacterSnapshot {
   id: string;
   name: string;
   isPresent: boolean;
@@ -206,42 +207,6 @@ interface ScriptPanelMatch {
   panel: ScriptPanelWithDialogue;
   page: ScriptPageWithPanels;
 }
-
-export class ContinuityContextService {
-  constructor(private readonly storage: ContinuityContextStorage) {}
-
-  async buildContextBundle(panelId: string): Promise<ContinuityContextBundle> {
-    const panel = await this.storage.getPanel(panelId);
-    if (!panel) {
-      throw new Error(`Panel ${panelId} not found`);
-    }
-
-    const page = await this.storage.getPage(panel.pageId);
-    const project = page ? await this.storage.getProject(page.projectId) : undefined;
-    const characterStates = await this.storage.getPanelCharacterStates(panelId);
-
-    let sharedContext: any | undefined;
-    if (project && this.sharedStateManager) {
-      try {
-        sharedContext = await this.sharedStateManager.getSharedContext(project.id);
-      } catch (error) {
-        // Swallow shared state errors to avoid blocking job creation.
-        console.warn(
-          `ContinuityContextService: failed to load shared context for project ${project.id}:`,
-          error,
-        );
-      }
-    }
-
-    return {
-      panel,
-      page: page ?? undefined,
-      project: project ?? undefined,
-      characterStates,
-      sharedContext,
-    };
-  }
-    if (!page) {
       throw new Error(`Page ${panel.pageId} not found for panel ${panelId}`);
     }
 

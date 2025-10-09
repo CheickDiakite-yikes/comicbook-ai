@@ -88,7 +88,6 @@ function generateConsistencyRecommendations(characters: any[], pages: any[]): st
 // Initialize services
 const parallelGenerationService = new ParallelGenerationService(storage);
 const scriptValidationService = new ScriptValidationService(storage);
-const continuityContextService = new ContinuityContextService(storage);
 const sharedStateManager = new SharedStateManager();
 const multiPageConsistencyTracker = new MultiPageConsistencyTracker();
 const panelVisualAnalysisService = new PanelVisualAnalysisService(storage, multiPageConsistencyTracker);
@@ -903,6 +902,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const panel = await storage.getPanel(req.params.panelId);
       if (!panel) {
         return res.status(404).json({ message: "Panel not found" });
+      }
+
+      const results = await panelVideoQAService.runQA({
+        panelId: req.params.panelId,
+        videoVersions,
+        projectCharacters,
+        projectContext
+      });
+
+      res.json({
+        panelId: req.params.panelId,
+        results
+      });
+    } catch (error) {
+      console.error("Error running panel video QA:", error);
+      res.status(500).json({ message: "Failed to run panel video QA" });
+    }
+  });
+
   // Panel animation job management
   app.post(
     "/api/animation/panels/:panelId",
@@ -1047,29 +1065,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const page = await storage.getPage(panel.pageId);
       if (!page) {
-        return res.status(404).json({ message: "Page not found" });
-      }
-
-      const project = await storage.getProject(page.projectId);
-      const userId = getUserId(req.user);
-      if (!project || project.userId !== userId) {
-        return res.status(404).json({ message: "Project not found" });
-      }
-
-      const results = await panelVideoQAService.runQA({
-        panelId: req.params.panelId,
-        videoVersions,
-        projectCharacters,
-        projectContext
-      });
-
-      res.json({
-        panelId: req.params.panelId,
-        results
-      });
-    } catch (error) {
-      console.error("Error running panel video QA:", error);
-      res.status(500).json({ message: "Failed to run panel video QA" });
         return res.status(404).json({ message: "Page not found", error: "page_not_found" });
       }
 

@@ -233,23 +233,14 @@ export class Veo3JobService {
     }
 
     return job;
-import { EventEmitter } from "node:events";
-import {
-  AnimationJobHistoryEntry,
-  AnimationJobRecord,
-  AnimationJobUpdate,
-} from "@shared/events";
+  }
 
-export type AnimationJobListener = (job: AnimationJobRecord) => void;
-
-export class AnimationJobError extends Error {
-  constructor(message: string, public statusCode: number = 400) {
-    super(message);
-    this.name = "AnimationJobError";
+  async pollRenderJobStatus(jobId: string, userId: string): Promise<AnimationRenderJob | null> {
+    return await this.storage.getAnimationRenderJobById(jobId);
   }
 }
 
-function deriveProgress(update: AnimationJobUpdate, existing?: AnimationJobRecord) {
+function deriveProgress(update: any, existing?: any) {
   if (update.progress) {
     return update.progress;
   }

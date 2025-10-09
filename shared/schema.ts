@@ -409,30 +409,6 @@ export const panelVideoRequests = pgTable("panel_video_requests", {
   index("idx_panel_video_requests_status").on(table.status),
 ]);
 
-// Generated panel video versions linked to a request
-export const panelVideoVersions = pgTable("panel_video_versions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  requestId: varchar("request_id").notNull().references(() => panelVideoRequests.id, {
-    onDelete: "cascade",
-  }),
-  createdByUserId: varchar("created_by_user_id").references(() => users.id),
-  versionNumber: integer("version_number").notNull().default(1),
-  videoUrl: varchar("video_url"),
-  previewImageUrl: varchar("preview_image_url"),
-  durationSeconds: integer("duration_seconds"),
-  resolution: varchar("resolution"),
-  frameRate: integer("frame_rate"),
-  status: panelVideoVersionStatusEnum("status").notNull().default("draft"),
-  rejectionReason: text("rejection_reason"),
-  notes: text("notes"),
-  metadata: jsonb("metadata"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  index("idx_panel_video_versions_request").on(table.requestId),
-  index("idx_panel_video_versions_status").on(table.status),
-]);
-
 // Scene video sequences assembled from panel video versions
 export const sceneVideoSequences = pgTable("scene_video_sequences", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -798,12 +774,6 @@ export const insertPanelCharacterStateSchema = createInsertSchema(panelCharacter
   updatedAt: true,
 });
 
-export const insertPanelVideoVersionSchema = createInsertSchema(panelVideoVersions).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
 export const insertPanelVideoQaResultSchema = createInsertSchema(panelVideoQaResults).omit({
   id: true,
   createdAt: true,
@@ -1016,56 +986,6 @@ export const validationResultSchema = z.object({
   })),
 });
 
-export const panelVideoRequests = pgTable(
-  "panel_video_requests",
-  {
-    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-    panelId: varchar("panel_id").notNull().references(() => panels.id),
-    model: varchar("model").notNull(),
-    modelVariant: varchar("model_variant"),
-    prompt: text("prompt").notNull(),
-    operationName: varchar("operation_name"),
-    status: varchar("status").notNull().default("queued"),
-    retryCount: integer("retry_count").notNull().default(0),
-    maxRetries: integer("max_retries").notNull().default(3),
-    failureReason: text("failure_reason"),
-    requestConfig: jsonb("request_config"),
-    requestPayload: jsonb("request_payload"),
-    nextPollAt: timestamp("next_poll_at"),
-    lastPolledAt: timestamp("last_polled_at"),
-    completedAt: timestamp("completed_at"),
-    createdAt: timestamp("created_at").defaultNow(),
-    updatedAt: timestamp("updated_at").defaultNow(),
-  },
-  (table) => ({
-    panelStatusIdx: index("panel_video_requests_status_idx").on(
-      table.status,
-      table.nextPollAt,
-    ),
-    panelIdIdx: index("panel_video_requests_panel_idx").on(table.panelId),
-  }),
-);
-
-export const panelVideoVersions = pgTable(
-  "panel_video_versions",
-  {
-    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-    requestId: varchar("request_id").notNull().references(() => panelVideoRequests.id),
-    videoPath: varchar("video_path").notNull(),
-    posterPath: varchar("poster_path"),
-    durationMs: integer("duration_ms"),
-    metadata: jsonb("metadata"),
-    videoPrimedAt: timestamp("video_primed_at"),
-    posterPrimedAt: timestamp("poster_primed_at"),
-    createdAt: timestamp("created_at").defaultNow(),
-  },
-  (table) => ({
-    panelVideoRequestIdx: index("panel_video_versions_request_idx").on(
-      table.requestId,
-    ),
-  }),
-);
-
 // Types
 export type UpsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -1077,14 +997,6 @@ export type InsertPage = z.infer<typeof insertPageSchema>;
 export type Page = typeof pages.$inferSelect;
 export type InsertPanel = z.infer<typeof insertPanelSchema>;
 export type Panel = typeof panels.$inferSelect;
-
-export type PanelVideoRequest = typeof panelVideoRequests.$inferSelect;
-export type InsertPanelVideoRequest = z.infer<typeof insertPanelVideoRequestSchema>;
-export type UpdatePanelVideoRequest = z.infer<typeof updatePanelVideoRequestSchema>;
-
-export type PanelVideoVersion = typeof panelVideoVersions.$inferSelect;
-export type InsertPanelVideoVersion = z.infer<typeof insertPanelVideoVersionSchema>;
-export type UpdatePanelVideoVersion = z.infer<typeof updatePanelVideoVersionSchema>;
 
 export type SceneVideoSequence = typeof sceneVideoSequences.$inferSelect;
 export type InsertSceneVideoSequence = z.infer<typeof insertSceneVideoSequenceSchema>;
@@ -1107,8 +1019,6 @@ export type CharacterClothingState = typeof characterClothingStates.$inferSelect
 export type InsertCharacterClothingState = z.infer<typeof insertCharacterClothingStateSchema>;
 export type PanelCharacterState = typeof panelCharacterStates.$inferSelect;
 export type InsertPanelCharacterState = z.infer<typeof insertPanelCharacterStateSchema>;
-export type PanelVideoVersion = typeof panelVideoVersions.$inferSelect;
-export type InsertPanelVideoVersion = z.infer<typeof insertPanelVideoVersionSchema>;
 export type PanelVideoQaResult = typeof panelVideoQaResults.$inferSelect;
 export type InsertPanelVideoQaResult = z.infer<typeof insertPanelVideoQaResultSchema>;
 export type CharacterConsistencyRule = typeof characterConsistencyRules.$inferSelect;
@@ -1121,10 +1031,6 @@ export type ProjectLike = typeof projectLikes.$inferSelect;
 export type InsertProjectLike = z.infer<typeof insertProjectLikeSchema>;
 export type ProjectComment = typeof projectComments.$inferSelect;
 export type InsertProjectComment = z.infer<typeof insertProjectCommentSchema>;
-export type PanelVideoRequest = typeof panelVideoRequests.$inferSelect;
-export type InsertPanelVideoRequest = typeof panelVideoRequests.$inferInsert;
-export type PanelVideoVersion = typeof panelVideoVersions.$inferSelect;
-export type InsertPanelVideoVersion = typeof panelVideoVersions.$inferInsert;
 export type UserFollow = typeof userFollows.$inferSelect;
 export type InsertUserFollow = z.infer<typeof insertUserFollowSchema>;
 
