@@ -22,6 +22,7 @@ import {
 import { geminiService } from "./gemini";
 import { ParallelGenerationService } from "./parallel-processing";
 import { ScriptValidationService } from "./services/ScriptValidationService";
+import { ContinuityContextService } from "./services/ContinuityContextService";
 import { SharedStateManager } from "./parallel-processing/SharedStateManager";
 import { PanelVisualAnalysisService } from "./services/PanelVisualAnalysisService";
 import { MultiPageConsistencyTracker } from "./MultiPageConsistencyTracker";
@@ -73,6 +74,7 @@ function generateConsistencyRecommendations(characters: any[], pages: any[]): st
 // Initialize services
 const parallelGenerationService = new ParallelGenerationService(storage);
 const scriptValidationService = new ScriptValidationService(storage);
+const continuityContextService = new ContinuityContextService(storage);
 const sharedStateManager = new SharedStateManager();
 const multiPageConsistencyTracker = new MultiPageConsistencyTracker();
 const panelVisualAnalysisService = new PanelVisualAnalysisService(storage, multiPageConsistencyTracker);
@@ -80,6 +82,9 @@ const panelVisualAnalysisService = new PanelVisualAnalysisService(storage, multi
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
+
+  // Expose continuity context service for downstream orchestrators
+  app.locals.continuityContextService = continuityContextService;
 
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
