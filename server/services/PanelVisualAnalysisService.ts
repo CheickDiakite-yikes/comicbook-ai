@@ -1,6 +1,7 @@
 import { VisualContinuityService } from './VisualContinuityService';
 import { IStorage } from '../storage';
 import { PanelCharacterState } from '@shared/schema';
+import { MultiPageConsistencyTracker } from '../MultiPageConsistencyTracker';
 
 /**
  * Service responsible for automatically capturing and storing visual analysis results
@@ -11,10 +12,12 @@ export class PanelVisualAnalysisService {
   private visualContinuityService: VisualContinuityService;
   private storage: IStorage;
   private processingQueue: Map<string, Promise<void>> = new Map();
+  private consistencyTracker?: MultiPageConsistencyTracker;
 
-  constructor(storage: IStorage) {
+  constructor(storage: IStorage, consistencyTracker?: MultiPageConsistencyTracker) {
     this.storage = storage;
     this.visualContinuityService = new VisualContinuityService();
+    this.consistencyTracker = consistencyTracker;
   }
 
   /**
@@ -135,14 +138,24 @@ export class PanelVisualAnalysisService {
 
         // Store the visual analysis results
         const storedStates = await this.storage.storeVisualAnalysisResults(panelId, analysisResults);
-        
+
         console.log(`✅ Successfully stored visual analysis for panel ${panelId}: ${storedStates.length} character states`);
-        
+
         // Log summary of what was captured
         storedStates.forEach(state => {
           const confidence = state.confidenceScore ? `${state.confidenceScore}%` : 'N/A';
           console.log(`  - Character ${state.characterId}: Present=${state.isPresent}, Confidence=${confidence}`);
         });
+
+        if (this.consistencyTracker) {
+          await this.updateMultiPageConsistencyTracker({
+            panelId,
+            imageUrl,
+            storedStates,
+            analysisResults,
+            analysisSummary: analysisResult.characterSummary || []
+          });
+        }
 
         return; // Success - exit retry loop
 
@@ -173,6 +186,111 @@ export class PanelVisualAnalysisService {
     }
     
     throw lastError || new Error(`Visual analysis failed after ${maxRetries + 1} attempts`);
+  }
+
+  private async updateMultiPageConsistencyTracker(params: {
+    panelId: string;
+    imageUrl: string;
+    storedStates: PanelCharacterState[];
+    analysisResults: {
+      characters: Array<{
+        characterId: string;
+        characterName: string;
+        isPresent: boolean;
+        confidence: number;
+        visualDetails?: {
+          clothing: {
+            upperBody: string;
+            lowerBody: string;
+            outerwear?: string;
+            accessories?: string[];
+            colors: string[];
+            style: string;
+          };
+          hair: {
+            color: string;
+            style: string;
+            length: string;
+            texture: string;
+          };
+          physicalAppearance: {
+            skinTone: string;
+            eyeColor?: string;
+            facialExpression: string;
+            bodyLanguage: string;
+            pose: string;
+          };
+          accessories: {
+            jewelry?: string[];
+            glasses?: boolean;
+            hat?: string;
+            other?: string[];
+          };
+          location: {
+            position: string;
+            interaction: string;
+          };
+        };
+      }>;
+    };
+    analysisSummary: Array<{
+      characterName: string;
+      appearedInPanels: number[];
+      consistencyScore: number;
+      commonAppearance: any;
+      variations: Array<{
+        panelNumber: number;
+        changes: string[];
+        significance: 'minor' | 'moderate' | 'major';
+      }>;
+    }>;
+  }): Promise<void> {
+    if (!this.consistencyTracker) return;
+
+    try {
+      const panelRecord = await this.storage.getPanel(params.panelId);
+      const pageRecord = panelRecord?.pageId ? await this.storage.getPage(panelRecord.pageId) : undefined;
+
+      if (!panelRecord || !pageRecord) {
+        console.warn(`⚠️ Unable to update consistency tracker for panel ${params.panelId}: missing panel/page metadata`);
+        return;
+      }
+
+      const summaryMap = new Map(
+        params.analysisSummary.map(summary => [summary.characterName.toLowerCase(), summary])
+      );
+
+      for (const characterResult of params.analysisResults.characters) {
+        const storedState = params.storedStates.find(state => state.characterId === characterResult.characterId);
+        if (!storedState) continue;
+
+        const summary = summaryMap.get(characterResult.characterName.toLowerCase());
+        const consistencyScore = summary?.consistencyScore ?? (storedState.confidenceScore ?? 0);
+
+        const imageReference = panelRecord.imageUrl || params.imageUrl;
+
+        this.consistencyTracker.updateCharacterAppearance(
+          characterResult.characterName,
+          pageRecord.pageNumber,
+          panelRecord.id,
+          {
+            imageUrl: imageReference,
+            prompt: panelRecord.prompt || '',
+            consistencyScore,
+            validationResult: {
+              panelCharacterStateId: storedState.id,
+              isPresent: storedState.isPresent,
+              confidenceScore: storedState.confidenceScore,
+              visualAnalysisPerformed: storedState.visualAnalysisPerformed,
+              pageNumber: pageRecord.pageNumber,
+              panelNumber: panelRecord.panelNumber
+            }
+          }
+        );
+      }
+    } catch (error) {
+      console.error(`❌ Failed to update multi-page consistency tracker for panel ${params.panelId}:`, error);
+    }
   }
 
   /**
