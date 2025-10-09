@@ -80,6 +80,17 @@ export interface GenerateImageRequest {
   }>;
 }
 
+export interface ResolvedCharacterInfo {
+  name: string;
+  role?: string;
+  bio?: string;
+  visualDescriptors?: string;
+  alwaysTraits?: string;
+  neverTraits?: string;
+  colorScheme?: string;
+  referenceImageUrl?: string;
+}
+
 export interface GenerateImageResponse {
   imageUrl: string;
   status: "completed" | "generating" | "failed";
@@ -88,6 +99,8 @@ export interface GenerateImageResponse {
   error?: string;
   errorCategory?: string;
   debugInfo?: any;
+  originalPrompt?: string;
+  resolvedCharacters?: ResolvedCharacterInfo[];
 }
 
 export interface GenerateReferencePortraitRequest {
@@ -510,6 +523,23 @@ export interface GenerateScriptResponse {
 export class GeminiService {
   private objectStorageService = new ObjectStorageService();
   private panelVisualAnalysisService: PanelVisualAnalysisService | null = null;
+
+  private extractResolvedCharactersFromRequest(request: GenerateImageRequest): ResolvedCharacterInfo[] {
+    const characters = request.projectContext?.characters || [];
+
+    return characters
+      .map(character => ({
+        name: character.name,
+        role: character.role,
+        bio: character.bio,
+        visualDescriptors: character.visualDescriptors,
+        alwaysTraits: character.alwaysTraits,
+        neverTraits: character.neverTraits,
+        colorScheme: character.colorScheme,
+        referenceImageUrl: character.referenceImageUrl,
+      }))
+      .filter(character => Boolean(character.name));
+  }
 
   /**
    * Initialize the PanelVisualAnalysisService with storage
@@ -1297,7 +1327,8 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
   async generatePanelImage(request: GenerateImageRequest): Promise<GenerateImageResponse> {
     const startTime = Date.now();
     const isEditMode = !!request.sourceImageUrl;
-    
+    let finalPromptUsed: string | undefined;
+
     // 🔒 RUNTIME CHARACTER VALIDATION GUARD: Validate characters before panel generation
     const { projectId } = request; // SECURITY FIX: Use authenticated projectId from route params, not derived from panelId
     
@@ -1427,7 +1458,9 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
         imageUrl: "",
         status: "failed",
         panelId: request.panelId,
-        error: "Generation blocked - missing authenticated project context. This request must come from a valid project route."
+        error: "Generation blocked - missing authenticated project context. This request must come from a valid project route.",
+        originalPrompt: request.prompt,
+        resolvedCharacters: this.extractResolvedCharactersFromRequest(request),
       };
     }
     
@@ -1476,7 +1509,9 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
             imageUrl: "",
             status: "failed",
             panelId: request.panelId,
-            error: `Panel generation blocked - unknown characters detected: ${errorDetails}. Only these characters are allowed in project: ${validationResult.validCharacters.join(', ')}.`
+            error: `Panel generation blocked - unknown characters detected: ${errorDetails}. Only these characters are allowed in project: ${validationResult.validCharacters.join(', ')}.`,
+            originalPrompt: request.prompt,
+            resolvedCharacters: this.extractResolvedCharactersFromRequest(request),
           };
         }
         
@@ -1761,6 +1796,8 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
       console.log(`🔍 CONTEXT TRACE: Continuity Guidance Available: ${continuityGuidance ? 'Yes' : 'No'}`);
       
       const contextualPrompt = this.buildContextualPrompt(request, isEditMode, continuityGuidance);
+      finalPromptUsed = contextualPrompt;
+      (this as any).lastContextualPrompt = contextualPrompt;
       
       // 🔧 COMPREHENSIVE PROMPT LOGGING
       console.log(`🔍 CONTEXT TRACE: === FINAL CONSTRUCTED PROMPT ===`);
@@ -2005,11 +2042,14 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
             // Don't fail the generation for state update errors
           }
           
-          const result = {
+          const resolvedCharacters = this.extractResolvedCharactersFromRequest(request);
+          const result: GenerateImageResponse = {
             imageUrl: finalImageUrl,
             status: "completed" as const,
             panelId: request.panelId,
             generationId: Date.now().toString(),
+            originalPrompt: finalPromptUsed ?? contextualPrompt,
+            resolvedCharacters,
           };
           
           // 🎯 PHASE 3: VALIDATE CHARACTER CONSISTENCY (OPTIONAL)
@@ -2273,7 +2313,9 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
           duration: duration,
           projectId: projectId,
           panelId: request.panelId
-        }
+        },
+        originalPrompt: finalPromptUsed ?? request.prompt,
+        resolvedCharacters: this.extractResolvedCharactersFromRequest(request),
       };
     }
   }
@@ -2390,6 +2432,8 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
             status: "completed",
             panelId: request.panelId,
             generationId: Date.now().toString(),
+            originalPrompt: backgroundPrompt,
+            resolvedCharacters: [],
           };
         }
       }
@@ -2403,6 +2447,8 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
         status: "failed",
         panelId: request.panelId,
         error: errorMessage,
+        originalPrompt: backgroundPrompt,
+        resolvedCharacters: [],
       };
     }
   }

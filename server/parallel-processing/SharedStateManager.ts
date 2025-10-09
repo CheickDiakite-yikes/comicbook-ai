@@ -235,17 +235,18 @@ export class SharedStateManager extends EventEmitter {
       // to extract character state changes from the generated image
       
       // For now, just update the last seen panel for characters mentioned in the prompt
-      const prompt = this.extractPromptFromResult(result);
-      const mentionedCharacters = this.extractCharacterMentions(prompt, state);
-      
+      const { promptText, resolvedCharacterNames } = this.extractPromptFromResult(result);
+      const mentionedCharacters = this.extractCharacterMentions(promptText, resolvedCharacterNames, state);
+
       for (const characterName of mentionedCharacters) {
         const character = state.characters.get(characterName);
         if (character) {
-          character.lastSeenPanelId = taskId;
+          const panelIdentifier = result.panelId ? String(result.panelId) : taskId;
+          character.lastSeenPanelId = panelIdentifier;
           character.lastUpdated = new Date();
-          
+
           // Update appearance based on generation result
-          this.updateCharacterAppearanceFromResult(character, result, prompt);
+          this.updateCharacterAppearanceFromResult(character, result, promptText);
         }
       }
 
@@ -562,16 +563,62 @@ export class SharedStateManager extends EventEmitter {
   // ProjectId should always be provided explicitly from authenticated sources, 
   // never derived from parsing taskId or other untrusted data
 
-  private extractPromptFromResult(result: GenerateImageResponse): string {
-    // You'd need to store the original prompt in the result or pass it separately
-    return ''; // Placeholder
+  private extractPromptFromResult(result: GenerateImageResponse): { promptText: string; resolvedCharacterNames: string[] } {
+    let promptText = result.originalPrompt;
+
+    if ((!promptText || promptText.trim().length === 0) && result.debugInfo) {
+      const debugInfo = result.debugInfo as Record<string, unknown>;
+      const potentialKeys = ['prompt', 'originalPrompt', 'contextualPrompt', 'finalPrompt'];
+
+      for (const key of potentialKeys) {
+        const value = debugInfo[key];
+        if (typeof value === 'string' && value.trim().length > 0) {
+          promptText = value;
+          break;
+        }
+      }
+
+      if ((!promptText || promptText.trim().length === 0) && typeof debugInfo['request'] === 'object' && debugInfo['request'] !== null) {
+        const requestInfo = debugInfo['request'] as Record<string, unknown>;
+        const requestPrompt = requestInfo['prompt'];
+        if (typeof requestPrompt === 'string' && requestPrompt.trim().length > 0) {
+          promptText = requestPrompt;
+        }
+      }
+    }
+
+    const resolvedCharacterNames = (result.resolvedCharacters || [])
+      .map(character => character.name)
+      .filter((name): name is string => typeof name === 'string' && name.trim().length > 0);
+
+    return {
+      promptText: (promptText || '').toString(),
+      resolvedCharacterNames,
+    };
   }
 
-  private extractCharacterMentions(prompt: string, state: ProjectSharedState): string[] {
-    const characterNames = Array.from(state.characters.keys());
-    return characterNames.filter(name => 
-      prompt.toLowerCase().includes(name.toLowerCase())
-    );
+  private extractCharacterMentions(prompt: string, resolvedCharacterNames: string[], state: ProjectSharedState): string[] {
+    const mentioned = new Set<string>();
+    const normalizedPrompt = prompt.toLowerCase();
+
+    for (const name of state.characters.keys()) {
+      if (normalizedPrompt.includes(name.toLowerCase())) {
+        mentioned.add(name);
+      }
+    }
+
+    for (const resolvedName of resolvedCharacterNames) {
+      const normalizedResolvedName = resolvedName.trim().toLowerCase();
+      if (!normalizedResolvedName) continue;
+
+      for (const characterName of state.characters.keys()) {
+        if (characterName.toLowerCase() === normalizedResolvedName) {
+          mentioned.add(characterName);
+        }
+      }
+    }
+
+    return Array.from(mentioned);
   }
 
   getStats(): {

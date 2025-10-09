@@ -8,6 +8,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { SharedStateManager } from '../parallel-processing/SharedStateManager';
 import { DependencyTracker } from '../parallel-processing/DependencyTracker';
+import { GenerateImageResponse } from '../gemini';
 
 // Mock storage with proper typing
 const mockStorage = {
@@ -268,33 +269,80 @@ describe('Character Consistency Tests', () => {
   });
 
   describe('CRITICAL: Character Consistency Integration', () => {
-    it('should update character states after task completion', async () => {
+    it('should record last seen panel when prompt references a specific character', async () => {
       const projectId = 'test-project';
       const taskId = `project_${projectId}_panel_123`;
-      
+
       mockStorage.getProject.mockResolvedValue({ id: projectId });
       mockStorage.getProjectCharacters.mockResolvedValue([
         {
           id: 'char1',
           name: 'Hero',
           visualDescriptors: 'initial appearance'
+        },
+        {
+          id: 'char2',
+          name: 'Villain',
+          visualDescriptors: 'shadowy figure'
         }
       ]);
 
       await sharedStateManager.initializeProject(projectId, mockStorage as any);
 
-      const result = {
-        status: 'completed' as const,
+      const result: GenerateImageResponse = {
+        status: 'completed',
         imageUrl: 'generated-image-url',
-        panelId: 'panel_123'
+        panelId: 'panel_123',
+        originalPrompt: 'Hero confronts the darkness alone.'
       };
 
-      // Update character states
-      await sharedStateManager.updateCharacterStates(taskId, result);
+      await sharedStateManager.updateCharacterStates(projectId, taskId, result);
 
       const heroState = sharedStateManager.getCharacterState(projectId, 'Hero');
-      expect(heroState?.lastSeenPanelId).toBe(taskId);
+      const villainState = sharedStateManager.getCharacterState(projectId, 'Villain');
+
+      expect(heroState?.lastSeenPanelId).toBe('panel_123');
       expect(heroState?.lastUpdated).toBeDefined();
+      expect(villainState?.lastSeenPanelId).toBeUndefined();
+    });
+
+    it('should use resolved character metadata when prompt is unavailable', async () => {
+      const projectId = 'test-project';
+      const taskId = `project_${projectId}_panel_456`;
+
+      mockStorage.getProject.mockResolvedValue({ id: projectId });
+      mockStorage.getProjectCharacters.mockResolvedValue([
+        {
+          id: 'char1',
+          name: 'Hero',
+          visualDescriptors: 'initial appearance'
+        },
+        {
+          id: 'char2',
+          name: 'Villain',
+          visualDescriptors: 'shadowy figure'
+        }
+      ]);
+
+      await sharedStateManager.initializeProject(projectId, mockStorage as any);
+
+      const result: GenerateImageResponse = {
+        status: 'completed',
+        imageUrl: 'generated-image-url',
+        panelId: 'panel_456',
+        resolvedCharacters: [
+          { name: 'Villain' }
+        ]
+      };
+
+      await sharedStateManager.updateCharacterStates(projectId, taskId, result);
+
+      const heroState = sharedStateManager.getCharacterState(projectId, 'Hero');
+      const villainState = sharedStateManager.getCharacterState(projectId, 'Villain');
+
+      expect(heroState?.lastSeenPanelId).toBeUndefined();
+      expect(villainState?.lastSeenPanelId).toBe('panel_456');
+      expect(villainState?.lastUpdated).toBeDefined();
     });
 
     it('should provide consistency statistics', () => {

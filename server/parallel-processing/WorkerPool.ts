@@ -165,7 +165,24 @@ export class WorkerPool extends EventEmitter {
     worker.tasksCompleted++;
     worker.lastActivity = new Date();
 
-    this.emit('taskCompleted', task.id, result);
+    const resolvedCharacters = (task.payload.projectContext?.characters || []).map(character => ({
+      name: character.name,
+      role: character.role,
+      bio: character.bio,
+      visualDescriptors: character.visualDescriptors,
+      alwaysTraits: character.alwaysTraits,
+      neverTraits: character.neverTraits,
+      colorScheme: character.colorScheme,
+      referenceImageUrl: character.referenceImageUrl,
+    }));
+
+    const enrichedResult: GenerateImageResponse = {
+      ...result,
+      originalPrompt: result.originalPrompt ?? task.payload.prompt,
+      resolvedCharacters: result.resolvedCharacters ?? resolvedCharacters,
+    };
+
+    this.emit('taskCompleted', task.id, enrichedResult);
   }
 
   private async handleTaskFailure(worker: Worker, task: WorkerTask, error: Error): Promise<void> {
