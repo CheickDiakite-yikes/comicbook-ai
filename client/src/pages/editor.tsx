@@ -7,7 +7,6 @@ import PanelEditor from "@/components/panel-editor";
 import LayoutChangeModal from "@/components/layout-change-modal";
 import ComicPageLayout from "@/components/comic-page-layout";
 import StructuredScriptViewer from "@/components/structured-script-viewer";
-import { PanelAnimationTimeline } from "@/components/panel-animation/PanelAnimationTimeline";
 import { AnimationStatusTimeline } from "@/components/animation-status-timeline";
 import { ComicReader } from "@/components/comic-reader";
 import { ShareDialog } from "@/components/share-dialog";
