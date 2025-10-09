@@ -5,6 +5,7 @@ import { setupVite, serveStatic } from "./vite";
 import { createRequestLoggingMiddleware } from "./middleware/requestLogging";
 import { createErrorHandler } from "./middleware/errorHandler";
 import { logger, registerGlobalErrorHandlers } from "./logger";
+import { Veo3JobWorker } from "./parallel-processing/Veo3JobWorker";
 
 registerGlobalErrorHandlers(logger);
 
@@ -14,8 +15,19 @@ app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: false, limit: "50mb" }));
 app.use(createRequestLoggingMiddleware(logger));
 
+const veo3JobWorker = new Veo3JobWorker({ logger });
+
+const stopBackgroundWorkers = () => {
+  veo3JobWorker.stop();
+};
+
+process.once("SIGTERM", stopBackgroundWorkers);
+process.once("SIGINT", stopBackgroundWorkers);
+
 (async () => {
   const server = await registerRoutes(app);
+
+  veo3JobWorker.start();
 
   // Serve generated images with object storage fallback
   app.use("/generated", express.static(path.join(process.cwd(), "public", "generated")));

@@ -5,6 +5,7 @@ export { WorkerPool } from './WorkerPool';
 export { SharedStateManager } from './SharedStateManager';
 export { DependencyTracker } from './DependencyTracker';
 export { ProgressTracker } from './ProgressTracker';
+export { Veo3JobWorker } from './Veo3JobWorker';
 
 // Export types
 export type {
