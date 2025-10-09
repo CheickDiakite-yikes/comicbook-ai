@@ -5,6 +5,7 @@ import { setupVite, serveStatic } from "./vite";
 import { createRequestLoggingMiddleware } from "./middleware/requestLogging";
 import { createErrorHandler } from "./middleware/errorHandler";
 import { logger, registerGlobalErrorHandlers } from "./logger";
+import { resolveUserId } from "./utils/authHelpers";
 
 registerGlobalErrorHandlers(logger);
 
@@ -22,24 +23,58 @@ app.use(createRequestLoggingMiddleware(logger));
 
   // Fallback route for missing generated images - try object storage
   app.get("/generated/:filename", async (req, res, next) => {
+    const filename = req.params.filename;
+    const userId = (() => {
+      try {
+        return (req as any).user ? resolveUserId((req as any).user) : null;
+      } catch {
+        return null;
+      }
+    })();
+
     try {
+      await logger.audit("asset.access.requested", {
+        userId,
+        resourceType: "generated_asset",
+        resourceId: filename,
+        metadata: { requestId: res.locals.requestId },
+      });
+
       const { ObjectStorageService } = await import("./objectStorage");
       const objectStorageService = new ObjectStorageService();
-      const filename = req.params.filename;
 
       const publicFile = await objectStorageService.searchPublicObject(filename);
       if (publicFile) {
+        await logger.audit("asset.access.served", {
+          userId,
+          resourceType: "generated_asset",
+          resourceId: filename,
+          metadata: { source: "object_storage_public", requestId: res.locals.requestId },
+        });
         return objectStorageService.downloadObject(publicFile, res);
       }
 
       try {
         const privateFile = await objectStorageService.getObjectEntityFile(`/objects/uploads/${filename}`);
+        await logger.audit("asset.access.served", {
+          userId,
+          resourceType: "generated_asset",
+          resourceId: filename,
+          metadata: { source: "object_storage_private", requestId: res.locals.requestId },
+        });
         return objectStorageService.downloadObject(privateFile, res);
       } catch (privateError) {
         logger.warn("Generated image not found in object storage, serving placeholder", {
           filename,
           requestId: res.locals.requestId,
           error: privateError instanceof Error ? privateError : undefined,
+        });
+
+        await logger.audit("asset.access.placeholder", {
+          userId,
+          resourceType: "generated_asset",
+          resourceId: filename,
+          metadata: { requestId: res.locals.requestId },
         });
 
         const placeholderSvg = `
