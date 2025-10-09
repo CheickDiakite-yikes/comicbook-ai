@@ -984,7 +984,115 @@ export const parallelSessionCancelSchema = z.object({
   reason: z.string().optional()
 });
 
+// Panel animation schemas
+export const panelVideoJobStatusEnum = z.enum([
+  "queued",
+  "rendering",
+  "ready",
+  "error",
+]);
+
+export const createPanelVideoRequestSchema = z.object({
+  durationSeconds: z
+    .number({ invalid_type_error: "durationSeconds must be a number" })
+    .int("Duration must be an integer")
+    .min(1, "Duration must be at least 1 second")
+    .max(30, "Duration cannot exceed 30 seconds"),
+  motionPreset: z
+    .enum(["static", "gentle", "dynamic", "cinematic"], {
+      errorMap: () => ({ message: "Motion preset must be static, gentle, dynamic, or cinematic" })
+    })
+    .default("gentle"),
+  stylePreset: z
+    .string()
+    .trim()
+    .min(1, "Style preset cannot be empty")
+    .max(80, "Style preset cannot exceed 80 characters")
+    .optional(),
+  narrativeFocus: z
+    .string()
+    .trim()
+    .min(1, "Narrative focus cannot be empty")
+    .max(400, "Narrative focus cannot exceed 400 characters")
+    .optional(),
+  cameraPrompts: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(3, "Camera prompt must be at least 3 characters")
+        .max(160, "Camera prompt cannot exceed 160 characters"),
+    )
+    .max(4, "A maximum of four camera prompts can be supplied")
+    .optional(),
+  soundtrackMood: z
+    .enum([
+      "none",
+      "uplifting",
+      "dramatic",
+      "mysterious",
+      "tense",
+      "whimsical",
+    ], {
+      errorMap: () => ({ message: "Unsupported soundtrack mood" })
+    })
+    .optional()
+    .default("none"),
+  includeSubtitles: z.boolean().optional().default(false),
+});
+
+export const panelVideoJobHistoryEntrySchema = z.object({
+  status: panelVideoJobStatusEnum,
+  timestamp: z.coerce.date(),
+  message: z.string().optional(),
+});
+
+export const panelVideoJobSchema = z.object({
+  id: z.string().uuid("Invalid job ID format"),
+  panelId: z.string().min(1, "Panel ID is required"),
+  projectId: z.string().min(1, "Project ID is required"),
+  userId: z.string().min(1, "User ID is required"),
+  status: panelVideoJobStatusEnum,
+  request: createPanelVideoRequestSchema,
+  prompt: z.string(),
+  resultUrl: z.string().url().optional(),
+  error: z
+    .object({
+      message: z.string(),
+      retryable: z.boolean().default(false),
+    })
+    .optional(),
+  approval: z
+    .object({
+      approved: z.boolean(),
+      approvedBy: z.string(),
+      approvedAt: z.coerce.date(),
+      notes: z.string().max(400).optional(),
+    })
+    .optional(),
+  history: z.array(panelVideoJobHistoryEntrySchema),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+
+export const updatePanelVideoApprovalSchema = z.object({
+  jobId: z.string().uuid("Invalid job ID format"),
+  approved: z.boolean(),
+  notes: z.string().max(400).optional(),
+});
+
+export const panelVideoJobStatusResponseSchema = z.object({
+  jobs: z.array(panelVideoJobSchema),
+});
+
 // Parallel processing types
 export type ParallelPanelGenerationRequest = z.infer<typeof parallelPanelGenerationSchema>;
 export type ParallelPageGenerationRequest = z.infer<typeof parallelPageGenerationSchema>;
 export type ParallelBatchGenerationRequest = z.infer<typeof parallelBatchGenerationSchema>;
+
+// Panel animation types
+export type PanelVideoJobStatus = z.infer<typeof panelVideoJobStatusEnum>;
+export type CreatePanelVideoRequest = z.infer<typeof createPanelVideoRequestSchema>;
+export type PanelVideoJob = z.infer<typeof panelVideoJobSchema>;
+export type PanelVideoJobApprovalRequest = z.infer<typeof updatePanelVideoApprovalSchema>;
+export type PanelVideoJobStatusResponse = z.infer<typeof panelVideoJobStatusResponseSchema>;
