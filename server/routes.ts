@@ -24,6 +24,7 @@ import { ParallelGenerationService } from "./parallel-processing";
 import { ScriptValidationService } from "./services/ScriptValidationService";
 import { SharedStateManager } from "./parallel-processing/SharedStateManager";
 import { PanelVisualAnalysisService } from "./services/PanelVisualAnalysisService";
+import { MultiPageConsistencyTracker } from "./MultiPageConsistencyTracker";
 import { z } from "zod";
 import { requireCredits, getProjectIdFromParams, getProjectIdFromBody, getPanelIdFromBody, getPageIdFromRequest, createOperationMetadata, calculateParallelCredits } from "./creditMiddleware";
 import { isSocialCrawler, isLinkPreviewRequest } from "./utils/socialCrawlers";
@@ -73,7 +74,8 @@ function generateConsistencyRecommendations(characters: any[], pages: any[]): st
 const parallelGenerationService = new ParallelGenerationService(storage);
 const scriptValidationService = new ScriptValidationService(storage);
 const sharedStateManager = new SharedStateManager();
-const panelVisualAnalysisService = new PanelVisualAnalysisService(storage);
+const multiPageConsistencyTracker = new MultiPageConsistencyTracker();
+const panelVisualAnalysisService = new PanelVisualAnalysisService(storage, multiPageConsistencyTracker);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -96,7 +98,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = getUserId(req.user);
       const user = await storage.getUser(userId);
-      
+
       // Check if user is admin (unlimited credits)
       const isAdmin = user?.email === "zorovt18@gmail.com";
       
@@ -128,6 +130,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching credits:", error);
       res.status(500).json({ message: "Failed to fetch credits" });
+    }
+  });
+
+  app.get('/api/consistency/tracker-summary', isAuthenticated, (req: any, res) => {
+    try {
+      const summary = multiPageConsistencyTracker.getSummary();
+      res.json(summary);
+    } catch (error) {
+      console.error('Error fetching consistency tracker summary:', error);
+      res.status(500).json({ message: 'Failed to fetch consistency tracker summary' });
     }
   });
 

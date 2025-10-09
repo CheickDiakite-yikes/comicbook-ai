@@ -22,6 +22,15 @@ interface ConsistencyTrend {
   flaggedPages: number[];
 }
 
+interface TrackerSummaryCharacter {
+  characterName: string;
+  totalAppearances: number;
+  averageScore: number;
+  trendDirection: 'improving' | 'degrading' | 'stable';
+  flaggedPages: number[];
+  lastAppearance?: CharacterAppearanceRecord;
+}
+
 export class MultiPageConsistencyTracker {
   private characterAppearances: Map<string, CharacterAppearanceRecord[]> = new Map();
   private consistencyTrends: Map<string, ConsistencyTrend> = new Map();
@@ -145,7 +154,7 @@ export class MultiPageConsistencyTracker {
     let characterCount = 0;
 
     // Analyze each character's consistency up to this page
-    for (const [characterName, appearances] of this.characterAppearances.entries()) {
+    for (const [characterName, appearances] of Array.from(this.characterAppearances.entries())) {
       const relevantAppearances = appearances.filter(app => app.pageNumber <= pageNumber);
       
       if (relevantAppearances.length === 0) continue;
@@ -219,6 +228,54 @@ export class MultiPageConsistencyTracker {
   }
 
   /**
+   * Summarize multi-page consistency health across all tracked characters
+   */
+  getSummary(): {
+    overallHealth: 'excellent' | 'good' | 'concerning' | 'critical';
+    characters: TrackerSummaryCharacter[];
+  } {
+    const characters: TrackerSummaryCharacter[] = [];
+
+    for (const [characterName, appearances] of Array.from(this.characterAppearances.entries())) {
+      const trend = this.consistencyTrends.get(characterName);
+      const lastAppearance = appearances[appearances.length - 1];
+      const averageScore = trend?.averageScore ?? Math.round(
+        appearances.reduce((sum, record) => sum + record.consistencyScore, 0) / appearances.length
+      );
+
+      characters.push({
+        characterName,
+        totalAppearances: appearances.length,
+        averageScore,
+        trendDirection: trend?.trendDirection || 'stable',
+        flaggedPages: trend?.flaggedPages || [],
+        lastAppearance
+      });
+    }
+
+    const overallScore = characters.length
+      ? characters.reduce((sum, character) => sum + character.averageScore, 0) / characters.length
+      : 100;
+
+    let overallHealth: 'excellent' | 'good' | 'concerning' | 'critical';
+
+    if (overallScore >= 90) {
+      overallHealth = 'excellent';
+    } else if (overallScore >= 75) {
+      overallHealth = 'good';
+    } else if (overallScore >= 60) {
+      overallHealth = 'concerning';
+    } else {
+      overallHealth = 'critical';
+    }
+
+    return {
+      overallHealth,
+      characters
+    };
+  }
+
+  /**
    * Detect characters with consistency issues that need intervention
    */
   getCharactersNeedingIntervention(): Array<{
@@ -234,7 +291,16 @@ export class MultiPageConsistencyTracker {
       recommendedActions: string[];
     }> = [];
 
-    for (const [characterName, trend] of this.consistencyTrends.entries()) {
+    const severityOrder = { low: 0, medium: 1, high: 2, critical: 3 } as const;
+
+    const escalateSeverity = (
+      current: 'low' | 'medium' | 'high' | 'critical',
+      next: 'low' | 'medium' | 'high' | 'critical'
+    ): 'low' | 'medium' | 'high' | 'critical' => {
+      return severityOrder[next] > severityOrder[current] ? next : current;
+    };
+
+    for (const [characterName, trend] of Array.from(this.consistencyTrends.entries())) {
       const issues: string[] = [];
       const recommendedActions: string[] = [];
       let severity: 'low' | 'medium' | 'high' | 'critical' = 'low';
@@ -248,21 +314,21 @@ export class MultiPageConsistencyTracker {
         recommendedActions.push('Implement manual review for this character');
       } else if (trend.averageScore < 70) {
         issues.push(`Low consistency score: ${trend.averageScore}/100`);
-        severity = Math.max(severity === 'critical' ? 3 : severity === 'high' ? 2 : severity === 'medium' ? 1 : 0, 2) === 2 ? 'high' : severity;
+        severity = escalateSeverity(severity, 'high');
         recommendedActions.push('Review character prompts and strengthen consistency rules');
       }
 
       // Check trend direction
       if (trend.trendDirection === 'degrading') {
         issues.push('Consistency degrading over time');
-        severity = Math.max(severity === 'critical' ? 3 : severity === 'high' ? 2 : severity === 'medium' ? 1 : 0, 1) === 1 ? 'medium' : severity;
+        severity = escalateSeverity(severity, 'medium');
         recommendedActions.push('Implement trend reversal measures');
       }
 
       // Check flagged pages
       if (trend.flaggedPages.length > 3) {
         issues.push(`Multiple flagged pages: ${trend.flaggedPages.length}`);
-        severity = Math.max(severity === 'critical' ? 3 : severity === 'high' ? 2 : severity === 'medium' ? 1 : 0, 1) === 1 ? 'medium' : severity;
+        severity = escalateSeverity(severity, 'medium');
         recommendedActions.push('Review flagged pages for pattern analysis');
       }
 
@@ -276,9 +342,6 @@ export class MultiPageConsistencyTracker {
       }
     }
 
-    return problematicCharacters.sort((a, b) => {
-      const severityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
-      return severityOrder[b.severity] - severityOrder[a.severity];
-    });
+    return problematicCharacters.sort((a, b) => severityOrder[b.severity] - severityOrder[a.severity]);
   }
 }
