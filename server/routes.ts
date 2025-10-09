@@ -17,11 +17,16 @@ import {
   parallelBatchGenerationSchema,
   scriptValidationRequestSchema,
   ScriptValidationRequest,
-  ValidationResult
+  ValidationResult,
+  createPanelVideoRequestSchema,
+  panelVideoJobStatusResponseSchema,
+  updatePanelVideoApprovalSchema,
+  PanelVideoJob,
 } from "@shared/schema";
 import { geminiService } from "./gemini";
 import { ParallelGenerationService } from "./parallel-processing";
 import { ScriptValidationService } from "./services/ScriptValidationService";
+import { ContinuityContextService } from "./services/ContinuityContextService";
 import { SharedStateManager } from "./parallel-processing/SharedStateManager";
 import { PanelVisualAnalysisService } from "./services/PanelVisualAnalysisService";
 import { MultiPageConsistencyTracker } from "./MultiPageConsistencyTracker";
@@ -30,6 +35,9 @@ import { z } from "zod";
 import { requireCredits, getProjectIdFromParams, getProjectIdFromBody, getPanelIdFromBody, getPageIdFromRequest, createOperationMetadata, calculateParallelCredits } from "./creditMiddleware";
 import { isSocialCrawler, isLinkPreviewRequest } from "./utils/socialCrawlers";
 import { generateSSRHTML, generateFallbackHTML } from "./utils/htmlGenerator";
+import { ContinuityContextService } from "./services/ContinuityContextService";
+import { promptOrchestrator } from "./services/PromptOrchestrator";
+import { veo3JobService, PanelVideoJobEvent, PanelAnimationRateLimitError } from "./services/Veo3JobService";
 
 // Helper function to get user ID from different auth providers
 function getUserId(user: any): string {
@@ -74,13 +82,18 @@ function generateConsistencyRecommendations(characters: any[], pages: any[]): st
 // Initialize services
 const parallelGenerationService = new ParallelGenerationService(storage);
 const scriptValidationService = new ScriptValidationService(storage);
+const continuityContextService = new ContinuityContextService(storage);
 const sharedStateManager = new SharedStateManager();
 const multiPageConsistencyTracker = new MultiPageConsistencyTracker();
 const panelVisualAnalysisService = new PanelVisualAnalysisService(storage, multiPageConsistencyTracker);
+const continuityContextService = new ContinuityContextService(storage, sharedStateManager);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
+
+  // Expose continuity context service for downstream orchestrators
+  app.locals.continuityContextService = continuityContextService;
 
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
@@ -250,6 +263,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         {
           owner: userId,
           visibility: "public", // Profile images are public
+        },
+        {
+          variantType: "canonical",
+          lifecycleTag: null,
         }
       );
 
@@ -281,6 +298,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         {
           owner: userId,
           visibility: "public", // Banner images are public
+        },
+        {
+          variantType: "canonical",
+          lifecycleTag: null,
         }
       );
 
@@ -297,9 +318,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Serve uploaded images
-  app.get("/objects/:objectPath(*)", async (req, res) => {
+  app.get("/objects/:objectPath(*)", async (req: any, res) => {
     const objectStorageService = new ObjectStorageService();
     try {
+      if (req.query?.signed === "1" || req.query?.signed === "true") {
+        const downloadFileName = typeof req.query?.filename === "string" ? req.query.filename : undefined;
+        const signed = await objectStorageService.getSignedObjectDownloadURL(req.path, {
+          downloadFileName,
+        });
+        return res.json(signed);
+      }
+
       const objectFile = await objectStorageService.getObjectEntityFile(
         req.path,
       );
@@ -408,6 +437,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           {
             owner: userId,
             visibility: "public", // Character reference images are public for consistency
+          },
+          {
+            variantType: "canonical",
+            lifecycleTag: null,
           }
         );
         
@@ -470,6 +503,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           {
             owner: userId,
             visibility: "public", // Character reference images are public for consistency
+          },
+          {
+            variantType: "canonical",
+            lifecycleTag: null,
           }
         );
         
@@ -610,7 +647,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Manually trigger visual analysis for a panel
-  app.post("/api/panels/:panelId/analyze-visual", 
+  app.post("/api/panels/:panelId/analyze-visual",
     isAuthenticated,
     requireCredits({
       operationType: "visual_analysis",
@@ -681,6 +718,241 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error performing visual analysis:", error);
       res.status(500).json({ message: "Failed to perform visual analysis" });
+    }
+  });
+
+  // Panel animation job management
+  app.post(
+    "/api/animation/panels/:panelId",
+    isAuthenticated,
+    requireCredits({
+      operationType: "panel_animation",
+      getResourceId: req => req.params.panelId,
+      getMetadata: req =>
+        createOperationMetadata(req, {
+          durationSeconds: req.body?.durationSeconds,
+          motionPreset: req.body?.motionPreset,
+        }),
+    }),
+    async (req: any, res) => {
+      try {
+        const userId = getUserId(req.user);
+        const { panelId } = req.params;
+
+        const validation = createPanelVideoRequestSchema.safeParse(req.body);
+        if (!validation.success) {
+          return res.status(400).json({
+            message: "Invalid request data",
+            error: "validation_failed",
+            details: validation.error.errors.map(err => ({
+              path: err.path.join('.'),
+              message: err.message,
+            })),
+          });
+        }
+
+        const panel = await storage.getPanel(panelId);
+        if (!panel) {
+          return res.status(404).json({ message: "Panel not found", error: "panel_not_found" });
+        }
+
+        const page = await storage.getPage(panel.pageId);
+        if (!page) {
+          return res.status(404).json({ message: "Page not found", error: "page_not_found" });
+        }
+
+        const project = await storage.getProject(page.projectId);
+        if (!project || project.userId !== userId) {
+          return res.status(404).json({ message: "Project not found", error: "project_not_found" });
+        }
+
+        const context = await continuityContextService.buildPanelContext(panelId);
+        const orchestration = promptOrchestrator.buildPanelAnimationPrompt(
+          context,
+          validation.data,
+        );
+
+        const job = veo3JobService.createJob({
+          panelId,
+          projectId: project.id,
+          userId,
+          prompt: orchestration.prompt,
+          metadata: orchestration.metadata,
+          request: validation.data,
+        });
+
+        res.status(202).json({
+          jobId: job.id,
+          status: job.status,
+          panelId: job.panelId,
+          projectId: job.projectId,
+          resultUrl: job.resultUrl,
+          approval: job.approval,
+          error: job.error,
+          history: job.history,
+          createdAt: job.createdAt,
+          updatedAt: job.updatedAt,
+        });
+      } catch (error) {
+        if (error instanceof PanelAnimationRateLimitError) {
+          const retrySeconds = Math.max(1, Math.ceil(error.retryAfterMs / 1000));
+          res.setHeader("Retry-After", retrySeconds.toString());
+          return res.status(429).json({
+            message: "Panel animation rate limit exceeded",
+            error: "rate_limited",
+            retryAfterMs: error.retryAfterMs,
+          });
+        }
+        console.error("Error creating panel animation job:", error);
+        res.status(500).json({
+          message: "Failed to enqueue panel animation job",
+          error: "panel_animation_failed",
+        });
+      }
+    },
+  );
+
+  app.get("/api/animation/panels/:panelId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const { panelId } = req.params;
+
+      const panel = await storage.getPanel(panelId);
+      if (!panel) {
+        return res.status(404).json({ message: "Panel not found", error: "panel_not_found" });
+      }
+
+      const page = await storage.getPage(panel.pageId);
+      if (!page) {
+        return res.status(404).json({ message: "Page not found", error: "page_not_found" });
+      }
+
+      const project = await storage.getProject(page.projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found", error: "project_not_found" });
+      }
+
+      const requestedJobId = Array.isArray(req.query.jobId)
+        ? req.query.jobId[0]
+        : req.query.jobId;
+
+      if (typeof requestedJobId === "string" && requestedJobId.length > 0) {
+        const job = veo3JobService.getJob(requestedJobId, userId);
+        if (!job || job.panelId !== panelId) {
+          return res.status(404).json({ message: "Job not found", error: "job_not_found" });
+        }
+        return res.json({ job });
+      }
+
+      const jobs: PanelVideoJob[] = veo3JobService.getJobsForPanel(panelId, userId);
+      const payload = panelVideoJobStatusResponseSchema.parse({ jobs });
+      res.json(payload);
+    } catch (error) {
+      console.error("Error fetching panel animation jobs:", error);
+      res.status(500).json({ message: "Failed to fetch panel animation jobs" });
+    }
+  });
+
+  app.patch("/api/animation/panels/:panelId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const { panelId } = req.params;
+
+      const panel = await storage.getPanel(panelId);
+      if (!panel) {
+        return res.status(404).json({ message: "Panel not found", error: "panel_not_found" });
+      }
+
+      const page = await storage.getPage(panel.pageId);
+      if (!page) {
+        return res.status(404).json({ message: "Page not found", error: "page_not_found" });
+      }
+
+      const project = await storage.getProject(page.projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found", error: "project_not_found" });
+      }
+
+      const validation = updatePanelVideoApprovalSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({
+          message: "Invalid approval payload",
+          error: "validation_failed",
+          details: validation.error.errors.map(err => ({
+            path: err.path.join('.'),
+            message: err.message,
+          })),
+        });
+      }
+
+      const existingJob = veo3JobService.getJob(validation.data.jobId, userId);
+      if (!existingJob || existingJob.panelId !== panelId) {
+        return res.status(404).json({ message: "Job not found", error: "job_not_found" });
+      }
+
+      const updatedJob = veo3JobService.updateApproval(validation.data, userId);
+      res.json({ job: updatedJob });
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === "Job not found") {
+          return res.status(404).json({ message: "Job not found", error: "job_not_found" });
+        }
+        if (error.message === "Forbidden") {
+          return res.status(403).json({ message: "Forbidden", error: "forbidden" });
+        }
+      }
+      console.error("Error updating panel animation job:", error);
+      res.status(500).json({ message: "Failed to update panel animation job" });
+    }
+  });
+
+  app.get("/api/animation/panels/:panelId/events", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req.user);
+      const { panelId } = req.params;
+
+      const panel = await storage.getPanel(panelId);
+      if (!panel) {
+        return res.status(404).json({ message: "Panel not found", error: "panel_not_found" });
+      }
+
+      const page = await storage.getPage(panel.pageId);
+      if (!page) {
+        return res.status(404).json({ message: "Page not found", error: "page_not_found" });
+      }
+
+      const project = await storage.getProject(page.projectId);
+      if (!project || project.userId !== userId) {
+        return res.status(404).json({ message: "Project not found", error: "project_not_found" });
+      }
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+      (res as any).flushHeaders?.();
+
+      const initialJobs = veo3JobService.getJobsForPanel(panelId, userId);
+      initialJobs.forEach(job => {
+        const event: PanelVideoJobEvent = { type: job.status, job };
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+      });
+
+      const listener = (event: PanelVideoJobEvent) => {
+        if (event.job.panelId !== panelId || event.job.userId !== userId) {
+          return;
+        }
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+      };
+
+      const unsubscribe = veo3JobService.subscribe(listener);
+
+      req.on("close", () => {
+        unsubscribe();
+        res.end();
+      });
+    } catch (error) {
+      console.error("Error establishing panel animation event stream:", error);
+      res.status(500).json({ message: "Failed to establish event stream" });
     }
   });
 
@@ -3847,6 +4119,10 @@ Redress this character in the specified outfit while maintaining their core visu
           {
             owner: userId,
             visibility: "public", // Character reference images are public for consistency
+          },
+          {
+            variantType: "canonical",
+            lifecycleTag: null,
           }
         );
         
@@ -3889,6 +4165,10 @@ Redress this character in the specified outfit while maintaining their core visu
           {
             owner: userId,
             visibility: "public", // Character reference images are public for consistency
+          },
+          {
+            variantType: "canonical",
+            lifecycleTag: null,
           }
         );
         

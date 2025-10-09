@@ -1,6 +1,8 @@
 import { Storage, File } from "@google-cloud/storage";
 import { Response } from "express";
 import { randomUUID } from "crypto";
+import { extname } from "path";
+import { logger } from "./logger";
 import {
   ObjectAclPolicy,
   ObjectPermission,
@@ -10,6 +12,18 @@ import {
 } from "./objectAcl.js";
 
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
+
+export const LIFECYCLE_METADATA_KEY = "custom:lifecyclePolicy";
+export const VARIANT_METADATA_KEY = "custom:variantType";
+export const DEFAULT_LIFECYCLE_TAG = "archive-after-90-days";
+export const DEFAULT_VARIANT_TAG = "non-canonical";
+
+interface ObjectMetadataOptions {
+  contentTypeHint?: string;
+  lifecycleTag?: string | null;
+  variantType?: string;
+  cacheControl?: string;
+}
 
 // The object storage client is used to interact with the object storage service.
 export const objectStorageClient = new Storage({
@@ -41,6 +55,93 @@ export class ObjectNotFoundError extends Error {
 // The object storage service is used to interact with the object storage service.
 export class ObjectStorageService {
   constructor() {}
+
+  private inferContentType(objectName: string, fallback: string = "application/octet-stream"): string {
+    const extension = extname(objectName).toLowerCase();
+    switch (extension) {
+      case ".png":
+        return "image/png";
+      case ".jpg":
+      case ".jpeg":
+        return "image/jpeg";
+      case ".gif":
+        return "image/gif";
+      case ".webp":
+        return "image/webp";
+      case ".svg":
+        return "image/svg+xml";
+      case ".json":
+        return "application/json";
+      case ".txt":
+        return "text/plain";
+      case ".pdf":
+        return "application/pdf";
+      default:
+        return fallback;
+    }
+  }
+
+  private async ensureObjectMetadata(
+    objectFile: File,
+    options: ObjectMetadataOptions = {},
+  ) {
+    const [metadata] = await objectFile.getMetadata();
+    const updates: Record<string, unknown> = {};
+    const existingCustomMetadata = { ...(metadata.metadata ?? {}) };
+
+    const lifecycleTag = options.lifecycleTag === null
+      ? null
+      : options.lifecycleTag ?? DEFAULT_LIFECYCLE_TAG;
+    const variantTag = options.variantType ?? existingCustomMetadata[VARIANT_METADATA_KEY] ?? DEFAULT_VARIANT_TAG;
+    const inferredContentType = options.contentTypeHint ?? metadata.contentType ?? this.inferContentType(objectFile.name);
+
+    let requiresUpdate = false;
+
+    if (!metadata.contentType || metadata.contentType === "application/octet-stream") {
+      updates.contentType = inferredContentType;
+      requiresUpdate = true;
+    }
+
+    if (lifecycleTag === null) {
+      if (existingCustomMetadata[LIFECYCLE_METADATA_KEY]) {
+        delete existingCustomMetadata[LIFECYCLE_METADATA_KEY];
+        requiresUpdate = true;
+      }
+    } else if (lifecycleTag && existingCustomMetadata[LIFECYCLE_METADATA_KEY] !== lifecycleTag) {
+      existingCustomMetadata[LIFECYCLE_METADATA_KEY] = lifecycleTag;
+      requiresUpdate = true;
+    }
+
+    if (variantTag && existingCustomMetadata[VARIANT_METADATA_KEY] !== variantTag) {
+      existingCustomMetadata[VARIANT_METADATA_KEY] = variantTag;
+      requiresUpdate = true;
+    }
+
+    if (options.cacheControl && metadata.cacheControl !== options.cacheControl) {
+      updates.cacheControl = options.cacheControl;
+      requiresUpdate = true;
+    }
+
+    if (requiresUpdate) {
+      if (Object.keys(existingCustomMetadata).length > 0) {
+        updates.metadata = existingCustomMetadata;
+      }
+
+      try {
+        await objectFile.setMetadata(updates);
+      } catch (error) {
+        logger.warn("Failed to update object metadata", {
+          objectName: objectFile.name,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      const [updatedMetadata] = await objectFile.getMetadata();
+      return updatedMetadata;
+    }
+
+    return metadata;
+  }
 
   // Gets the public object search paths.
   getPublicObjectSearchPaths(): Array<string> {
@@ -95,20 +196,25 @@ export class ObjectStorageService {
   }
 
   // Downloads an object to the response.
-  async downloadObject(file: File, res: Response, cacheTtlSec: number = 3600) {
+  async downloadObject(
+    file: File,
+    res: Response,
+    cacheTtlSec: number = 3600,
+    metadataOptions: ObjectMetadataOptions = {},
+  ) {
     try {
-      // Get file metadata
-      const [metadata] = await file.getMetadata();
+      // Ensure metadata is populated with lifecycle + mime type tagging
+      const metadata = await this.ensureObjectMetadata(file, metadataOptions);
       // Get the ACL policy for the object.
       const aclPolicy = await getObjectAclPolicy(file);
       const isPublic = aclPolicy?.visibility === "public";
+      const contentType = metadata.contentType ?? this.inferContentType(file.name);
+      const cacheControlHeader = metadata.cacheControl || `${isPublic ? "public" : "private"}, max-age=${cacheTtlSec}`;
       // Set appropriate headers
       res.set({
-        "Content-Type": metadata.contentType || "application/octet-stream",
+        "Content-Type": contentType,
         "Content-Length": metadata.size,
-        "Cache-Control": `${
-          isPublic ? "public" : "private"
-        }, max-age=${cacheTtlSec}`,
+        "Cache-Control": cacheControlHeader,
       });
 
       // Stream the file to the response
@@ -152,6 +258,31 @@ export class ObjectStorageService {
       method: "PUT",
       ttlSec: 900,
     });
+  }
+
+  async getSignedObjectDownloadURL(
+    objectPath: string,
+    options: (ObjectMetadataOptions & { ttlSec?: number; downloadFileName?: string }) = {},
+  ): Promise<{ url: string; expiresAt: string; contentType: string }> {
+    const objectFile = await this.getObjectEntityFile(objectPath);
+    const metadata = await this.ensureObjectMetadata(objectFile, options);
+    const expiresAt = new Date(Date.now() + (options.ttlSec ?? 900) * 1000);
+    const contentType = metadata.contentType ?? this.inferContentType(objectFile.name);
+
+    const [signedUrl] = await objectFile.getSignedUrl({
+      action: "read",
+      expires: expiresAt,
+      responseDisposition: options.downloadFileName
+        ? `attachment; filename="${options.downloadFileName}"`
+        : undefined,
+      responseType: contentType,
+    });
+
+    return {
+      url: signedUrl,
+      expiresAt: expiresAt.toISOString(),
+      contentType,
+    };
   }
 
   // Gets the object entity file from the object path.
@@ -209,7 +340,8 @@ export class ObjectStorageService {
   // Tries to set the ACL policy for the object entity and return the normalized path.
   async trySetObjectEntityAclPolicy(
     rawPath: string,
-    aclPolicy: ObjectAclPolicy
+    aclPolicy: ObjectAclPolicy,
+    metadataOptions: ObjectMetadataOptions = {},
   ): Promise<string> {
     const normalizedPath = this.normalizeObjectEntityPath(rawPath);
     if (!normalizedPath.startsWith("/")) {
@@ -218,6 +350,7 @@ export class ObjectStorageService {
 
     const objectFile = await this.getObjectEntityFile(normalizedPath);
     await setObjectAclPolicy(objectFile, aclPolicy);
+    await this.ensureObjectMetadata(objectFile, metadataOptions);
     return normalizedPath;
   }
 
@@ -239,7 +372,7 @@ export class ObjectStorageService {
   }
 }
 
-function parseObjectPath(path: string): {
+export function parseObjectPath(path: string): {
   bucketName: string;
   objectName: string;
 } {
@@ -257,6 +390,29 @@ function parseObjectPath(path: string): {
   return {
     bucketName,
     objectName,
+  };
+}
+
+export function parseBucketAndPrefix(path: string): {
+  bucketName: string;
+  prefix: string;
+} {
+  let normalized = path.startsWith("/") ? path.slice(1) : path;
+  if (normalized.endsWith("/")) {
+    normalized = normalized.slice(0, -1);
+  }
+
+  const firstSlash = normalized.indexOf("/");
+  if (firstSlash === -1) {
+    throw new Error("Invalid path: must include bucket and prefix");
+  }
+
+  const bucketName = normalized.slice(0, firstSlash);
+  const prefix = normalized.slice(firstSlash + 1);
+
+  return {
+    bucketName,
+    prefix: prefix.endsWith("/") ? prefix : `${prefix}/`,
   };
 }
 

@@ -25,6 +25,13 @@ import { aiService } from "@/lib/ai-service";
 import { comicLayouts } from "@/lib/comic-layouts";
 import { getPageAspectRatio, PAGE_ASPECT_RATIOS, calculateOptimalDimensions, getOptimalImageCSS, generateEnhancedPanelContext } from "@/lib/aspect-ratio-utils";
 import type { Project, Page, Panel } from "@shared/schema";
+import {
+  PanelAnimationProvider,
+  PanelAnimationTimeline,
+  PanelAnimationPromptEditor,
+  PanelAnimationClipPreview,
+  PanelAnimationContinuityInsights,
+} from "@/components/panel-animation";
 
 export default function Editor() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -59,6 +66,7 @@ export default function Editor() {
   const [showComicReader, setShowComicReader] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const isAnimationEnabled = (import.meta.env.VITE_FEATURE_PANEL_ANIMATION ?? "false") === "true";
   
   // Detect mobile screen size
   useEffect(() => {
@@ -1446,6 +1454,36 @@ export default function Editor() {
 
                   <TabsContent value="animate" className="space-y-4">
                     <AnimationStatusTimeline />
+                    {isAnimationEnabled ? (
+                      <PanelAnimationProvider projectId={projectId}>
+                        <div className="space-y-6">
+                          <PanelAnimationTimeline />
+                          <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)]">
+                            <div className="grid gap-6 lg:grid-cols-1 xl:grid-cols-2">
+                              <PanelAnimationPromptEditor />
+                              <PanelAnimationClipPreview />
+                            </div>
+                            <PanelAnimationContinuityInsights />
+                          </div>
+                        </div>
+                      </PanelAnimationProvider>
+                    ) : (
+                      <div className="flex min-h-[400px] items-center justify-center">
+                        <div className="mx-auto max-w-md p-8 text-center">
+                          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30">
+                            <Zap className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+                          </div>
+                          <h3 className="mb-2 text-lg font-semibold">Panel Animation Studio</h3>
+                          <p className="mb-4 text-muted-foreground">
+                            Bring your comic panels to life with smooth transitions, character movement, and dynamic effects.
+                          </p>
+                          <div className="inline-flex items-center rounded-full bg-muted px-3 py-1.5 text-sm text-muted-foreground">
+                            <Zap className="mr-1 h-3 w-3" />
+                            Disabled for this workspace
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </TabsContent>
                 </Tabs>
 
