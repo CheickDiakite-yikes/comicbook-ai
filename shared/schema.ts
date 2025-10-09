@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   index,
   jsonb,
+  pgEnum,
   pgTable,
   timestamp,
   varchar,
@@ -323,6 +324,106 @@ export const panels = pgTable("panels", {
   index("idx_panels_page_global_number").on(table.pageId, table.globalPanelNumber),
 ]);
 
+// Panel video workflow enums
+export const panelVideoRequestStatusEnum = pgEnum("panel_video_request_status", [
+  "pending",
+  "processing",
+  "completed",
+  "failed",
+  "cancelled",
+]);
+
+export const panelVideoRequestPriorityEnum = pgEnum("panel_video_request_priority", [
+  "low",
+  "normal",
+  "high",
+]);
+
+export const panelVideoVersionStatusEnum = pgEnum("panel_video_version_status", [
+  "draft",
+  "review",
+  "approved",
+  "rejected",
+]);
+
+export const sceneVideoSequenceStatusEnum = pgEnum("scene_video_sequence_status", [
+  "draft",
+  "assembling",
+  "rendering",
+  "completed",
+  "failed",
+]);
+
+// Panel video generation request tracking
+export const panelVideoRequests = pgTable("panel_video_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  panelId: varchar("panel_id").notNull().references(() => panels.id),
+  requestedByUserId: varchar("requested_by_user_id").notNull().references(() => users.id),
+  requestPrompt: text("request_prompt").notNull(),
+  negativePrompt: text("negative_prompt"),
+  stylePreset: varchar("style_preset"),
+  motionStyle: varchar("motion_style"),
+  durationSeconds: integer("duration_seconds"),
+  frameRate: integer("frame_rate"),
+  aspectRatio: varchar("aspect_ratio"),
+  resolution: varchar("resolution"),
+  status: panelVideoRequestStatusEnum("status").notNull().default("pending"),
+  priority: panelVideoRequestPriorityEnum("priority").notNull().default("normal"),
+  failureReason: text("failure_reason"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_panel_video_requests_panel").on(table.panelId),
+  index("idx_panel_video_requests_requester").on(table.requestedByUserId),
+  index("idx_panel_video_requests_status").on(table.status),
+]);
+
+// Generated panel video versions linked to a request
+export const panelVideoVersions = pgTable("panel_video_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  requestId: varchar("request_id").notNull().references(() => panelVideoRequests.id, {
+    onDelete: "cascade",
+  }),
+  createdByUserId: varchar("created_by_user_id").references(() => users.id),
+  versionNumber: integer("version_number").notNull().default(1),
+  videoUrl: varchar("video_url"),
+  previewImageUrl: varchar("preview_image_url"),
+  durationSeconds: integer("duration_seconds"),
+  resolution: varchar("resolution"),
+  frameRate: integer("frame_rate"),
+  status: panelVideoVersionStatusEnum("status").notNull().default("draft"),
+  rejectionReason: text("rejection_reason"),
+  notes: text("notes"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_panel_video_versions_request").on(table.requestId),
+  index("idx_panel_video_versions_status").on(table.status),
+]);
+
+// Scene video sequences assembled from panel video versions
+export const sceneVideoSequences = pgTable("scene_video_sequences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => projects.id),
+  createdByUserId: varchar("created_by_user_id").references(() => users.id),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  coverImageUrl: varchar("cover_image_url"),
+  audioTrackUrl: varchar("audio_track_url"),
+  status: sceneVideoSequenceStatusEnum("status").notNull().default("draft"),
+  totalDurationSeconds: integer("total_duration_seconds"),
+  sequenceData: jsonb("sequence_data"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_scene_video_sequences_project").on(table.projectId),
+  index("idx_scene_video_sequences_creator").on(table.createdByUserId),
+  index("idx_scene_video_sequences_status").on(table.status),
+]);
+
 // Structured Scripts table - Enhanced script system
 export const structuredScripts = pgTable("structured_scripts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -551,6 +652,27 @@ export const insertPanelSchema = createInsertSchema(panels).omit({
   createdAt: true,
   updatedAt: true,
 });
+
+export const insertPanelVideoRequestSchema = createInsertSchema(panelVideoRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export const updatePanelVideoRequestSchema = insertPanelVideoRequestSchema.partial();
+
+export const insertPanelVideoVersionSchema = createInsertSchema(panelVideoVersions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export const updatePanelVideoVersionSchema = insertPanelVideoVersionSchema.partial();
+
+export const insertSceneVideoSequenceSchema = createInsertSchema(sceneVideoSequences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export const updateSceneVideoSequenceSchema = insertSceneVideoSequenceSchema.partial();
 
 // Structured Scripts insert schemas
 export const insertStructuredScriptSchema = createInsertSchema(structuredScripts).omit({
@@ -790,6 +912,18 @@ export type InsertPage = z.infer<typeof insertPageSchema>;
 export type Page = typeof pages.$inferSelect;
 export type InsertPanel = z.infer<typeof insertPanelSchema>;
 export type Panel = typeof panels.$inferSelect;
+
+export type PanelVideoRequest = typeof panelVideoRequests.$inferSelect;
+export type InsertPanelVideoRequest = z.infer<typeof insertPanelVideoRequestSchema>;
+export type UpdatePanelVideoRequest = z.infer<typeof updatePanelVideoRequestSchema>;
+
+export type PanelVideoVersion = typeof panelVideoVersions.$inferSelect;
+export type InsertPanelVideoVersion = z.infer<typeof insertPanelVideoVersionSchema>;
+export type UpdatePanelVideoVersion = z.infer<typeof updatePanelVideoVersionSchema>;
+
+export type SceneVideoSequence = typeof sceneVideoSequences.$inferSelect;
+export type InsertSceneVideoSequence = z.infer<typeof insertSceneVideoSequenceSchema>;
+export type UpdateSceneVideoSequence = z.infer<typeof updateSceneVideoSequenceSchema>;
 
 // Structured Script types
 export type StructuredScript = typeof structuredScripts.$inferSelect;
