@@ -683,19 +683,43 @@ Analyze the image thoroughly and return valid JSON only.`;
     characterNames: string[]
   ): CharacterAppearanceAnalysis[] {
     const characterAnalyses: CharacterAppearanceAnalysis[] = [];
-    
+
+    const canonicalNameMap = new Map<string, string>();
+    const normalizedCharacterNames = new Set<string>();
+    for (const name of characterNames) {
+      if (typeof name === 'string') {
+        const normalized = name.toLowerCase();
+        canonicalNameMap.set(normalized, name);
+        normalizedCharacterNames.add(normalized);
+      }
+    }
+
     // Extract characters from JSON response
     const characters = analysisData?.characters || [];
-    
+
     for (const characterData of characters) {
       try {
-        if (characterNames.includes(characterData.characterName)) {
+        const rawCharacterName =
+          typeof characterData.characterName === 'string'
+            ? characterData.characterName
+            : '';
+
+        if (!rawCharacterName) {
+          continue;
+        }
+
+        const normalizedCharacterName = rawCharacterName.toLowerCase();
+
+        if (normalizedCharacterNames.has(normalizedCharacterName)) {
+          const canonicalCharacterName =
+            canonicalNameMap.get(normalizedCharacterName) ?? rawCharacterName;
+
           const analysis: CharacterAppearanceAnalysis = {
-            characterName: characterData.characterName,
+            characterName: canonicalCharacterName,
             isPresent: characterData.isPresent || false,
             confidence: characterData.confidence || 50
           };
-          
+
           if (analysis.isPresent && characterData.visualDetails) {
             analysis.visualDetails = {
               clothing: {
