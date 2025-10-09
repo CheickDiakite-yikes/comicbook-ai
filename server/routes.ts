@@ -201,6 +201,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         {
           owner: userId,
           visibility: "public", // Profile images are public
+        },
+        {
+          variantType: "canonical",
+          lifecycleTag: null,
         }
       );
 
@@ -232,6 +236,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         {
           owner: userId,
           visibility: "public", // Banner images are public
+        },
+        {
+          variantType: "canonical",
+          lifecycleTag: null,
         }
       );
 
@@ -248,9 +256,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Serve uploaded images
-  app.get("/objects/:objectPath(*)", async (req, res) => {
+  app.get("/objects/:objectPath(*)", async (req: any, res) => {
     const objectStorageService = new ObjectStorageService();
     try {
+      if (req.query?.signed === "1" || req.query?.signed === "true") {
+        const downloadFileName = typeof req.query?.filename === "string" ? req.query.filename : undefined;
+        const signed = await objectStorageService.getSignedObjectDownloadURL(req.path, {
+          downloadFileName,
+        });
+        return res.json(signed);
+      }
+
       const objectFile = await objectStorageService.getObjectEntityFile(
         req.path,
       );
@@ -359,6 +375,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           {
             owner: userId,
             visibility: "public", // Character reference images are public for consistency
+          },
+          {
+            variantType: "canonical",
+            lifecycleTag: null,
           }
         );
         
@@ -421,6 +441,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           {
             owner: userId,
             visibility: "public", // Character reference images are public for consistency
+          },
+          {
+            variantType: "canonical",
+            lifecycleTag: null,
           }
         );
         
@@ -4033,6 +4057,10 @@ Redress this character in the specified outfit while maintaining their core visu
           {
             owner: userId,
             visibility: "public", // Character reference images are public for consistency
+          },
+          {
+            variantType: "canonical",
+            lifecycleTag: null,
           }
         );
         
@@ -4075,6 +4103,10 @@ Redress this character in the specified outfit while maintaining their core visu
           {
             owner: userId,
             visibility: "public", // Character reference images are public for consistency
+          },
+          {
+            variantType: "canonical",
+            lifecycleTag: null,
           }
         );
         
