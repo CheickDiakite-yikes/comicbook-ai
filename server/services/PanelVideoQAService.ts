@@ -1,6 +1,55 @@
 import { VisualContinuityService, PanelVideoVersionInput, VideoVersionAnalysis } from './VisualContinuityService';
-import { IStorage } from '../storage';
-import type { PanelVideoVersion, PanelVideoQaResult } from '@shared/schema';
+
+export interface PanelVideoVersionRecord {
+  id: string;
+  panelId: string;
+  versionLabel: string | null;
+  storageKey: string | null;
+  posterFrameUrl: string;
+  thumbnailUrls: string[] | null;
+  durationMs: number | null;
+  frameRate: number | null;
+  timelineOrder: number | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
+export interface PanelVideoQaResultRecord {
+  id: string;
+  videoVersionId: string;
+  qualityScore: number;
+  driftWarnings: unknown;
+  issues: unknown;
+  continuityContextSnapshot: unknown;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
+export interface PanelVideoQAStorage {
+  upsertPanelVideoVersion(version: {
+    id?: string;
+    panelId: string;
+    versionLabel?: string | null;
+    storageKey?: string | null;
+    posterFrameUrl: string;
+    thumbnailUrls?: string[];
+    durationMs?: number | null;
+    frameRate?: number | null;
+    timelineOrder?: number | null;
+    metadata?: Record<string, unknown> | null;
+  }): Promise<PanelVideoVersionRecord>;
+  storePanelVideoQaResult(result: {
+    videoVersionId: string;
+    qualityScore: number;
+    continuityContextSnapshot: unknown;
+    driftWarnings?: unknown;
+    issues?: unknown;
+  }): Promise<PanelVideoQaResultRecord>;
+  getPanelVideoVersionsWithQA(
+    panelId: string,
+  ): Promise<Array<{ version: PanelVideoVersionRecord; qaResult?: PanelVideoQaResultRecord }>>;
+}
 
 export interface PanelVideoQAParams {
   panelId: string;
@@ -13,14 +62,14 @@ export interface PanelVideoQAParams {
 }
 
 export interface PersistedVideoQAResult {
-  version: PanelVideoVersion;
-  qaResult: PanelVideoQaResult;
+  version: PanelVideoVersionRecord;
+  qaResult: PanelVideoQaResultRecord;
   analysis: VideoVersionAnalysis;
 }
 
 export class PanelVideoQAService {
   constructor(
-    private readonly storage: IStorage,
+    private readonly storage: PanelVideoQAStorage,
     private readonly visualContinuityService: VisualContinuityService = new VisualContinuityService()
   ) {}
 
