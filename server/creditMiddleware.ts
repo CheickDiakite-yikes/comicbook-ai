@@ -8,6 +8,7 @@ export const CREDIT_COSTS = {
   panel_generation: 1,
   background_generation: 1,
   cover_art_generation: 2,
+  panel_animation: 3,
   
   // Script and story generation
   script_generation: 3,

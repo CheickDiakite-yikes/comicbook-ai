@@ -13,6 +13,9 @@ import {
   projectComments,
   userCredits,
   creditTransactions,
+  panelVideoRequests,
+  panelVideoVersions,
+  sceneVideoSequences,
   type User,
   type UpsertUser,
   type Project,
@@ -53,6 +56,15 @@ import {
   type CharacterAppearanceProfile,
   type CharacterConsistencyRule,
   type PanelCharacterState,
+  type PanelVideoRequest,
+  type InsertPanelVideoRequest,
+  type UpdatePanelVideoRequest,
+  type PanelVideoVersion,
+  type InsertPanelVideoVersion,
+  type UpdatePanelVideoVersion,
+  type SceneVideoSequence,
+  type InsertSceneVideoSequence,
+  type UpdateSceneVideoSequence,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -104,6 +116,27 @@ export interface IStorage {
   getPagePanels(pageId: string): Promise<Panel[]>;
   updatePanel(id: string, updates: Partial<InsertPanel>): Promise<Panel | undefined>;
   deletePanel(id: string): Promise<boolean>;
+
+  // Panel video request operations
+  createPanelVideoRequest(request: InsertPanelVideoRequest): Promise<PanelVideoRequest>;
+  getPanelVideoRequest(id: string): Promise<PanelVideoRequest | undefined>;
+  getPanelVideoRequestsForPanel(panelId: string): Promise<PanelVideoRequest[]>;
+  updatePanelVideoRequest(id: string, updates: Partial<UpdatePanelVideoRequest>): Promise<PanelVideoRequest | undefined>;
+  deletePanelVideoRequest(id: string): Promise<boolean>;
+
+  // Panel video versions
+  createPanelVideoVersion(version: InsertPanelVideoVersion): Promise<PanelVideoVersion>;
+  getPanelVideoVersion(id: string): Promise<PanelVideoVersion | undefined>;
+  getPanelVideoVersions(requestId: string): Promise<PanelVideoVersion[]>;
+  updatePanelVideoVersion(id: string, updates: Partial<UpdatePanelVideoVersion>): Promise<PanelVideoVersion | undefined>;
+  deletePanelVideoVersion(id: string): Promise<boolean>;
+
+  // Scene video sequences
+  createSceneVideoSequence(sequence: InsertSceneVideoSequence): Promise<SceneVideoSequence>;
+  getSceneVideoSequence(id: string): Promise<SceneVideoSequence | undefined>;
+  getProjectSceneVideoSequences(projectId: string): Promise<SceneVideoSequence[]>;
+  updateSceneVideoSequence(id: string, updates: Partial<UpdateSceneVideoSequence>): Promise<SceneVideoSequence | undefined>;
+  deleteSceneVideoSequence(id: string): Promise<boolean>;
 
   // Global panel operations
   getProjectPanels(projectId: string): Promise<Panel[]>; // Get all panels for a project ordered by global panel number
@@ -315,6 +348,9 @@ export class MemStorage implements IStorage {
   private characters: Map<string, Character> = new Map();
   private pages: Map<string, Page> = new Map();
   private panels: Map<string, Panel> = new Map();
+  private panelVideoRequestsStore: Map<string, PanelVideoRequest> = new Map();
+  private panelVideoVersionsStore: Map<string, PanelVideoVersion> = new Map();
+  private sceneVideoSequencesStore: Map<string, SceneVideoSequence> = new Map();
   
   // Validation storage
   private validationReports: Map<string, ScriptValidationReport> = new Map();
@@ -621,16 +657,219 @@ export class MemStorage implements IStorage {
   async deletePanel(id: string): Promise<boolean> {
     const panel = this.panels.get(id);
     if (!panel) return false;
-    
+
     const page = this.pages.get(panel.pageId);
     const success = this.panels.delete(id);
-    
+
     // Trigger recalculation if deletion was successful
     if (success && page) {
       await this.recalculateGlobalPanelNumbers(page.projectId);
     }
-    
+
     return success;
+  }
+
+  // Panel video request operations (in-memory)
+  async createPanelVideoRequest(requestData: InsertPanelVideoRequest): Promise<PanelVideoRequest> {
+    const now = new Date();
+    const request: PanelVideoRequest = {
+      id: randomUUID(),
+      panelId: requestData.panelId,
+      requestedByUserId: requestData.requestedByUserId,
+      requestPrompt: requestData.requestPrompt,
+      negativePrompt: requestData.negativePrompt ?? null,
+      stylePreset: requestData.stylePreset ?? null,
+      motionStyle: requestData.motionStyle ?? null,
+      durationSeconds: requestData.durationSeconds ?? null,
+      frameRate: requestData.frameRate ?? null,
+      aspectRatio: requestData.aspectRatio ?? null,
+      resolution: requestData.resolution ?? null,
+      status: requestData.status ?? "pending",
+      priority: requestData.priority ?? "normal",
+      failureReason: requestData.failureReason ?? null,
+      metadata: requestData.metadata ?? null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.panelVideoRequestsStore.set(request.id, request);
+    return request;
+  }
+
+  async getPanelVideoRequest(id: string): Promise<PanelVideoRequest | undefined> {
+    return this.panelVideoRequestsStore.get(id);
+  }
+
+  async getPanelVideoRequestsForPanel(panelId: string): Promise<PanelVideoRequest[]> {
+    return Array.from(this.panelVideoRequestsStore.values())
+      .filter(request => request.panelId === panelId)
+      .sort((a, b) => (a.createdAt?.getTime() || 0) - (b.createdAt?.getTime() || 0));
+  }
+
+  async updatePanelVideoRequest(
+    id: string,
+    updates: Partial<UpdatePanelVideoRequest>,
+  ): Promise<PanelVideoRequest | undefined> {
+    const existing = this.panelVideoRequestsStore.get(id);
+    if (!existing) return undefined;
+
+    const updated: PanelVideoRequest = {
+      ...existing,
+      requestPrompt: updates.requestPrompt ?? existing.requestPrompt,
+      negativePrompt: updates.negativePrompt !== undefined ? updates.negativePrompt ?? null : existing.negativePrompt,
+      stylePreset: updates.stylePreset !== undefined ? updates.stylePreset ?? null : existing.stylePreset,
+      motionStyle: updates.motionStyle !== undefined ? updates.motionStyle ?? null : existing.motionStyle,
+      durationSeconds: updates.durationSeconds !== undefined ? updates.durationSeconds ?? null : existing.durationSeconds,
+      frameRate: updates.frameRate !== undefined ? updates.frameRate ?? null : existing.frameRate,
+      aspectRatio: updates.aspectRatio !== undefined ? updates.aspectRatio ?? null : existing.aspectRatio,
+      resolution: updates.resolution !== undefined ? updates.resolution ?? null : existing.resolution,
+      status: updates.status ?? existing.status,
+      priority: updates.priority ?? existing.priority,
+      failureReason: updates.failureReason !== undefined ? updates.failureReason ?? null : existing.failureReason,
+      metadata: updates.metadata !== undefined ? updates.metadata ?? null : existing.metadata,
+      updatedAt: new Date(),
+    };
+
+    this.panelVideoRequestsStore.set(id, updated);
+    return updated;
+  }
+
+  async deletePanelVideoRequest(id: string): Promise<boolean> {
+    const existed = this.panelVideoRequestsStore.delete(id);
+    if (!existed) return false;
+
+    for (const [versionId, version] of Array.from(this.panelVideoVersionsStore.entries())) {
+      if (version.requestId === id) {
+        this.panelVideoVersionsStore.delete(versionId);
+      }
+    }
+
+    return true;
+  }
+
+  // Panel video versions (in-memory)
+  async createPanelVideoVersion(versionData: InsertPanelVideoVersion): Promise<PanelVideoVersion> {
+    const now = new Date();
+    const version: PanelVideoVersion = {
+      id: randomUUID(),
+      requestId: versionData.requestId,
+      createdByUserId: versionData.createdByUserId ?? null,
+      versionNumber: versionData.versionNumber ?? 1,
+      videoUrl: versionData.videoUrl ?? null,
+      previewImageUrl: versionData.previewImageUrl ?? null,
+      durationSeconds: versionData.durationSeconds ?? null,
+      resolution: versionData.resolution ?? null,
+      frameRate: versionData.frameRate ?? null,
+      status: versionData.status ?? "draft",
+      rejectionReason: versionData.rejectionReason ?? null,
+      notes: versionData.notes ?? null,
+      metadata: versionData.metadata ?? null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.panelVideoVersionsStore.set(version.id, version);
+    return version;
+  }
+
+  async getPanelVideoVersion(id: string): Promise<PanelVideoVersion | undefined> {
+    return this.panelVideoVersionsStore.get(id);
+  }
+
+  async getPanelVideoVersions(requestId: string): Promise<PanelVideoVersion[]> {
+    return Array.from(this.panelVideoVersionsStore.values())
+      .filter(version => version.requestId === requestId)
+      .sort((a, b) => (a.versionNumber || 0) - (b.versionNumber || 0));
+  }
+
+  async updatePanelVideoVersion(
+    id: string,
+    updates: Partial<UpdatePanelVideoVersion>,
+  ): Promise<PanelVideoVersion | undefined> {
+    const existing = this.panelVideoVersionsStore.get(id);
+    if (!existing) return undefined;
+
+    const updated: PanelVideoVersion = {
+      ...existing,
+      createdByUserId: updates.createdByUserId !== undefined ? updates.createdByUserId ?? null : existing.createdByUserId,
+      versionNumber: updates.versionNumber ?? existing.versionNumber,
+      videoUrl: updates.videoUrl !== undefined ? updates.videoUrl ?? null : existing.videoUrl,
+      previewImageUrl: updates.previewImageUrl !== undefined ? updates.previewImageUrl ?? null : existing.previewImageUrl,
+      durationSeconds: updates.durationSeconds !== undefined ? updates.durationSeconds ?? null : existing.durationSeconds,
+      resolution: updates.resolution !== undefined ? updates.resolution ?? null : existing.resolution,
+      frameRate: updates.frameRate !== undefined ? updates.frameRate ?? null : existing.frameRate,
+      status: updates.status ?? existing.status,
+      rejectionReason: updates.rejectionReason !== undefined ? updates.rejectionReason ?? null : existing.rejectionReason,
+      notes: updates.notes !== undefined ? updates.notes ?? null : existing.notes,
+      metadata: updates.metadata !== undefined ? updates.metadata ?? null : existing.metadata,
+      updatedAt: new Date(),
+    };
+
+    this.panelVideoVersionsStore.set(id, updated);
+    return updated;
+  }
+
+  async deletePanelVideoVersion(id: string): Promise<boolean> {
+    return this.panelVideoVersionsStore.delete(id);
+  }
+
+  // Scene video sequence operations (in-memory)
+  async createSceneVideoSequence(sequenceData: InsertSceneVideoSequence): Promise<SceneVideoSequence> {
+    const now = new Date();
+    const sequence: SceneVideoSequence = {
+      id: randomUUID(),
+      projectId: sequenceData.projectId,
+      createdByUserId: sequenceData.createdByUserId ?? null,
+      title: sequenceData.title,
+      description: sequenceData.description ?? null,
+      coverImageUrl: sequenceData.coverImageUrl ?? null,
+      audioTrackUrl: sequenceData.audioTrackUrl ?? null,
+      status: sequenceData.status ?? "draft",
+      totalDurationSeconds: sequenceData.totalDurationSeconds ?? null,
+      sequenceData: sequenceData.sequenceData ?? null,
+      metadata: sequenceData.metadata ?? null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.sceneVideoSequencesStore.set(sequence.id, sequence);
+    return sequence;
+  }
+
+  async getSceneVideoSequence(id: string): Promise<SceneVideoSequence | undefined> {
+    return this.sceneVideoSequencesStore.get(id);
+  }
+
+  async getProjectSceneVideoSequences(projectId: string): Promise<SceneVideoSequence[]> {
+    return Array.from(this.sceneVideoSequencesStore.values())
+      .filter(sequence => sequence.projectId === projectId)
+      .sort((a, b) => (a.createdAt?.getTime() || 0) - (b.createdAt?.getTime() || 0));
+  }
+
+  async updateSceneVideoSequence(
+    id: string,
+    updates: Partial<UpdateSceneVideoSequence>,
+  ): Promise<SceneVideoSequence | undefined> {
+    const existing = this.sceneVideoSequencesStore.get(id);
+    if (!existing) return undefined;
+
+    const updated: SceneVideoSequence = {
+      ...existing,
+      createdByUserId: updates.createdByUserId !== undefined ? updates.createdByUserId ?? null : existing.createdByUserId,
+      title: updates.title ?? existing.title,
+      description: updates.description !== undefined ? updates.description ?? null : existing.description,
+      coverImageUrl: updates.coverImageUrl !== undefined ? updates.coverImageUrl ?? null : existing.coverImageUrl,
+      audioTrackUrl: updates.audioTrackUrl !== undefined ? updates.audioTrackUrl ?? null : existing.audioTrackUrl,
+      status: updates.status ?? existing.status,
+      totalDurationSeconds: updates.totalDurationSeconds !== undefined ? updates.totalDurationSeconds ?? null : existing.totalDurationSeconds,
+      sequenceData: updates.sequenceData !== undefined ? updates.sequenceData ?? null : existing.sequenceData,
+      metadata: updates.metadata !== undefined ? updates.metadata ?? null : existing.metadata,
+      updatedAt: new Date(),
+    };
+
+    this.sceneVideoSequencesStore.set(id, updated);
+    return updated;
+  }
+
+  async deleteSceneVideoSequence(id: string): Promise<boolean> {
+    return this.sceneVideoSequencesStore.delete(id);
   }
 
   // Global panel operations
@@ -1846,16 +2085,196 @@ export class DatabaseStorage implements IStorage {
       .from(panels)
       .innerJoin(pages, eq(panels.pageId, pages.id))
       .where(eq(panels.id, id));
-    
+
     const result = await db.delete(panels).where(eq(panels.id, id));
     const success = result.rowCount !== null && result.rowCount > 0;
-    
+
     // Trigger recalculation if deletion was successful and we found the project
     if (success && panelWithPage) {
       await this.recalculateGlobalPanelNumbers(panelWithPage.projectId);
     }
-    
+
     return success;
+  }
+
+  // Panel video request operations
+  async createPanelVideoRequest(requestData: InsertPanelVideoRequest): Promise<PanelVideoRequest> {
+    const [request] = await db
+      .insert(panelVideoRequests)
+      .values(requestData)
+      .returning();
+    return request;
+  }
+
+  async getPanelVideoRequest(id: string): Promise<PanelVideoRequest | undefined> {
+    const [request] = await db
+      .select()
+      .from(panelVideoRequests)
+      .where(eq(panelVideoRequests.id, id));
+    return request || undefined;
+  }
+
+  async getPanelVideoRequestsForPanel(panelId: string): Promise<PanelVideoRequest[]> {
+    return await db
+      .select()
+      .from(panelVideoRequests)
+      .where(eq(panelVideoRequests.panelId, panelId))
+      .orderBy(panelVideoRequests.createdAt);
+  }
+
+  async updatePanelVideoRequest(
+    id: string,
+    updates: Partial<UpdatePanelVideoRequest>,
+  ): Promise<PanelVideoRequest | undefined> {
+    const updateValues: Partial<InsertPanelVideoRequest> & { updatedAt: Date } = {
+      updatedAt: new Date(),
+    };
+
+    if (updates.panelId !== undefined) updateValues.panelId = updates.panelId;
+    if (updates.requestedByUserId !== undefined) updateValues.requestedByUserId = updates.requestedByUserId;
+    if (updates.requestPrompt !== undefined) updateValues.requestPrompt = updates.requestPrompt;
+    if (updates.negativePrompt !== undefined) updateValues.negativePrompt = updates.negativePrompt;
+    if (updates.stylePreset !== undefined) updateValues.stylePreset = updates.stylePreset;
+    if (updates.motionStyle !== undefined) updateValues.motionStyle = updates.motionStyle;
+    if (updates.durationSeconds !== undefined) updateValues.durationSeconds = updates.durationSeconds;
+    if (updates.frameRate !== undefined) updateValues.frameRate = updates.frameRate;
+    if (updates.aspectRatio !== undefined) updateValues.aspectRatio = updates.aspectRatio;
+    if (updates.resolution !== undefined) updateValues.resolution = updates.resolution;
+    if (updates.status !== undefined) updateValues.status = updates.status;
+    if (updates.priority !== undefined) updateValues.priority = updates.priority;
+    if (updates.failureReason !== undefined) updateValues.failureReason = updates.failureReason;
+    if (updates.metadata !== undefined) updateValues.metadata = updates.metadata;
+
+    const [request] = await db
+      .update(panelVideoRequests)
+      .set(updateValues)
+      .where(eq(panelVideoRequests.id, id))
+      .returning();
+
+    return request || undefined;
+  }
+
+  async deletePanelVideoRequest(id: string): Promise<boolean> {
+    const result = await db.delete(panelVideoRequests).where(eq(panelVideoRequests.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Panel video versions
+  async createPanelVideoVersion(versionData: InsertPanelVideoVersion): Promise<PanelVideoVersion> {
+    const [version] = await db
+      .insert(panelVideoVersions)
+      .values(versionData)
+      .returning();
+    return version;
+  }
+
+  async getPanelVideoVersion(id: string): Promise<PanelVideoVersion | undefined> {
+    const [version] = await db
+      .select()
+      .from(panelVideoVersions)
+      .where(eq(panelVideoVersions.id, id));
+    return version || undefined;
+  }
+
+  async getPanelVideoVersions(requestId: string): Promise<PanelVideoVersion[]> {
+    return await db
+      .select()
+      .from(panelVideoVersions)
+      .where(eq(panelVideoVersions.requestId, requestId))
+      .orderBy(panelVideoVersions.versionNumber, panelVideoVersions.createdAt);
+  }
+
+  async updatePanelVideoVersion(
+    id: string,
+    updates: Partial<UpdatePanelVideoVersion>,
+  ): Promise<PanelVideoVersion | undefined> {
+    const updateValues: Partial<InsertPanelVideoVersion> & { updatedAt: Date } = {
+      updatedAt: new Date(),
+    };
+
+    if (updates.requestId !== undefined) updateValues.requestId = updates.requestId;
+    if (updates.createdByUserId !== undefined) updateValues.createdByUserId = updates.createdByUserId;
+    if (updates.versionNumber !== undefined) updateValues.versionNumber = updates.versionNumber;
+    if (updates.videoUrl !== undefined) updateValues.videoUrl = updates.videoUrl;
+    if (updates.previewImageUrl !== undefined) updateValues.previewImageUrl = updates.previewImageUrl;
+    if (updates.durationSeconds !== undefined) updateValues.durationSeconds = updates.durationSeconds;
+    if (updates.resolution !== undefined) updateValues.resolution = updates.resolution;
+    if (updates.frameRate !== undefined) updateValues.frameRate = updates.frameRate;
+    if (updates.status !== undefined) updateValues.status = updates.status;
+    if (updates.rejectionReason !== undefined) updateValues.rejectionReason = updates.rejectionReason;
+    if (updates.notes !== undefined) updateValues.notes = updates.notes;
+    if (updates.metadata !== undefined) updateValues.metadata = updates.metadata;
+
+    const [version] = await db
+      .update(panelVideoVersions)
+      .set(updateValues)
+      .where(eq(panelVideoVersions.id, id))
+      .returning();
+
+    return version || undefined;
+  }
+
+  async deletePanelVideoVersion(id: string): Promise<boolean> {
+    const result = await db.delete(panelVideoVersions).where(eq(panelVideoVersions.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Scene video sequences
+  async createSceneVideoSequence(sequenceData: InsertSceneVideoSequence): Promise<SceneVideoSequence> {
+    const [sequence] = await db
+      .insert(sceneVideoSequences)
+      .values(sequenceData)
+      .returning();
+    return sequence;
+  }
+
+  async getSceneVideoSequence(id: string): Promise<SceneVideoSequence | undefined> {
+    const [sequence] = await db
+      .select()
+      .from(sceneVideoSequences)
+      .where(eq(sceneVideoSequences.id, id));
+    return sequence || undefined;
+  }
+
+  async getProjectSceneVideoSequences(projectId: string): Promise<SceneVideoSequence[]> {
+    return await db
+      .select()
+      .from(sceneVideoSequences)
+      .where(eq(sceneVideoSequences.projectId, projectId))
+      .orderBy(sceneVideoSequences.createdAt);
+  }
+
+  async updateSceneVideoSequence(
+    id: string,
+    updates: Partial<UpdateSceneVideoSequence>,
+  ): Promise<SceneVideoSequence | undefined> {
+    const updateValues: Partial<InsertSceneVideoSequence> & { updatedAt: Date } = {
+      updatedAt: new Date(),
+    };
+
+    if (updates.projectId !== undefined) updateValues.projectId = updates.projectId;
+    if (updates.createdByUserId !== undefined) updateValues.createdByUserId = updates.createdByUserId;
+    if (updates.title !== undefined) updateValues.title = updates.title;
+    if (updates.description !== undefined) updateValues.description = updates.description;
+    if (updates.coverImageUrl !== undefined) updateValues.coverImageUrl = updates.coverImageUrl;
+    if (updates.audioTrackUrl !== undefined) updateValues.audioTrackUrl = updates.audioTrackUrl;
+    if (updates.status !== undefined) updateValues.status = updates.status;
+    if (updates.totalDurationSeconds !== undefined) updateValues.totalDurationSeconds = updates.totalDurationSeconds;
+    if (updates.sequenceData !== undefined) updateValues.sequenceData = updates.sequenceData;
+    if (updates.metadata !== undefined) updateValues.metadata = updates.metadata;
+
+    const [sequence] = await db
+      .update(sceneVideoSequences)
+      .set(updateValues)
+      .where(eq(sceneVideoSequences.id, id))
+      .returning();
+
+    return sequence || undefined;
+  }
+
+  async deleteSceneVideoSequence(id: string): Promise<boolean> {
+    const result = await db.delete(sceneVideoSequences).where(eq(sceneVideoSequences.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
   }
 
   // Global panel operations
