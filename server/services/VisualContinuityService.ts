@@ -153,10 +153,11 @@ export interface PanelVisualAnalysis {
  * Interface for the main analysis request
  */
 export interface AnalyzeCharacterAppearancesRequest {
-  panelImageUrls: Array<{
+  panelImageUrls?: Array<{
     panelNumber: number;
     imageUrl: string;
   }>;
+  panelVideoVersions?: PanelVideoVersionInput[];
   characterNames: string[];
   projectContext?: {
     title: string;
@@ -167,6 +168,62 @@ export interface AnalyzeCharacterAppearancesRequest {
     focusOnConsistency?: boolean;
     detailLevel?: 'basic' | 'detailed' | 'comprehensive';
     maxPanelsToAnalyze?: number;
+  };
+}
+
+export interface PanelVideoVersionInput {
+  versionId: string;
+  panelNumber: number;
+  posterFrameUrl: string;
+  thumbnailUrls?: string[];
+  versionLabel?: string;
+  storageKey?: string;
+  durationMs?: number;
+  frameRate?: number;
+  timelineOrder?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface VideoFrameAnalysis {
+  frameIndex: number;
+  frameUrl: string;
+  timestampMs?: number;
+  characters: CharacterAppearanceAnalysis[];
+}
+
+export interface VideoTemporalWarning {
+  characterName: string;
+  issue: string;
+  severity: 'info' | 'warning' | 'critical';
+  frameIndices?: number[];
+}
+
+export interface VideoVersionAnalysis {
+  versionId: string;
+  panelNumber: number;
+  posterFrameUrl: string;
+  durationMs?: number;
+  frameRate?: number;
+  timelineOrder?: number;
+  thumbnailsAnalyzed: number;
+  qualityScore: number;
+  driftDetected: boolean;
+  warnings: VideoTemporalWarning[];
+  perCharacterScores: Record<string, number>;
+  frameAnalyses: VideoFrameAnalysis[];
+  continuityContextSnapshot: {
+    frames: Array<{
+      frameIndex: number;
+      frameUrl: string;
+      timestampMs?: number;
+      characters: Array<{
+        characterName: string;
+        isPresent: boolean;
+        confidence: number;
+        clothing?: string;
+        hair?: string;
+      }>;
+    }>;
   };
 }
 
@@ -197,6 +254,7 @@ export interface VisualContinuityAnalysisResponse {
     timeProgression?: string;
     notablePatterns: string[];
   };
+  videoVersionAnalyses?: VideoVersionAnalysis[];
   error?: string;
 }
 
@@ -445,35 +503,57 @@ export class VisualContinuityService {
   async analyzeCharacterAppearances(
     request: AnalyzeCharacterAppearancesRequest
   ): Promise<VisualContinuityAnalysisResponse> {
-    console.log(`🔍 Starting visual continuity analysis for ${request.characterNames.length} characters across ${request.panelImageUrls.length} panels`);
-    
+    const panelImageUrls = request.panelImageUrls ?? [];
+    const panelVideoVersions = request.panelVideoVersions ?? [];
+
+    console.log(
+      `🔍 Starting visual continuity analysis for ${request.characterNames.length} characters across ${panelImageUrls.length} panels and ${panelVideoVersions.length} video versions`
+    );
+
     try {
       const maxPanels = request.analysisOptions?.maxPanelsToAnalyze || 10;
-      const panelsToAnalyze = request.panelImageUrls.slice(-maxPanels); // Take the most recent panels
-      
-      // Process panels with limited concurrency for better performance
-      const panelAnalyses = await this.analyzeWithLimitedConcurrency(
-        panelsToAnalyze,
-        request.characterNames,
-        request.projectContext,
-        request.analysisOptions
-      );
-      
+      const panelsToAnalyze = panelImageUrls.slice(-maxPanels); // Take the most recent panels
+
+      let panelAnalyses: PanelVisualAnalysis[] = [];
+
+      if (panelsToAnalyze.length > 0) {
+        // Process panels with limited concurrency for better performance
+        panelAnalyses = await this.analyzeWithLimitedConcurrency(
+          panelsToAnalyze,
+          request.characterNames,
+          request.projectContext,
+          request.analysisOptions
+        );
+      }
+
+      let videoVersionAnalyses: VideoVersionAnalysis[] | undefined;
+      if (panelVideoVersions.length > 0) {
+        videoVersionAnalyses = await this.analyzeVideoVersions(
+          panelVideoVersions,
+          request.characterNames,
+          request.projectContext,
+          request.analysisOptions
+        );
+      }
+
       // Generate character summary and insights
       const characterSummary = this.generateCharacterSummary(panelAnalyses, request.characterNames);
       const overallInsights = this.generateOverallInsights(panelAnalyses);
-      
+
       const response: VisualContinuityAnalysisResponse = {
         success: true,
         totalPanelsAnalyzed: panelAnalyses.length,
         panelAnalyses,
         characterSummary,
-        overallInsights
+        overallInsights,
+        videoVersionAnalyses
       };
-      
-      console.log(`✅ Visual continuity analysis complete. Analyzed ${panelAnalyses.length} panels successfully.`);
+
+      console.log(
+        `✅ Visual continuity analysis complete. Analyzed ${panelAnalyses.length} panels and ${panelVideoVersions.length} video versions successfully.`
+      );
       return response;
-      
+
     } catch (error) {
       console.error(`❌ Visual continuity analysis failed:`, error);
       return {
@@ -499,7 +579,7 @@ export class VisualContinuityService {
     projectContext?: { title: string; genre?: string; artStyle?: string },
     analysisOptions?: { focusOnConsistency?: boolean; detailLevel?: 'basic' | 'detailed' | 'comprehensive' }
   ): Promise<PanelVisualAnalysis> {
-    
+
     try {
       // Download and convert image to base64
       const imageData = await this.downloadImageAsBase64(panelInfo.imageUrl);
@@ -555,6 +635,335 @@ export class VisualContinuityService {
       console.error(`❌ Error analyzing panel ${panelInfo.panelNumber}:`, error);
       throw error;
     }
+  }
+
+  private async analyzeVideoVersions(
+    videoVersions: PanelVideoVersionInput[],
+    characterNames: string[],
+    projectContext?: { title: string; genre?: string; artStyle?: string },
+    analysisOptions?: { focusOnConsistency?: boolean; detailLevel?: 'basic' | 'detailed' | 'comprehensive' }
+  ): Promise<VideoVersionAnalysis[]> {
+    const analyses: VideoVersionAnalysis[] = [];
+
+    for (const version of videoVersions) {
+      const frameUrls = [version.posterFrameUrl, ...(version.thumbnailUrls ?? [])].filter(Boolean);
+
+      if (frameUrls.length === 0) {
+        console.warn(`⚠️ No poster frames or thumbnails supplied for video version ${version.versionId}`);
+        continue;
+      }
+
+      const frameAnalyses: VideoFrameAnalysis[] = [];
+      const frameInterval =
+        typeof version.durationMs === 'number' && frameUrls.length > 1
+          ? Math.round(version.durationMs / (frameUrls.length - 1))
+          : undefined;
+
+      for (let index = 0; index < frameUrls.length; index++) {
+        const frameUrl = frameUrls[index];
+
+        if (!frameUrl) {
+          continue;
+        }
+
+        let characters: CharacterAppearanceAnalysis[];
+        try {
+          characters = await this.analyzeFrameCharacters(
+            frameUrl,
+            characterNames,
+            projectContext,
+            analysisOptions
+          );
+        } catch (error) {
+          console.error(`❌ Failed to analyze frame ${frameUrl} for version ${version.versionId}:`, error);
+          characters = characterNames.map(name => ({
+            characterName: name,
+            isPresent: false,
+            confidence: 0
+          }));
+        }
+
+        const timestampMs =
+          frameInterval !== undefined
+            ? Math.min(version.durationMs ?? frameInterval * index, frameInterval * index)
+            : undefined;
+
+        frameAnalyses.push({
+          frameIndex: index,
+          frameUrl,
+          timestampMs,
+          characters
+        });
+      }
+
+      const warnings = this.detectTemporalDrift(frameAnalyses);
+      const { qualityScore, perCharacterScores } = this.calculateTemporalContinuityScore(
+        frameAnalyses,
+        warnings,
+        characterNames
+      );
+
+      const continuityContextSnapshot = {
+        frames: frameAnalyses.map(frame => ({
+          frameIndex: frame.frameIndex,
+          frameUrl: frame.frameUrl,
+          timestampMs: frame.timestampMs,
+          characters: frame.characters.map(character => ({
+            characterName: character.characterName,
+            isPresent: character.isPresent,
+            confidence: character.confidence,
+            clothing: character.visualDetails?.clothing?.upperBody,
+            hair: character.visualDetails?.hair?.style
+          }))
+        }))
+      };
+
+      analyses.push({
+        versionId: version.versionId,
+        panelNumber: version.panelNumber,
+        posterFrameUrl: version.posterFrameUrl,
+        durationMs: version.durationMs,
+        frameRate: version.frameRate,
+        timelineOrder: version.timelineOrder,
+        thumbnailsAnalyzed: frameAnalyses.length,
+        qualityScore,
+        driftDetected: warnings.some(warning => warning.severity !== 'info'),
+        warnings,
+        perCharacterScores,
+        frameAnalyses,
+        continuityContextSnapshot
+      });
+    }
+
+    return analyses.sort((a, b) => {
+      const aOrder = a.timelineOrder ?? a.panelNumber;
+      const bOrder = b.timelineOrder ?? b.panelNumber;
+      if (aOrder === bOrder) {
+        return a.versionId.localeCompare(b.versionId);
+      }
+      return aOrder - bOrder;
+    });
+  }
+
+  private async analyzeFrameCharacters(
+    frameUrl: string,
+    characterNames: string[],
+    projectContext?: { title: string; genre?: string; artStyle?: string },
+    analysisOptions?: { focusOnConsistency?: boolean; detailLevel?: 'basic' | 'detailed' | 'comprehensive' }
+  ): Promise<CharacterAppearanceAnalysis[]> {
+    if (!this.validateImageUrl(frameUrl)) {
+      console.warn(`⚠️ Skipping frame analysis due to invalid URL: ${frameUrl}`);
+      return characterNames.map(name => ({
+        characterName: name,
+        isPresent: false,
+        confidence: 0
+      }));
+    }
+
+    try {
+      const imageData = await this.downloadImageAsBase64(frameUrl);
+      const analysisPrompt = this.buildAnalysisPrompt(
+        characterNames,
+        projectContext,
+        analysisOptions
+      ) + `\nThis image is part of an animation timeline. Highlight any temporal drift or sudden appearance changes compared to other frames.`;
+
+      const response = await this.generateContentWithTimeout({
+        model: "gemini-2.5-flash-image-preview",
+        contents: [
+          {
+            inlineData: {
+              mimeType: imageData.mimeType,
+              data: imageData.data
+            }
+          },
+          { text: analysisPrompt }
+        ],
+        config: {
+          temperature: 0.1,
+          maxOutputTokens: 2048,
+          responseMimeType: "application/json"
+        }
+      }, 60000);
+
+      if (!response.candidates?.[0]?.content?.parts?.[0]?.text) {
+        throw new Error("No analysis response received from Gemini");
+      }
+
+      const analysisText = response.candidates[0].content.parts[0].text;
+      const analysisData = this.parseJsonResponse(analysisText);
+      return this.extractCharacterAnalyses(analysisData, characterNames);
+    } catch (error) {
+      console.error(`❌ Error analyzing animation frame ${frameUrl}:`, error);
+      return characterNames.map(name => ({
+        characterName: name,
+        isPresent: false,
+        confidence: 0
+      }));
+    }
+  }
+
+  private detectTemporalDrift(frameAnalyses: VideoFrameAnalysis[]): VideoTemporalWarning[] {
+    const warnings: VideoTemporalWarning[] = [];
+
+    if (frameAnalyses.length <= 1) {
+      return warnings;
+    }
+
+    const characterNames = new Set<string>();
+    frameAnalyses.forEach(frame => {
+      frame.characters.forEach(character => characterNames.add(character.characterName));
+    });
+
+    for (const characterName of characterNames) {
+      const timeline = frameAnalyses.map(frame => ({
+        frameIndex: frame.frameIndex,
+        character: frame.characters.find(character => character.characterName === characterName)
+      }));
+
+      const presenceSequence = timeline.map(entry => entry.character?.isPresent ?? false);
+      const firstPresenceIndex = presenceSequence.indexOf(true);
+
+      if (firstPresenceIndex === -1) {
+        continue;
+      }
+
+      const dropoutFrames: number[] = [];
+      let reappearsAfterDropout = false;
+      let hasDroppedOut = false;
+
+      for (let idx = firstPresenceIndex + 1; idx < timeline.length; idx++) {
+        const entry = timeline[idx];
+        if (!entry.character?.isPresent) {
+          dropoutFrames.push(entry.frameIndex);
+          hasDroppedOut = true;
+        } else if (hasDroppedOut) {
+          reappearsAfterDropout = true;
+        }
+      }
+
+      if (dropoutFrames.length > 0) {
+        warnings.push({
+          characterName,
+          issue: reappearsAfterDropout
+            ? 'Character disappears and reappears unexpectedly within the animation sequence'
+            : 'Character disappears mid-animation sequence',
+          severity: reappearsAfterDropout ? 'critical' : 'warning',
+          frameIndices: dropoutFrames
+        });
+      }
+
+      const presentEntries = timeline.filter(
+        entry => entry.character && entry.character.isPresent
+      ) as Array<{ frameIndex: number; character: CharacterAppearanceAnalysis }>;
+
+      if (presentEntries.length <= 1) {
+        continue;
+      }
+
+      const baseline = presentEntries[0].character;
+      let worstSimilarity = 100;
+      const driftFrames: number[] = [];
+
+      for (let i = 1; i < presentEntries.length; i++) {
+        const comparison = presentEntries[i];
+        const similarity = this.calculateAppearanceSimilarity(baseline, comparison.character);
+        worstSimilarity = Math.min(worstSimilarity, similarity);
+        if (similarity < 70) {
+          driftFrames.push(comparison.frameIndex);
+        }
+      }
+
+      if (driftFrames.length > 0) {
+        warnings.push({
+          characterName,
+          issue: worstSimilarity < 50
+            ? 'Severe visual drift detected across animation frames'
+            : 'Visual drift detected across animation frames',
+          severity: worstSimilarity < 50 ? 'critical' : 'warning',
+          frameIndices: driftFrames
+        });
+      }
+    }
+
+    return warnings;
+  }
+
+  private calculateAppearanceSimilarity(
+    baseline: CharacterAppearanceAnalysis,
+    comparison: CharacterAppearanceAnalysis
+  ): number {
+    if (!baseline?.visualDetails || !comparison?.visualDetails) {
+      if (!baseline?.visualDetails && !comparison?.visualDetails) {
+        return 50;
+      }
+      return 60;
+    }
+
+    return this.calculateConsistencyScore([
+      { panelNumber: 0, character: baseline },
+      { panelNumber: 1, character: comparison }
+    ]);
+  }
+
+  private calculateTemporalContinuityScore(
+    frameAnalyses: VideoFrameAnalysis[],
+    warnings: VideoTemporalWarning[],
+    requestedCharacterNames: string[]
+  ): { qualityScore: number; perCharacterScores: Record<string, number> } {
+    const perCharacterScores: Record<string, number> = {};
+
+    const allCharacterNames = new Set<string>(requestedCharacterNames);
+    frameAnalyses.forEach(frame => {
+      frame.characters.forEach(character => allCharacterNames.add(character.characterName));
+    });
+
+    for (const characterName of allCharacterNames) {
+      const timeline = frameAnalyses.map(frame => ({
+        frameIndex: frame.frameIndex,
+        character: frame.characters.find(character => character.characterName === characterName)
+      }));
+
+      const presentEntries = timeline.filter(
+        entry => entry.character && entry.character.isPresent
+      ) as Array<{ frameIndex: number; character: CharacterAppearanceAnalysis }>;
+
+      if (presentEntries.length === 0) {
+        continue;
+      }
+
+      let score = this.calculateConsistencyScore(
+        presentEntries.map((entry, idx) => ({
+          panelNumber: idx,
+          character: entry.character
+        }))
+      );
+
+      const disappearanceWarning = warnings.find(
+        warning => warning.characterName === characterName && warning.issue.toLowerCase().includes('disappear')
+      );
+
+      if (disappearanceWarning) {
+        score = Math.min(score, disappearanceWarning.severity === 'critical' ? 40 : 60);
+      }
+
+      const criticalWarning = warnings.find(
+        warning => warning.characterName === characterName && warning.severity === 'critical'
+      );
+
+      if (criticalWarning) {
+        score = Math.min(score, 45);
+      }
+
+      perCharacterScores[characterName] = Math.round(Math.max(0, Math.min(100, score)));
+    }
+
+    const scoreValues = Object.values(perCharacterScores);
+    const qualityScore = scoreValues.length > 0
+      ? Math.round(scoreValues.reduce((sum, value) => sum + value, 0) / scoreValues.length)
+      : 100;
+
+    return { qualityScore, perCharacterScores };
   }
   
   /**

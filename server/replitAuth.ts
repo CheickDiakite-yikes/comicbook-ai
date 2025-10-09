@@ -119,6 +119,9 @@ async function downloadAndStoreGoogleProfilePicture(
       await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
         owner: userId,
         visibility: "public",
+      }, {
+        variantType: "canonical",
+        lifecycleTag: null,
       });
       console.log(`🔥 Profile Download: Set ACL policy for public access`);
     } catch (aclError) {

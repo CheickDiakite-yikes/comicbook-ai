@@ -23,6 +23,44 @@ Preferred communication style: Simple, everyday language.
 - **Session Management**: Express sessions with PostgreSQL session store
 - **API Design**: RESTful API with JSON responses and comprehensive error handling
 
+## Panel Animation API
+The panel animation workflow provides asynchronous Veo3 video renders for any generated panel while preserving story continuity. All endpoints require authentication via `isAuthenticated` and the POST endpoint additionally deducts animation credits through `requireCredits` (`panel_animation` costs 3 credits).
+
+### `POST /api/animation/panels/{panelId}` — Enqueue animation job
+- **Body schema** (`createPanelVideoRequestSchema`):
+  - `durationSeconds` *(number, 1-30)* — clip length in seconds.
+  - `motionPreset` *("static" | "gentle" | "dynamic" | "cinematic")* — camera motion recipe.
+  - `stylePreset` *(string, optional)* — named Veo3 preset or custom tag.
+  - `narrativeFocus` *(string, optional)* — short description of the story beat to emphasise.
+  - `cameraPrompts` *(string[≤4], optional)* — fine-grained camera directives.
+  - `soundtrackMood` *(enum, optional)* — background audio suggestion.
+  - `includeSubtitles` *(boolean, optional)* — request burnt-in captions.
+- **Success (202)**: returns job metadata (`jobId`, `status`, `history`, `resultUrl`, `approval`, timestamps).
+- **Rate limit**: Maximum **3 jobs per panel per minute**. Exceeding the limit returns **429** with `Retry-After` header and `retryAfterMs` payload.
+- **Errors**:
+  - `400 validation_failed` — malformed payload (Zod validation details in `details`).
+  - `402 insufficient_credits` — handled by credit middleware.
+  - `404 panel_not_found` / `project_not_found` — panel does not belong to the authenticated user.
+  - `429 rate_limited` — rate limit triggered.
+  - `500 panel_animation_failed` — unexpected orchestration errors.
+
+### `GET /api/animation/panels/{panelId}` — Job status & history
+- Optional query `jobId` filters to a single job; otherwise returns all jobs for the panel ordered by newest first.
+- Response matches `panelVideoJobStatusResponseSchema` and includes `status` progression (`queued`, `rendering`, `ready`, `error`).
+- Errors mirror POST plus `404 job_not_found` when requesting unknown job IDs.
+
+### `PATCH /api/animation/panels/{panelId}` — Approve or reject renders
+- Body schema (`updatePanelVideoApprovalSchema`):
+  - `jobId` *(UUID)* — job to review.
+  - `approved` *(boolean)* — approval decision.
+  - `notes` *(string, optional)* — reviewer comment.
+- Updates `job.approval` and appends to job history; returns `{ job }` with the new approval state.
+- Errors: `400 validation_failed`, `403 forbidden` (job owned by another user), `404 job_not_found`.
+
+### `GET /api/animation/panels/{panelId}/events` — SSE stream
+- Streams real-time updates as [`PanelVideoJobEvent`](./server/services/Veo3JobService.ts) payloads with `type` values `queued`, `rendering`, `ready`, `error`, or `approval` and the current `job` snapshot.
+- Clients should keep the connection open and update UI incrementally. Reconnect on network errors.
+
 ## Data Storage Solutions
 - **Primary Database**: PostgreSQL with Neon Database serverless hosting
 - **Schema Design**: 
