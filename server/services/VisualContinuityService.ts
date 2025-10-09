@@ -205,18 +205,19 @@ export interface VisualContinuityAnalysisResponse {
  */
 export interface ContinuityGuidance {
   success: boolean;
-  characterGuidance: Array<{
-    characterName: string;
-    prompt: string; // Ready-to-use prompt segment
-    keyAttributes: {
-      hair: string;
-      clothing: string;
-      physicalFeatures: string;
-      accessories: string;
-    };
-    consistencyScore: number;
-    lastSeenPanel: number;
-  }>;
+    characterGuidance: Array<{
+      characterName: string;
+      prompt: string; // Ready-to-use prompt segment
+      keyAttributes: {
+        hair: string;
+        clothing: string;
+        physicalFeatures: string;
+        accessories: string;
+        source: 'recent' | 'common';
+      };
+      consistencyScore: number;
+      lastSeenPanel: number | null;
+    }>;
   sceneGuidance?: {
     settingConsistency: string;
     lightingPattern: string;
@@ -1234,24 +1235,28 @@ Analyze the image thoroughly and return valid JSON only.`;
       
       const characterGuidance = analysisResponse.characterSummary.map(character => {
         // Find the most recent appearance for this character
-        const mostRecentPanel = Math.max(...character.appearedInPanels);
-        const mostRecentAppearance = analysisResponse.panelAnalyses
-          .find(panel => panel.panelNumber === mostRecentPanel)
-          ?.characters.find(c => c.characterName === character.characterName && c.isPresent);
-        
+        const hasAppearances = character.appearedInPanels && character.appearedInPanels.length > 0;
+        const mostRecentPanel = hasAppearances ? Math.max(...character.appearedInPanels) : null;
+        const mostRecentAppearance =
+          mostRecentPanel !== null
+            ? analysisResponse.panelAnalyses
+                .find(panel => panel.panelNumber === mostRecentPanel)
+                ?.characters.find(c => c.characterName === character.characterName && c.isPresent)
+            : undefined;
+
         // Build key attributes from common appearance and most recent data
         const keyAttributes = this.buildKeyAttributes(character, mostRecentAppearance);
-        
+
         // Generate ready-to-use prompt segment
         const prompt = this.buildCharacterPrompt(character.characterName, keyAttributes, character.consistencyScore);
         
-        return {
-          characterName: character.characterName,
-          prompt,
-          keyAttributes,
-          consistencyScore: character.consistencyScore,
-          lastSeenPanel: mostRecentPanel
-        };
+          return {
+            characterName: character.characterName,
+            prompt,
+            keyAttributes,
+            consistencyScore: character.consistencyScore,
+            lastSeenPanel: mostRecentPanel
+          };
       });
       
       // Generate scene guidance if we have panel data
@@ -1282,28 +1287,40 @@ Analyze the image thoroughly and return valid JSON only.`;
   ): ContinuityGuidance['characterGuidance'][0]['keyAttributes'] {
     // Use most recent appearance if available, fallback to common appearance
     const visualDetails = mostRecentAppearance?.visualDetails;
-    
+    const usingMostRecent = Boolean(visualDetails);
+    const consistentFeaturesDescription = character.commonAppearance.consistentFeatures?.filter(Boolean).join(', ') || '';
+
+    const accessoriesList = visualDetails?.accessories
+      ? [
+          ...(visualDetails.accessories.jewelry || []),
+          ...(visualDetails.accessories.glasses ? ['glasses'] : []),
+          ...(visualDetails.accessories.hat ? [visualDetails.accessories.hat] : []),
+          ...(visualDetails.accessories.other || [])
+        ].filter(Boolean)
+      : [];
+
     return {
-      hair: visualDetails?.hair 
-        ? `${visualDetails.hair.color} ${visualDetails.hair.style} hair, ${visualDetails.hair.length} length, ${visualDetails.hair.texture} texture`
+      hair: usingMostRecent
+        ? `${visualDetails!.hair.color} ${visualDetails!.hair.style} hair, ${visualDetails!.hair.length} length, ${visualDetails!.hair.texture} texture`
         : character.commonAppearance.mostCommonHairStyle || 'hair not specified',
-      
-      clothing: visualDetails?.clothing
-        ? `${visualDetails.clothing.upperBody}, ${visualDetails.clothing.lowerBody}${visualDetails.clothing.outerwear ? ', ' + visualDetails.clothing.outerwear : ''}`
+
+      clothing: usingMostRecent
+        ? `${visualDetails!.clothing.upperBody}, ${visualDetails!.clothing.lowerBody}${visualDetails!.clothing.outerwear ? ', ' + visualDetails!.clothing.outerwear : ''}`
         : character.commonAppearance.mostCommonClothing || 'clothing not specified',
-      
-      physicalFeatures: visualDetails?.physicalAppearance
-        ? `${visualDetails.physicalAppearance.skinTone} skin${visualDetails.physicalAppearance.eyeColor ? ', ' + visualDetails.physicalAppearance.eyeColor + ' eyes' : ''}`
-        : 'physical features consistent with previous panels',
-      
-      accessories: visualDetails?.accessories
-        ? [
-            ...(visualDetails.accessories.jewelry || []),
-            ...(visualDetails.accessories.glasses ? ['glasses'] : []),
-            ...(visualDetails.accessories.hat ? [visualDetails.accessories.hat] : []),
-            ...(visualDetails.accessories.other || [])
-          ].join(', ') || 'no accessories'
-        : 'accessories consistent with previous panels'
+
+      physicalFeatures: usingMostRecent
+        ? `${visualDetails!.physicalAppearance.skinTone} skin${visualDetails!.physicalAppearance.eyeColor ? ', ' + visualDetails!.physicalAppearance.eyeColor + ' eyes' : ''}`
+        : (consistentFeaturesDescription
+            ? `consistent features: ${consistentFeaturesDescription}`
+            : 'physical features consistent with established design'),
+
+      accessories: usingMostRecent
+        ? accessoriesList.join(', ') || 'no accessories'
+        : (consistentFeaturesDescription
+            ? `include established details: ${consistentFeaturesDescription}`
+            : 'accessories consistent with established design'),
+
+      source: usingMostRecent ? 'recent' : 'common'
     };
   }
   
@@ -1316,29 +1333,59 @@ Analyze the image thoroughly and return valid JSON only.`;
     consistencyScore: number
   ): string {
     const consistencyLevel = consistencyScore >= 85 ? 'high' : consistencyScore >= 70 ? 'moderate' : 'low';
-    
+
     let prompt = `${characterName}: `;
-    
+
     // Add visual consistency note if score is concerning
     if (consistencyScore < 70) {
       prompt += `[CONSISTENCY ALERT: ${consistencyScore}% - verify appearance matches previous panels] `;
     }
-    
+
+    const usingCommonAppearance = keyAttributes.source === 'common';
+    if (usingCommonAppearance) {
+      prompt += `[REFERENCE COMMON APPEARANCE] `;
+    }
+
     // Add key visual elements
-    prompt += keyAttributes.hair;
-    if (keyAttributes.clothing !== 'clothing not specified') {
-      prompt += `, wearing ${keyAttributes.clothing}`;
+    const segments: string[] = [];
+
+    if (keyAttributes.hair && keyAttributes.hair !== 'hair not specified') {
+      segments.push(keyAttributes.hair);
+    } else if (usingCommonAppearance) {
+      segments.push('maintain established hair styling');
     }
-    if (keyAttributes.physicalFeatures !== 'physical features consistent with previous panels') {
-      prompt += `, ${keyAttributes.physicalFeatures}`;
+
+    if (keyAttributes.clothing && keyAttributes.clothing !== 'clothing not specified') {
+      segments.push(`wearing ${keyAttributes.clothing}`);
+    } else if (usingCommonAppearance) {
+      segments.push('wearing established wardrobe elements');
     }
-    if (keyAttributes.accessories !== 'no accessories' && keyAttributes.accessories !== 'accessories consistent with previous panels') {
-      prompt += `, with ${keyAttributes.accessories}`;
+
+    if (keyAttributes.physicalFeatures && keyAttributes.physicalFeatures !== 'physical features consistent with established design') {
+      segments.push(keyAttributes.physicalFeatures);
+    } else if (usingCommonAppearance) {
+      segments.push('physical features consistent with established design');
     }
-    
+
+    if (keyAttributes.accessories && keyAttributes.accessories !== 'no accessories' && keyAttributes.accessories !== 'accessories consistent with established design') {
+      if (keyAttributes.accessories.startsWith('include ') || keyAttributes.accessories.startsWith('consistent ')) {
+        segments.push(keyAttributes.accessories);
+      } else {
+        segments.push(`with ${keyAttributes.accessories}`);
+      }
+    } else if (usingCommonAppearance) {
+      segments.push('with accessories matching established design');
+    }
+
+    if (segments.length > 0) {
+      prompt += segments.join(', ');
+    }
+
+    prompt = prompt.trimEnd();
+
     // Add style consistency instruction
     prompt += `. Maintain visual consistency with established character design.`;
-    
+
     return prompt;
   }
   
