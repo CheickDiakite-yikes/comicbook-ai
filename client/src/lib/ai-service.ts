@@ -58,6 +58,19 @@ export interface GenerateImageResponse {
   panelId: string | number;
   generationId?: string;
   error?: string;
+  errorCategory?: string;
+  debugInfo?: any;
+  originalPrompt?: string;
+  resolvedCharacters?: Array<{
+    name: string;
+    role?: string;
+    bio?: string;
+    visualDescriptors?: string;
+    alwaysTraits?: string;
+    neverTraits?: string;
+    colorScheme?: string;
+    referenceImageUrl?: string;
+  }>;
 }
 
 export interface GenerateScriptRequest {
