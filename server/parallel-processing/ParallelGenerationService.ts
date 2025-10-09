@@ -46,18 +46,23 @@ export class ParallelGenerationService {
   private storage: IStorage;
   private resourceManager: ResourceManager;
   private sharedStateManager: SharedStateManager;
+  private sessionProjectMap: Map<string, string>;
 
   constructor(storage: IStorage) {
     this.storage = storage;
     this.manager = new ParallelGenerationManager(storage);
     this.resourceManager = new ResourceManager();
     this.sharedStateManager = new SharedStateManager();
+    this.sessionProjectMap = new Map();
     this.setupEventHandlers();
   }
 
   private setupEventHandlers(): void {
     this.manager.on('sessionStarted', (sessionId, result) => {
       console.log(`🚀 Parallel generation session started: ${sessionId}`);
+      if (result?.projectId) {
+        this.sessionProjectMap.set(sessionId, result.projectId);
+      }
     });
 
     this.manager.on('sessionCompleted', (sessionId, result) => {
@@ -65,17 +70,24 @@ export class ParallelGenerationService {
       console.log(`  - Total tasks: ${result.totalTasks}`);
       console.log(`  - Completed: ${result.completedTasks}`);
       console.log(`  - Failed: ${result.failedTasks}`);
-      
+
+      this.sessionProjectMap.delete(sessionId);
+
       // RESOURCE MANAGEMENT: Release resources when session completes
       this.resourceManager.endSession(result.userId, sessionId, result.endTime ? (result.endTime.getTime() - result.startTime.getTime()) / 1000 : 0);
     });
 
     this.manager.on('taskCompleted', (sessionId, taskId, result) => {
       console.log(`📝 Task completed: ${taskId} in session ${sessionId}`);
-      
+
       // CHARACTER CONSISTENCY: Update character states after task completion
       if (result.status === 'completed') {
-        this.sharedStateManager.updateCharacterStates(sessionId, taskId, result);
+        const projectId = this.sessionProjectMap.get(sessionId);
+        if (projectId) {
+          this.sharedStateManager.updateCharacterStates(projectId, taskId, result);
+        } else {
+          console.warn(`⚠️ No project mapping found for session ${sessionId} when updating character states.`);
+        }
       }
     });
 
@@ -89,14 +101,18 @@ export class ParallelGenerationService {
     
     this.manager.on('sessionFailed', (sessionId, result, error) => {
       console.error(`❌ Parallel generation session failed: ${sessionId}`, error);
-      
+
+      this.sessionProjectMap.delete(sessionId);
+
       // RESOURCE MANAGEMENT: Release resources when session fails
       this.resourceManager.endSession(result.userId, sessionId, 0);
     });
-    
+
     this.manager.on('sessionCancelled', (sessionId, result) => {
       console.log(`🚫 Parallel generation session cancelled: ${sessionId}`);
-      
+
+      this.sessionProjectMap.delete(sessionId);
+
       // RESOURCE MANAGEMENT: Release resources when session is cancelled
       this.resourceManager.cancelSession(result.userId, sessionId);
     });
