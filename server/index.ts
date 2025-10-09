@@ -5,6 +5,7 @@ import { setupVite, serveStatic } from "./vite";
 import { createRequestLoggingMiddleware } from "./middleware/requestLogging";
 import { createErrorHandler } from "./middleware/errorHandler";
 import { logger, registerGlobalErrorHandlers } from "./logger";
+import { startObjectCleanupWorker } from "./workers/objectCleanupWorker";
 
 registerGlobalErrorHandlers(logger);
 
@@ -16,6 +17,10 @@ app.use(createRequestLoggingMiddleware(logger));
 
 (async () => {
   const server = await registerRoutes(app);
+
+  if (process.env.DISABLE_OBJECT_CLEANUP_WORKER !== "true") {
+    startObjectCleanupWorker();
+  }
 
   // Serve generated images with object storage fallback
   app.use("/generated", express.static(path.join(process.cwd(), "public", "generated")));
