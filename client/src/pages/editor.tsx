@@ -32,6 +32,7 @@ import {
   PanelAnimationClipPreview,
   PanelAnimationContinuityInsights,
 } from "@/components/panel-animation";
+import { Veo3AnimationComposer, Veo3JobList } from "@/components/veo3";
 
 export default function Editor() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -1457,12 +1458,16 @@ export default function Editor() {
                       <PanelAnimationProvider projectId={projectId}>
                         <div className="space-y-6">
                           <PanelAnimationTimeline />
-                          <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)]">
+                          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1.1fr)]">
                             <div className="grid gap-6 lg:grid-cols-1 xl:grid-cols-2">
                               <PanelAnimationPromptEditor />
                               <PanelAnimationClipPreview />
                             </div>
-                            <PanelAnimationContinuityInsights />
+                            <div className="space-y-6">
+                              <Veo3AnimationComposer />
+                              <Veo3JobList />
+                              <PanelAnimationContinuityInsights />
+                            </div>
                           </div>
                         </div>
                       </PanelAnimationProvider>

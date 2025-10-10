@@ -215,8 +215,14 @@ export interface IStorage {
 
   // Animation render job operations
   createAnimationRenderJob(job: InsertAnimationRenderJob): Promise<AnimationRenderJob>;
-  updateAnimationRenderJobStatus(jobId: string, status: string, resultAssetUri?: string | null): Promise<AnimationRenderJob | undefined>;
+  updateAnimationRenderJobStatus(
+    jobId: string,
+    status: string,
+    options?: { resultAssetUri?: string | null; settings?: Record<string, unknown> | null },
+  ): Promise<AnimationRenderJob | undefined>;
+  getAnimationRenderJobById(jobId: string): Promise<AnimationRenderJob | undefined>;
   getMostRecentAnimationRenderJob(userId: string): Promise<AnimationRenderJob | undefined>;
+  listAnimationRenderJobsForUser(userId: string, options?: { limit?: number }): Promise<AnimationRenderJob[]>;
 
   // Compliance logging
   logVeoSafetyOverride(entry: InsertVeoSafetyOverrideLog): Promise<VeoSafetyOverrideLog>;
@@ -1352,23 +1358,40 @@ export class MemStorage implements IStorage {
     return record;
   }
 
-  async updateAnimationRenderJobStatus(jobId: string, status: string, resultAssetUri?: string | null): Promise<AnimationRenderJob | undefined> {
+  async updateAnimationRenderJobStatus(
+    jobId: string,
+    status: string,
+    options: { resultAssetUri?: string | null; settings?: Record<string, unknown> | null } = {},
+  ): Promise<AnimationRenderJob | undefined> {
     const existing = this.renderJobs.get(jobId);
     if (!existing) return undefined;
 
     const updated: AnimationRenderJob = {
       ...existing,
       status,
-      resultAssetUri: resultAssetUri ?? existing.resultAssetUri,
+      resultAssetUri: options.resultAssetUri ?? existing.resultAssetUri,
+      settings: options.settings !== undefined ? options.settings : existing.settings,
       updatedAt: new Date(),
     };
     this.renderJobs.set(jobId, updated);
     return updated;
   }
 
+  async getAnimationRenderJobById(jobId: string): Promise<AnimationRenderJob | undefined> {
+    return this.renderJobs.get(jobId);
+  }
+
   async getMostRecentAnimationRenderJob(userId: string): Promise<AnimationRenderJob | undefined> {
     const jobs = Array.from(this.renderJobs.values()).filter(job => job.userId === userId);
     return jobs.sort((a, b) => (b.createdAt?.getTime?.() ?? 0) - (a.createdAt?.getTime?.() ?? 0))[0];
+  }
+
+  async listAnimationRenderJobsForUser(userId: string, options: { limit?: number } = {}): Promise<AnimationRenderJob[]> {
+    const limit = options.limit && options.limit > 0 ? options.limit : 10;
+    return Array.from(this.renderJobs.values())
+      .filter(job => job.userId === userId)
+      .sort((a, b) => (b.createdAt?.getTime?.() ?? 0) - (a.createdAt?.getTime?.() ?? 0))
+      .slice(0, limit);
   }
 
   async logVeoSafetyOverride(entry: InsertVeoSafetyOverrideLog): Promise<VeoSafetyOverrideLog> {
@@ -3427,16 +3450,31 @@ export class DatabaseStorage implements IStorage {
     return record;
   }
 
-  async updateAnimationRenderJobStatus(jobId: string, status: string, resultAssetUri?: string | null): Promise<AnimationRenderJob | undefined> {
+  async updateAnimationRenderJobStatus(
+    jobId: string,
+    status: string,
+    options: { resultAssetUri?: string | null; settings?: Record<string, unknown> | null } = {},
+  ): Promise<AnimationRenderJob | undefined> {
     const [record] = await db
       .update(animationRenderJobs)
       .set({
         status,
-        ...(resultAssetUri !== undefined ? { resultAssetUri } : {}),
+        ...(options.resultAssetUri !== undefined ? { resultAssetUri: options.resultAssetUri } : {}),
+        ...(options.settings !== undefined ? { settings: options.settings } : {}),
         updatedAt: new Date(),
       })
       .where(eq(animationRenderJobs.id, jobId))
       .returning();
+
+    return record || undefined;
+  }
+
+  async getAnimationRenderJobById(jobId: string): Promise<AnimationRenderJob | undefined> {
+    const [record] = await db
+      .select()
+      .from(animationRenderJobs)
+      .where(eq(animationRenderJobs.id, jobId))
+      .limit(1);
 
     return record || undefined;
   }
@@ -3450,6 +3488,18 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
 
     return record || undefined;
+  }
+
+  async listAnimationRenderJobsForUser(userId: string, options: { limit?: number } = {}): Promise<AnimationRenderJob[]> {
+    const limit = options.limit && options.limit > 0 ? Math.min(options.limit, 50) : 10;
+    const records = await db
+      .select()
+      .from(animationRenderJobs)
+      .where(eq(animationRenderJobs.userId, userId))
+      .orderBy(desc(animationRenderJobs.createdAt))
+      .limit(limit);
+
+    return records;
   }
 
   async logVeoSafetyOverride(entry: InsertVeoSafetyOverrideLog): Promise<VeoSafetyOverrideLog> {
