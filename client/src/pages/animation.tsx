@@ -30,7 +30,7 @@ function createScene(index: number): Scene {
     quality: "quality",
     soundtrackMood: "none",
     includeAudioBed: false,
-    model: "veo-001",
+    model: "veo-3.0-generate-001",
     isSubmitting: false,
     lastSubmittedAt: undefined,
   };

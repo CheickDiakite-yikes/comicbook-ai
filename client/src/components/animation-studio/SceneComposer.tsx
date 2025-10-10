@@ -40,8 +40,8 @@ const soundtrackOptions = [
 ] as const;
 
 const modelOptions = [
-  { value: "veo-001", label: "Veo 3 (1080p)" },
-  { value: "veo-002", label: "Veo 3 (Experimental)" },
+  { value: "veo-3.0-generate-001", label: "Veo 3 (1080p)" },
+  { value: "veo-3.0-fast-generate-001", label: "Veo 3 Fast" },
 ];
 
 export function SceneComposer({ scene, autoPrompt, onUpdate, onGenerate }: SceneComposerProps) {

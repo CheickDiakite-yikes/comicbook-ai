@@ -99,7 +99,7 @@ export class Veo3AnimationRenderJobService {
     const credentials = getVeoCredentials();
     this.client = new GoogleGenAI({ apiKey: credentials.apiKey });
     this.storage = dependencies.storage ?? storage;
-    this.defaultModel = process.env.VEO_MODEL ?? 'veo-001';
+    this.defaultModel = process.env.VEO_MODEL ?? 'veo-3.0-generate-001';
     this.defaultSafetySettings = DEFAULT_VEO_SAFETY_SETTINGS;
   }
 
