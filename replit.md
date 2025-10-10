@@ -61,6 +61,44 @@ The panel animation workflow provides asynchronous Veo3 video renders for any ge
 - Streams real-time updates as [`PanelVideoJobEvent`](./server/services/PanelVideoJobService.ts) payloads with `type` values `queued`, `rendering`, `ready`, `error`, or `approval` and the current `job` snapshot.
 - Clients should keep the connection open and update UI incrementally. Reconnect on network errors.
 
+## Animation Studio API
+The Animation Studio provides project-scoped animation render jobs using Veo 3, allowing users to create video clips organized by comic project. All endpoints require authentication and enforce project ownership validation.
+
+### Project-Based Organization (2025-10-10)
+**Implementation**: Animation render jobs are now linked to specific projects via `projectId` column in `animation_render_jobs` table.
+- Each animation job belongs to one project
+- Users can only view/create animations for their own projects
+- Render queue displays only animations from the selected project
+- Backward compatible: existing jobs without `projectId` still accessible
+
+### `POST /api/animations/jobs` — Create animation render job
+- **Body schema**:
+  - `prompt` *(text, required)* — Description of the scene to animate
+  - `projectId` *(string, required)* — UUID of the project this animation belongs to
+  - `model` *(string, optional)* — Veo model to use (defaults to `veo-3.0-generate-001`)
+  - `settings` *(object, optional)* — Additional Veo configuration
+- **Validation**: Verifies user owns the specified project before creating job
+- **Success (201)**: Returns job metadata with `id`, `status`, `prompt`, `projectId`, timestamps
+- **Errors**:
+  - `400 validation_failed` — Missing required fields or invalid projectId format
+  - `403 forbidden` — User does not own the specified project
+  - `404 project_not_found` — Project does not exist
+
+### `GET /api/animations/jobs` — List animation jobs
+- **Query parameters**:
+  - `limit` *(number, optional)* — Maximum jobs to return (default 10)
+  - `projectId` *(string, optional)* — Filter jobs by project UUID
+- **Behavior**: 
+  - Without `projectId`: Returns all user's jobs across all projects
+  - With `projectId`: Returns only jobs for specified project (validates ownership)
+- **Success (200)**: Returns `{ jobs: [...] }` array ordered by creation date (newest first)
+
+### `GET /api/animations/jobs/:jobId/video` — Stream video file
+- Proxies authenticated video requests to Google's storage
+- Converts Web Streams to Node.js streams for proper playback
+- **Success (200)**: Streams video with correct `Content-Type` header
+- **Errors**: `404` if job not found or video not ready
+
 ## Data Storage Solutions
 - **Primary Database**: PostgreSQL with Neon Database serverless hosting
 - **Schema Design**: 
