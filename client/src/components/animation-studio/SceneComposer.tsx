@@ -16,6 +16,8 @@ interface SceneComposerProps {
   autoPrompt: string;
   onUpdate: (sceneId: string, updates: Partial<Scene>) => void;
   onGenerate: (sceneId: string) => void;
+  onGenerateAll: () => void;
+  scenes: Scene[];
 }
 
 const aspectRatioOptions = [
@@ -44,13 +46,15 @@ const modelOptions = [
   { value: "veo-3.0-fast-generate-001", label: "Veo 3 Fast" },
 ];
 
-export function SceneComposer({ scene, autoPrompt, onUpdate, onGenerate }: SceneComposerProps) {
+export function SceneComposer({ scene, autoPrompt, onUpdate, onGenerate, onGenerateAll, scenes }: SceneComposerProps) {
   const framesSummary = useMemo(() => {
     if (!scene || scene.clips.length === 0) return "";
     return scene.clips
       .map((clip, index) => `Beat ${index + 1}: Page ${clip.panel.pageNumber} panel ${clip.panel.panelNumber}`)
       .join(" · ");
   }, [scene]);
+
+  const scenesWithPanels = useMemo(() => scenes.filter(s => s.clips.length > 0), [scenes]);
 
   if (!scene) {
     return (
@@ -231,20 +235,21 @@ export function SceneComposer({ scene, autoPrompt, onUpdate, onGenerate }: Scene
           type="button"
           size="lg"
           className="w-full gap-2"
-          disabled={!canGenerate || scene.isSubmitting}
-          onClick={() => onGenerate(scene.id)}
+          disabled={scenesWithPanels.length === 0}
+          onClick={onGenerateAll}
+          data-testid="button-render-all-scenes"
         >
-          {scene.isSubmitting ? (
+          {scenes.some(s => s.isSubmitting) ? (
             <RefreshCw className="h-4 w-4 animate-spin" />
           ) : (
             <Film className="h-4 w-4" />
           )}
-          {scene.isSubmitting ? "Contacting Veo 3…" : "Render with Veo 3"}
+          {scenes.some(s => s.isSubmitting) ? "Rendering…" : `Render All Scenes (${scenesWithPanels.length})`}
         </Button>
 
-        {!canGenerate && (
+        {scenesWithPanels.length === 0 && (
           <p className="text-xs text-muted-foreground">
-            Add at least one panel or script context before rendering this scene.
+            Add panels to at least one scene before rendering.
           </p>
         )}
       </CardContent>

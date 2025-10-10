@@ -387,6 +387,41 @@ export default function AnimationStudioPage() {
     [queryClient, scenes, selectedProject?.title, selectedProjectId, toast],
   );
 
+  const handleRenderAllScenes = useCallback(
+    async () => {
+      if (!selectedProjectId) {
+        toast({
+          title: "Select a project first",
+          description: "Choose a project from the sidebar before rendering animations.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const scenesWithPanels = scenes.filter(scene => scene.clips.length > 0);
+      
+      if (scenesWithPanels.length === 0) {
+        toast({
+          title: "No scenes ready",
+          description: "Add panels to at least one scene before rendering.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Rendering all scenes",
+        description: `Submitting ${scenesWithPanels.length} scene${scenesWithPanels.length > 1 ? 's' : ''} to Veo 3...`,
+      });
+
+      for (const scene of scenesWithPanels) {
+        await handleRenderScene(scene.id);
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    },
+    [scenes, selectedProjectId, toast, handleRenderScene],
+  );
+
   const projectHasPages = pages.length > 0;
 
   return (
@@ -473,6 +508,8 @@ export default function AnimationStudioPage() {
                   autoPrompt={activeSceneAutoPrompt}
                   onUpdate={handleUpdateScene}
                   onGenerate={handleRenderScene}
+                  onGenerateAll={handleRenderAllScenes}
+                  scenes={scenes}
                 />
                 <RenderQueuePanel projectId={selectedProjectId ?? undefined} />
               </div>
