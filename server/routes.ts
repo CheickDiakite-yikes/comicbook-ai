@@ -3,10 +3,10 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
-import { 
-  insertProjectSchema, 
-  insertCharacterSchema, 
-  insertPageSchema, 
+import {
+  insertProjectSchema,
+  insertCharacterSchema,
+  insertPageSchema,
   insertPanelSchema,
   insertUserProfileSchema,
   insertProjectLikeSchema,
@@ -23,6 +23,7 @@ import {
   updatePanelVideoApprovalSchema,
   PanelVideoJob,
 } from "@shared/schema";
+import { veoJobRequestSchema } from "@shared/veo";
 import { geminiService } from "./gemini";
 import { ParallelGenerationService } from "./parallel-processing";
 import { ScriptValidationService } from "./services/ScriptValidationService";
@@ -218,7 +219,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     requireFeatureEntitlement('animation_generation', { allowedPlans: ANIMATION_ALLOWED_PLANS }),
     async (req: any, res, next) => {
       try {
-        const payload = animationJobSchema.parse(req.body);
+        const payload = veoJobRequestSchema.parse(req.body);
         const userId = resolveUserId(req.user);
         const job = await veo3AnimationRenderJobService.createJob(userId, payload);
         res.status(202).json({ job });
@@ -238,6 +239,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const job = await storage.getMostRecentAnimationRenderJob(userId);
         if (!job) {
           return res.status(404).json({ message: 'No animation jobs found.' });
+        }
+        res.json({ job });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  app.get(
+    '/api/animations/jobs',
+    isAuthenticated,
+    requireFeatureEntitlement('animation_generation', { allowedPlans: ANIMATION_ALLOWED_PLANS }),
+    async (req: any, res, next) => {
+      try {
+        const userId = resolveUserId(req.user);
+        const parsedLimit = typeof req.query.limit === 'string' ? Number.parseInt(req.query.limit, 10) : NaN;
+        const limit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? Math.min(parsedLimit, 50) : 10;
+        const jobs = await veo3AnimationRenderJobService.listJobsForUser(userId, { limit });
+        res.json({ jobs });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  app.get(
+    '/api/animations/jobs/:jobId',
+    isAuthenticated,
+    requireFeatureEntitlement('animation_generation', { allowedPlans: ANIMATION_ALLOWED_PLANS }),
+    async (req: any, res, next) => {
+      try {
+        const userId = resolveUserId(req.user);
+        const { jobId } = req.params;
+        const job = await veo3AnimationRenderJobService.getJobForUser(jobId, userId);
+        if (!job) {
+          return res.status(404).json({ message: 'Animation job not found.' });
         }
         res.json({ job });
       } catch (error) {
