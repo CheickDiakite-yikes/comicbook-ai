@@ -159,6 +159,18 @@ The Animation Studio provides project-scoped animation render jobs using Veo 3, 
 **Browser Console**: Check for frontend errors, generation debug output, network failures
 **Pattern**: "Failed to fetch" errors usually indicate JSON parsing issues in frontend code
 
+### Google OAuth Duplicate Email Errors (Fixed 2025-10-10)
+**Root Cause**: Users with existing Replit Auth accounts couldn't log in with Google OAuth due to duplicate email constraint violation
+**Error**: `duplicate key value violates unique constraint "users_email_unique"`
+**Problem**: Google OAuth was creating new users with different IDs but the same email as existing Replit Auth accounts
+**Solution**: 
+1. Added `getUserByEmail()` method to storage layer
+2. Modified Google OAuth flow to check for existing users by email BEFORE creating new accounts
+3. If user exists, updates their profile with Google data while keeping original user ID
+4. If no existing user, creates new account with Google ID
+**Files Changed**: `server/replitAuth.ts`, `server/storage.ts`, `client/src/pages/login.tsx` (also fixed Replit button pointing to wrong endpoint)
+**Impact**: Users can now seamlessly switch between authentication providers without losing their projects/data
+
 ### Veo 3 Animation Issues
 **Model Names**: Veo 3 uses `veo-3.0-generate-001` (quality) or `veo-3.0-fast-generate-001` (speed). Old `veo-001` model is invalid.
 **Duration Validation**: Veo 3 only accepts exactly 4, 6, or 8 seconds - no other values allowed. Backend enforces this via Zod schema with `z.literal` union.
