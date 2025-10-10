@@ -270,7 +270,7 @@ export class Veo3AnimationRenderJobService {
 
     try {
       const operation = (await (this.client.operations.getVideosOperation as any)({
-        name: tracker.operationName,
+        operation: { name: tracker.operationName } as GenerateVideosOperation,
       })) as GenerateVideosOperation;
 
       tracker.baseSettings = this.mergeSettings(tracker.baseSettings, buildOperationSettingsPatch({
