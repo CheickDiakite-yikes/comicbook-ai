@@ -31,19 +31,22 @@ import { SharedStateManager } from "./parallel-processing/SharedStateManager";
 import { PanelVisualAnalysisService } from "./services/PanelVisualAnalysisService";
 import { PanelVideoQAService } from "./services/PanelVideoQAService";
 import { MultiPageConsistencyTracker } from "./MultiPageConsistencyTracker";
-import { AnimationJobError, veo3JobService } from "./services/Veo3JobService";
+import { AnimationJobError, animationJobService } from "./services/AnimationJobService";
+import { veo3AnimationRenderJobService } from "./services/Veo3AnimationRenderJobService";
 import { z } from "zod";
 import { requireCredits, getProjectIdFromParams, getProjectIdFromBody, getPanelIdFromBody, getPageIdFromRequest, createOperationMetadata, calculateParallelCredits } from "./creditMiddleware";
 import { isSocialCrawler, isLinkPreviewRequest } from "./utils/socialCrawlers";
 import { generateSSRHTML, generateFallbackHTML } from "./utils/htmlGenerator";
 import { resolveUserId } from "./utils/authHelpers";
 import { requireFeatureEntitlement } from "./middleware/featureEntitlements";
-import { Veo3JobService } from "./services/Veo3JobService";
 import { requireAdmin } from "./middleware/requireAdmin";
 import { logger } from "./logger";
-import { ContinuityContextService } from "./services/ContinuityContextService";
 import { promptOrchestrator } from "./services/PromptOrchestrator";
-import { veo3JobService, PanelVideoJobEvent, PanelAnimationRateLimitError } from "./services/Veo3JobService";
+import {
+  panelVideoJobService,
+  PanelVideoJobEvent,
+  PanelAnimationRateLimitError,
+} from "./services/PanelVideoJobService";
 
 // Helper function to get user ID from different auth providers
 function getUserId(user: any): string {
@@ -91,7 +94,6 @@ const scriptValidationService = new ScriptValidationService(storage);
 const sharedStateManager = new SharedStateManager();
 const multiPageConsistencyTracker = new MultiPageConsistencyTracker();
 const panelVisualAnalysisService = new PanelVisualAnalysisService(storage, multiPageConsistencyTracker);
-const veo3JobService = new Veo3JobService();
 
 const ANIMATION_ALLOWED_PLANS = ["pro", "enterprise"];
 
@@ -218,7 +220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const payload = animationJobSchema.parse(req.body);
         const userId = resolveUserId(req.user);
-        const job = await veo3JobService.createJob(userId, payload);
+        const job = await veo3AnimationRenderJobService.createJob(userId, payload);
         res.status(202).json({ job });
       } catch (error) {
         next(error);
@@ -314,7 +316,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Animation job status routes
   app.get('/api/animation-jobs', isAuthenticated, (req: any, res) => {
     const userId = getUserId(req.user);
-    const jobs = veo3JobService.getJobsForUser(userId);
+    const jobs = animationJobService.getJobsForUser(userId);
     res.json({ jobs });
   });
 
@@ -322,7 +324,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = getUserId(req.user);
       const jobId = req.params.jobId;
-      const job = veo3JobService.retryJob(jobId, userId, req.body?.metadata);
+      const job = animationJobService.retryJob(jobId, userId, req.body?.metadata);
       res.json({ job });
     } catch (error) {
       if (error instanceof AnimationJobError) {
@@ -344,7 +346,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.flushHeaders?.();
 
     const sendSnapshot = () => {
-      const snapshot = veo3JobService.getJobsForUser(userId);
+      const snapshot = animationJobService.getJobsForUser(userId);
       res.write(`event: snapshot\ndata: ${JSON.stringify(snapshot)}\n\n`);
     };
 
@@ -352,7 +354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.write(`event: heartbeat\ndata: {"ts":${Date.now()}}\n\n`);
     }, 25000);
 
-    const unsubscribe = veo3JobService.subscribe((job) => {
+    const unsubscribe = animationJobService.subscribe((job) => {
       if (job.userId !== userId) {
         return;
       }
@@ -972,7 +974,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           validation.data,
         );
 
-        const job = veo3JobService.createJob({
+        const job = panelVideoJobService.createJob({
           panelId,
           projectId: project.id,
           userId,
@@ -1037,14 +1039,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : req.query.jobId;
 
       if (typeof requestedJobId === "string" && requestedJobId.length > 0) {
-        const job = veo3JobService.getJob(requestedJobId, userId);
+        const job = panelVideoJobService.getJob(requestedJobId, userId);
         if (!job || job.panelId !== panelId) {
           return res.status(404).json({ message: "Job not found", error: "job_not_found" });
         }
         return res.json({ job });
       }
 
-      const jobs: PanelVideoJob[] = veo3JobService.getJobsForPanel(panelId, userId);
+      const jobs: PanelVideoJob[] = panelVideoJobService.getJobsForPanel(panelId, userId);
       const payload = panelVideoJobStatusResponseSchema.parse({ jobs });
       res.json(payload);
     } catch (error) {
@@ -1085,12 +1087,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const existingJob = veo3JobService.getJob(validation.data.jobId, userId);
+      const existingJob = panelVideoJobService.getJob(validation.data.jobId, userId);
       if (!existingJob || existingJob.panelId !== panelId) {
         return res.status(404).json({ message: "Job not found", error: "job_not_found" });
       }
 
-      const updatedJob = veo3JobService.updateApproval(validation.data, userId);
+      const updatedJob = panelVideoJobService.updateApproval(validation.data, userId);
       res.json({ job: updatedJob });
     } catch (error) {
       if (error instanceof Error) {
@@ -1131,7 +1133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader("Connection", "keep-alive");
       (res as any).flushHeaders?.();
 
-      const initialJobs = veo3JobService.getJobsForPanel(panelId, userId);
+      const initialJobs = panelVideoJobService.getJobsForPanel(panelId, userId);
       initialJobs.forEach(job => {
         const event: PanelVideoJobEvent = { type: job.status, job };
         res.write(`data: ${JSON.stringify(event)}\n\n`);
@@ -1144,7 +1146,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.write(`data: ${JSON.stringify(event)}\n\n`);
       };
 
-      const unsubscribe = veo3JobService.subscribe(listener);
+      const unsubscribe = panelVideoJobService.subscribe(listener);
 
       req.on("close", () => {
         unsubscribe();
