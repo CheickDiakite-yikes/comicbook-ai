@@ -260,6 +260,31 @@ export default function Landing() {
               </motion.div>
             </MobileAwareComponent>
           </motion.div>
+          
+          {/* Hackathon Winner Badge */}
+          <motion.div
+            className="mt-6 flex justify-center"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.5, duration: 0.6 }}
+          >
+            <motion.div
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-400/20 to-amber-500/20 border-2 border-yellow-500/30 rounded-full backdrop-blur-sm"
+              whileHover={{ scale: 1.05, borderColor: "rgba(234, 179, 8, 0.5)" }}
+              transition={{ duration: 0.2 }}
+            >
+              <motion.span
+                className="text-xl"
+                animate={{ rotate: [0, 10, -10, 0] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              >
+                🏆
+              </motion.span>
+              <span className="text-xs sm:text-sm font-medium text-foreground/90">
+                Google Deepmind Nano Banana Hackathon winner
+              </span>
+            </motion.div>
+          </motion.div>
         </motion.div>
 
         {/* Features Grid */}
