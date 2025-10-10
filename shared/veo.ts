@@ -10,7 +10,12 @@ export const veoJobRequestSchema = z.object({
   safetySettings: z.array(veoSafetySettingSchema).optional(),
   justification: z.string().min(10, "Justification must be at least 10 characters").optional(),
   model: z.string().min(1).optional(),
-  generationConfig: z.record(z.any()).optional(),
+  generationConfig: z.union([
+    z.object({
+      durationSeconds: z.union([z.literal(4), z.literal(6), z.literal(8)]),
+    }).passthrough(),
+    z.undefined(),
+  ]).optional(),
   tools: z.array(z.record(z.any())).optional(),
   responseMimeType: z.string().optional(),
   mediaFormats: z.array(z.string()).optional(),

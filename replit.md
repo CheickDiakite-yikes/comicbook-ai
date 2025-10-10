@@ -28,7 +28,7 @@ The panel animation workflow provides asynchronous Veo3 video renders for any ge
 
 ### `POST /api/animation/panels/{panelId}` — Enqueue animation job
 - **Body schema** (`createPanelVideoRequestSchema`):
-  - `durationSeconds` *(number, 1-30)* — clip length in seconds.
+  - `durationSeconds` *(number, 4-8)* — clip length in seconds (Veo 3 requirement).
   - `motionPreset` *("static" | "gentle" | "dynamic" | "cinematic")* — camera motion recipe.
   - `stylePreset` *(string, optional)* — named Veo3 preset or custom tag.
   - `narrativeFocus` *(string, optional)* — short description of the story beat to emphasise.

@@ -131,14 +131,19 @@ export function SceneComposer({ scene, autoPrompt, onUpdate, onGenerate }: Scene
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">Duration</Label>
-            <Slider
-              value={[scene.durationSeconds]}
-              onValueChange={value => onUpdate(scene.id, { durationSeconds: value[0] ?? scene.durationSeconds })}
-              min={2}
-              max={12}
-              step={1}
-            />
-            <div className="text-sm font-medium">{scene.durationSeconds} seconds</div>
+            <Select
+              value={scene.durationSeconds.toString()}
+              onValueChange={value => onUpdate(scene.id, { durationSeconds: parseInt(value) })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Duration" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="4">4 seconds</SelectItem>
+                <SelectItem value="6">6 seconds</SelectItem>
+                <SelectItem value="8">8 seconds</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
