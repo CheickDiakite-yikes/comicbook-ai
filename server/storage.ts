@@ -91,6 +91,7 @@ import { eq, desc, and, sql, count } from "drizzle-orm";
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<UpsertUser>): Promise<User | undefined>;
 
@@ -2003,6 +2004,22 @@ export class DatabaseStorage implements IStorage {
       return user || undefined;
     } catch (error) {
       console.error(`🔥 DatabaseStorage: ERROR getting user ${id}:`, error);
+      throw error;
+    }
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    console.log(`🔥 DatabaseStorage: Getting user with email: ${email}`);
+    try {
+      const [user] = await db.select().from(users).where(eq(users.email, email));
+      if (user) {
+        console.log(`🔥 DatabaseStorage: User found by email:`, { id: user.id, email: user.email, firstName: user.firstName });
+      } else {
+        console.log(`🔥 DatabaseStorage: User NOT found for email: ${email}`);
+      }
+      return user || undefined;
+    } catch (error) {
+      console.error(`🔥 DatabaseStorage: ERROR getting user by email ${email}:`, error);
       throw error;
     }
   }

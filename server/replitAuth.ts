@@ -151,9 +151,27 @@ async function upsertGoogleUser(
   profile: any
 ) {
   const googleUserId = `google-${profile.id}`;
+  const userEmail = profile.emails?.[0]?.value || null;
   
   console.log(`🔥 Google OAuth: Starting upsertGoogleUser for profile ID: ${profile.id}`);
-  console.log(`🔥 Google OAuth: Generated user ID: ${googleUserId}`);
+  console.log(`🔥 Google OAuth: Generated user ID: ${googleUserId}, email: ${userEmail}`);
+  
+  // First, check if a user with this email already exists (from Replit Auth or previous Google login)
+  let existingUser = null;
+  if (userEmail) {
+    try {
+      existingUser = await storage.getUserByEmail(userEmail);
+      if (existingUser) {
+        console.log(`🔥 Google OAuth: Found existing user with email ${userEmail}:`, {
+          id: existingUser.id,
+          email: existingUser.email,
+          firstName: existingUser.firstName
+        });
+      }
+    } catch (error) {
+      console.log(`🔥 Google OAuth: No existing user found with email ${userEmail}`);
+    }
+  }
   
   // Handle profile picture - download and store in object storage if available
   let profileImageUrl = null;
@@ -163,7 +181,7 @@ async function upsertGoogleUser(
     console.log(`🔥 Google OAuth: Google profile picture URL found: ${googleProfileUrl}`);
     
     // Attempt to download and store the profile picture
-    const storedProfileUrl = await downloadAndStoreGoogleProfilePicture(googleProfileUrl, googleUserId);
+    const storedProfileUrl = await downloadAndStoreGoogleProfilePicture(googleProfileUrl, existingUser?.id || googleUserId);
     
     if (storedProfileUrl) {
       profileImageUrl = storedProfileUrl;
@@ -177,38 +195,43 @@ async function upsertGoogleUser(
     console.log(`🔥 Google OAuth: No profile picture URL found in Google profile`);
   }
   
-  const userData = {
-    id: googleUserId,
-    email: profile.emails?.[0]?.value || null,
-    firstName: profile.name?.givenName || null,
-    lastName: profile.name?.familyName || null,
-    profileImageUrl: profileImageUrl,
-  };
-  
-  console.log(`🔥 Google OAuth: User data prepared:`, {
-    ...userData,
-    profileImageUrl: userData.profileImageUrl ? `${userData.profileImageUrl.substring(0, 50)}...` : null
-  });
-  
   try {
-    const user = await storage.upsertUser(userData);
-    console.log(`🔥 Google OAuth: Successfully upserted user:`, {
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      profileImageUrl: user.profileImageUrl ? `${user.profileImageUrl.substring(0, 50)}...` : null
-    });
+    let user;
     
-    // Verify the user was created by immediately fetching it
-    const verifyUser = await storage.getUser(googleUserId);
-    if (verifyUser) {
-      console.log(`🔥 Google OAuth: Verified user exists in database:`, {
-        id: verifyUser.id,
-        email: verifyUser.email,
-        profileImageUrl: verifyUser.profileImageUrl ? `${verifyUser.profileImageUrl.substring(0, 50)}...` : null
+    if (existingUser) {
+      // Update the existing user's information without changing their ID
+      console.log(`🔥 Google OAuth: Updating existing user ${existingUser.id} with Google profile data`);
+      const userData = {
+        id: existingUser.id, // Keep the original user ID
+        email: userEmail,
+        firstName: profile.name?.givenName || existingUser.firstName,
+        lastName: profile.name?.familyName || existingUser.lastName,
+        profileImageUrl: profileImageUrl || existingUser.profileImageUrl,
+      };
+      
+      user = await storage.upsertUser(userData);
+      console.log(`🔥 Google OAuth: Successfully updated existing user:`, {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName
       });
     } else {
-      console.error(`🔥 Google OAuth: ERROR - User not found after creation! Expected ID: ${googleUserId}`);
+      // Create a new user with Google ID
+      console.log(`🔥 Google OAuth: Creating new user with Google ID: ${googleUserId}`);
+      const userData = {
+        id: googleUserId,
+        email: userEmail,
+        firstName: profile.name?.givenName || null,
+        lastName: profile.name?.familyName || null,
+        profileImageUrl: profileImageUrl,
+      };
+      
+      user = await storage.upsertUser(userData);
+      console.log(`🔥 Google OAuth: Successfully created new user:`, {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName
+      });
     }
     
     return user;
@@ -216,8 +239,7 @@ async function upsertGoogleUser(
     console.error(`🔥 Google OAuth: CRITICAL ERROR during upsertUser:`, error);
     console.error(`🔥 Google OAuth: Error details:`, {
       message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      userData: userData
+      stack: error instanceof Error ? error.stack : undefined
     });
     throw error;
   }
