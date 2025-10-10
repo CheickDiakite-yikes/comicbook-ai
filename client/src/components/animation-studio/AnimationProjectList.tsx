@@ -69,23 +69,26 @@ export function AnimationProjectList({ projects, selectedProjectId, onSelect, is
                         : "border-transparent bg-transparent hover:border-border/60 hover:bg-muted/40"
                     }`}
                     aria-pressed={isSelected}
+                    data-testid={`project-item-${project.id}`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-1">
-                        <div className="font-medium text-sm text-foreground line-clamp-1">{project.title}</div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="font-medium text-sm text-foreground line-clamp-1" title={project.title}>
+                          {project.title}
+                        </div>
                         {project.genre ? (
-                          <Badge variant="outline" className="text-[11px] font-normal">
+                          <div className="text-xs text-muted-foreground line-clamp-2" title={project.genre}>
                             {project.genre}
-                          </Badge>
+                          </div>
                         ) : (
-                          <span className="text-xs text-muted-foreground">No genre tagged</span>
+                          <span className="text-xs text-muted-foreground">No genre</span>
                         )}
                       </div>
-                      <div className="flex flex-col items-end gap-2">
+                      <div className="flex flex-shrink-0 flex-col items-end gap-1.5">
                         {project.coverArt ? (
                           <img
                             src={project.coverArt}
-                            alt="Project cover art"
+                            alt=""
                             className="h-12 w-12 rounded-md object-cover shadow-sm"
                           />
                         ) : (
@@ -94,7 +97,7 @@ export function AnimationProjectList({ projects, selectedProjectId, onSelect, is
                           </div>
                         )}
                         {isSelected && (
-                          <Badge className="bg-primary text-primary-foreground">Active</Badge>
+                          <Badge className="bg-primary text-primary-foreground text-[10px] px-2 py-0">Active</Badge>
                         )}
                       </div>
                     </div>
@@ -105,16 +108,6 @@ export function AnimationProjectList({ projects, selectedProjectId, onSelect, is
           </ScrollArea>
         )}
       </CardContent>
-      <div className="px-4 pb-4">
-        <Button
-          onClick={() => selectedProjectId && onSelect(selectedProjectId)}
-          variant="secondary"
-          className="w-full"
-          disabled={!selectedProjectId}
-        >
-          Resume stitching
-        </Button>
-      </div>
     </Card>
   );
 }
