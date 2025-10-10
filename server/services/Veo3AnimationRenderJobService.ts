@@ -360,6 +360,14 @@ export class Veo3AnimationRenderJobService {
   }
 
   private async completeOperation(tracker: OperationTracker, operation: GenerateVideosOperation) {
+    // Log the full operation response to debug video URL extraction
+    this.log.info('Veo3 operation completed - raw response', {
+      jobId: tracker.jobId,
+      operationName: tracker.operationName,
+      response: JSON.stringify(operation.response, null, 2),
+      metadata: JSON.stringify(operation.metadata, null, 2),
+    });
+
     const generated = operation.response?.generatedVideos ?? [];
     const primary = generated[0] as any;
     const videoUri: string | null = primary?.video?.uri ?? null;
