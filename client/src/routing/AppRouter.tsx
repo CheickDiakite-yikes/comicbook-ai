@@ -8,6 +8,7 @@ import Dashboard from "@/pages/dashboard";
 import Editor from "@/pages/editor";
 import Explore from "@/pages/explore";
 import Profile from "@/pages/profile";
+import AnimationStudioPage from "@/pages/animation";
 import About from "@/pages/about";
 import Privacy from "@/pages/privacy";
 import Terms from "@/pages/terms";
@@ -33,6 +34,7 @@ export function AppRouter() {
       ) : isAuthenticated ? (
         <>
           <Route path="/" component={Dashboard} />
+          <Route path="/animation" component={AnimationStudioPage} />
           <Route path="/editor/:projectId" component={Editor} />
           <Route path="/profile">
             <Profile />

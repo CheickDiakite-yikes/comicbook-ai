@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Link, useLocation } from "wouter";
-import { Moon, Menu, X, Home, Compass, User as UserIcon, BookOpen, LogOut, Wand2, Info, Sparkles, Image, FileText, Zap } from "lucide-react";
+import { Moon, Menu, X, Home, Compass, User as UserIcon, BookOpen, LogOut, Wand2, Info, Sparkles, Image, FileText, Zap, Clapperboard } from "lucide-react";
 import kumayiriLogo from "@assets/ChatGPT Image Sep 8, 2025, 08_35_18 PM_1757378183961.png";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -79,6 +79,7 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
   const navigationLinks = [
     { href: "/", label: "Dashboard", icon: Home, isActive: location === "/" },
     { href: "/explore", label: "Explore", icon: Compass, isActive: location === "/explore" },
+    { href: "/animation", label: "Animation", icon: Clapperboard, isActive: location === "/animation", requiresAuth: true },
     { href: "/profile", label: "Profile", icon: UserIcon, isActive: location === "/profile", requiresAuth: true },
   ];
 
@@ -108,8 +109,8 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
           </Link>
         </div>
         <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="sm"
             onClick={toggleDarkMode}
             className="min-h-[44px] w-[44px] p-2"
@@ -118,7 +119,21 @@ export default function Navigation({ onToggleSidebar, showMobileToggle = false, 
           >
             <Moon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           </Button>
-          
+
+          {user && (
+            <Link href="/animation">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="hidden min-h-[44px] gap-2 px-3 md:inline-flex"
+                data-testid="link-animation-studio"
+              >
+                <Clapperboard className="h-4 w-4" aria-hidden="true" />
+                Animation
+              </Button>
+            </Link>
+          )}
+
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-4">
             {user ? (
