@@ -103,6 +103,40 @@ export class Veo3AnimationRenderJobService {
     this.defaultSafetySettings = DEFAULT_VEO_SAFETY_SETTINGS;
   }
 
+  async initializeFromDatabase(): Promise<void> {
+    const pendingJobs = await this.storage.getAnimationRenderJobsByStatus(['submitted', 'processing']);
+    
+    for (const job of pendingJobs) {
+      const settings = (job.settings as Record<string, unknown>) ?? {};
+      const operation = settings.operation as Record<string, unknown> | undefined;
+      const operationName = operation?.name as string | undefined;
+      
+      if (!operationName || !operation) {
+        continue;
+      }
+
+      this.registerOperation({
+        jobId: job.id,
+        userId: job.userId,
+        operationName,
+        request: {
+          prompt: job.prompt,
+          model: job.model ?? this.defaultModel,
+          safetySettings: (settings.safetySettings as VeoSafetySetting[]) ?? this.defaultSafetySettings,
+          generationConfig: (settings.generationConfig as any) ?? undefined,
+          tools: (settings.tools as Record<string, unknown>[] | undefined),
+          responseMimeType: (settings.responseMimeType as string | undefined),
+          mediaFormats: (settings.mediaFormats as string[] | undefined),
+        },
+        safetySettings: (settings.safetySettings as VeoSafetySetting[]) ?? this.defaultSafetySettings,
+        attempts: (operation.attempts as number) ?? 0,
+        baseSettings: settings,
+      });
+    }
+
+    this.log.info('Initialized animation render service', { loadedJobs: pendingJobs.length });
+  }
+
   private buildJobRecord(userId: string, request: VeoJobRequest, promptDiff: PromptDiff | null): InsertAnimationRenderJob {
     const jobSettings: Record<string, unknown> = {
       safetySettings: request.safetySettings ?? this.defaultSafetySettings,
@@ -269,9 +303,20 @@ export class Veo3AnimationRenderJobService {
     tracker.attempts += 1;
 
     try {
-      const operation = (await (this.client.operations.get as any)({
-        operation: { name: tracker.operationName },
-      })) as GenerateVideosOperation;
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/${tracker.operationName}`,
+        {
+          headers: {
+            'x-goog-api-key': getVeoCredentials().apiKey,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to poll operation: ${response.status} ${response.statusText}`);
+      }
+
+      const operation = (await response.json()) as GenerateVideosOperation;
 
       tracker.baseSettings = this.mergeSettings(tracker.baseSettings, buildOperationSettingsPatch({
         lastPolledAt: new Date().toISOString(),

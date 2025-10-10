@@ -124,8 +124,26 @@ The panel animation workflow provides asynchronous Veo3 video renders for any ge
 ### Veo 3 Animation Issues
 **Model Names**: Veo 3 uses `veo-3.0-generate-001` (quality) or `veo-3.0-fast-generate-001` (speed). Old `veo-001` model is invalid.
 **Duration Validation**: Veo 3 only accepts exactly 4, 6, or 8 seconds - no other values allowed. Backend enforces this via Zod schema with `z.literal` union.
-**Polling Errors**: If seeing "Cannot read properties of undefined (reading 'name')" in polling logs, ensure `getVideosOperation` receives `{ operation: { name: operationName } }` structure, not just the name string.
-**Fixed (2025-10-10)**: Updated polling to wrap operation name in object with `name` property to match Google GenAI SDK requirements.
+
+#### Critical Polling Fix (2025-10-10)
+**Problem**: SDK's `.get()` and `.getVideosOperation()` methods require full operation objects with `_fromAPIResponse()` method, but we only store operation name strings in the database.
+**Solution**: Bypass SDK and make direct HTTP calls to Google's API:
+```typescript
+const response = await fetch(
+  `https://generativelanguage.googleapis.com/v1beta/${operationName}`,
+  { headers: { 'x-goog-api-key': apiKey } }
+);
+const operation = await response.json();
+```
+
+#### Job Persistence Fix (2025-10-10)
+**Problem**: Service stored operations in memory only - server restarts lost all pending jobs.
+**Solution**: 
+1. Added `initializeFromDatabase()` method to load pending/processing jobs on startup
+2. Called during server initialization in `server/index.ts`
+3. Service now automatically resumes polling for all incomplete jobs after restart
+
+**Status**: All fixes deployed and tested. Jobs successfully poll and complete after server restarts.
 
 ## Secrets Management
 

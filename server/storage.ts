@@ -223,6 +223,7 @@ export interface IStorage {
   getAnimationRenderJobById(jobId: string): Promise<AnimationRenderJob | undefined>;
   getMostRecentAnimationRenderJob(userId: string): Promise<AnimationRenderJob | undefined>;
   listAnimationRenderJobsForUser(userId: string, options?: { limit?: number }): Promise<AnimationRenderJob[]>;
+  getAnimationRenderJobsByStatus(statuses: string[]): Promise<AnimationRenderJob[]>;
 
   // Compliance logging
   logVeoSafetyOverride(entry: InsertVeoSafetyOverrideLog): Promise<VeoSafetyOverrideLog>;
@@ -1392,6 +1393,11 @@ export class MemStorage implements IStorage {
       .filter(job => job.userId === userId)
       .sort((a, b) => (b.createdAt?.getTime?.() ?? 0) - (a.createdAt?.getTime?.() ?? 0))
       .slice(0, limit);
+  }
+
+  async getAnimationRenderJobsByStatus(statuses: string[]): Promise<AnimationRenderJob[]> {
+    return Array.from(this.renderJobs.values())
+      .filter(job => statuses.includes(job.status));
   }
 
   async logVeoSafetyOverride(entry: InsertVeoSafetyOverrideLog): Promise<VeoSafetyOverrideLog> {
@@ -3498,6 +3504,18 @@ export class DatabaseStorage implements IStorage {
       .where(eq(animationRenderJobs.userId, userId))
       .orderBy(desc(animationRenderJobs.createdAt))
       .limit(limit);
+
+    return records;
+  }
+
+  async getAnimationRenderJobsByStatus(statuses: string[]): Promise<AnimationRenderJob[]> {
+    if (statuses.length === 0) return [];
+    
+    const records = await db
+      .select()
+      .from(animationRenderJobs)
+      .where(sql`${animationRenderJobs.status} IN (${sql.join(statuses.map(s => sql`${s}`), sql`, `)})`)
+      .orderBy(desc(animationRenderJobs.createdAt));
 
     return records;
   }

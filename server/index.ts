@@ -8,6 +8,7 @@ import { logger, registerGlobalErrorHandlers } from "./logger";
 import { resolveUserId } from "./utils/authHelpers";
 import { startObjectCleanupWorker } from "./workers/objectCleanupWorker";
 import { Veo3JobWorker } from "./parallel-processing/Veo3JobWorker";
+import { veo3AnimationRenderJobService } from "./services/Veo3AnimationRenderJobService";
 
 registerGlobalErrorHandlers(logger);
 
@@ -32,6 +33,10 @@ process.once("SIGINT", stopBackgroundWorkers);
   if (process.env.DISABLE_OBJECT_CLEANUP_WORKER !== "true") {
     startObjectCleanupWorker();
   }
+  
+  // Initialize animation service to resume pending jobs
+  await veo3AnimationRenderJobService.initializeFromDatabase();
+  
   veo3JobWorker.start();
 
   // Serve generated images with object storage fallback
