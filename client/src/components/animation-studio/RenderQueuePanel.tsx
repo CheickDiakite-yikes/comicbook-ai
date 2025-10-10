@@ -109,7 +109,9 @@ export function RenderQueuePanel() {
             const result = (job.settings as Record<string, any> | null)?.operation ?? {};
             const outcome = result?.result ?? {};
             const posterUri: string | null = outcome?.posterUri ?? null;
-            const videoUri: string | null = job.resultAssetUri ?? outcome?.videoUri ?? null;
+            // Use proxy endpoint to stream video from Google with authentication
+            const hasVideo = Boolean(job.resultAssetUri ?? outcome?.videoUri);
+            const videoUri: string | null = hasVideo ? `/api/animations/jobs/${job.id}/video` : null;
             const errorMessage: string | undefined = result?.error ?? undefined;
 
             return (

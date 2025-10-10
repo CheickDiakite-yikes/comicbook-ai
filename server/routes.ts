@@ -283,6 +283,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
+  // Video proxy endpoint - streams videos from Google with authentication
+  app.get(
+    '/api/animations/jobs/:jobId/video',
+    isAuthenticated,
+    async (req: any, res, next) => {
+      try {
+        const userId = resolveUserId(req.user);
+        const { jobId } = req.params;
+        
+        // Get the job to verify ownership and get video URL
+        const job = await veo3AnimationRenderJobService.getJobForUser(jobId, userId);
+        if (!job) {
+          return res.status(404).json({ message: 'Animation job not found.' });
+        }
+        
+        if (!job.resultAssetUri) {
+          return res.status(404).json({ message: 'Video not available yet.' });
+        }
+        
+        // Fetch video from Google with API key
+        const apiKey = process.env.VEO_API_KEY || process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+          return res.status(500).json({ message: 'API key not configured.' });
+        }
+        
+        const videoResponse = await fetch(job.resultAssetUri, {
+          headers: {
+            'x-goog-api-key': apiKey,
+          },
+        });
+        
+        if (!videoResponse.ok) {
+          logger.error('Failed to fetch video from Google', {
+            status: videoResponse.status,
+            statusText: videoResponse.statusText,
+            jobId,
+            videoUri: job.resultAssetUri,
+          });
+          return res.status(500).json({ message: 'Failed to fetch video.' });
+        }
+        
+        // Stream the video to the client
+        res.setHeader('Content-Type', videoResponse.headers.get('content-type') || 'video/mp4');
+        const contentLength = videoResponse.headers.get('content-length');
+        if (contentLength) {
+          res.setHeader('Content-Length', contentLength);
+        }
+        
+        // @ts-ignore - Node.js streams compatibility
+        videoResponse.body.pipe(res);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
   app.post(
     '/api/admin/features/:featureKey/entitlements',
     isAuthenticated,
