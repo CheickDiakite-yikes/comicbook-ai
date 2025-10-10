@@ -54,8 +54,9 @@ function generateScenePrompt(projectTitle: string | undefined, clips: SceneClip[
   return [header, ...beats, footer].join("\n");
 }
 
-async function submitSceneToVeo(prompt: string, scene: Scene) {
+async function submitSceneToVeo(prompt: string, scene: Scene, projectId: string) {
   const payload = {
+    projectId,
     prompt,
     model: scene.model,
     safetySettings: DEFAULT_VEO_SAFETY_SETTINGS,
@@ -322,6 +323,16 @@ export default function AnimationStudioPage() {
     async (sceneId: string) => {
       const scene = scenes.find(entry => entry.id === sceneId);
       if (!scene) return;
+      
+      if (!selectedProjectId) {
+        toast({
+          title: "Select a project first",
+          description: "Choose a project from the sidebar before rendering animations.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       if (scene.clips.length === 0) {
         toast({
           title: "Add frames first",
@@ -348,7 +359,7 @@ export default function AnimationStudioPage() {
       );
 
       try {
-        await submitSceneToVeo(finalPrompt, scene);
+        await submitSceneToVeo(finalPrompt, scene, selectedProjectId);
         toast({
           title: "Scene sent to Veo",
           description: "We’re stitching your frames into motion. Check the render queue for updates.",
@@ -373,7 +384,7 @@ export default function AnimationStudioPage() {
         );
       }
     },
-    [queryClient, scenes, selectedProject?.title, toast],
+    [queryClient, scenes, selectedProject?.title, selectedProjectId, toast],
   );
 
   const projectHasPages = pages.length > 0;
@@ -463,7 +474,7 @@ export default function AnimationStudioPage() {
                   onUpdate={handleUpdateScene}
                   onGenerate={handleRenderScene}
                 />
-                <RenderQueuePanel />
+                <RenderQueuePanel projectId={selectedProjectId ?? undefined} />
               </div>
             </div>
 

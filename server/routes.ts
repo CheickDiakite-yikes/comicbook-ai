@@ -219,8 +219,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     requireFeatureEntitlement('animation_generation', { allowedPlans: ANIMATION_ALLOWED_PLANS }),
     async (req: any, res, next) => {
       try {
-        const payload = veoJobRequestSchema.parse(req.body);
+        const payload = veoJobRequestSchema.extend({
+          projectId: z.string().min(1, 'projectId is required'),
+        }).parse(req.body);
         const userId = resolveUserId(req.user);
+        
+        // Validate project ownership
+        const project = await storage.getProject(payload.projectId);
+        if (!project || project.userId !== userId) {
+          return res.status(403).json({ message: 'Project not found or access denied' });
+        }
+        
         const job = await veo3AnimationRenderJobService.createJob(userId, payload);
         res.status(202).json({ job });
       } catch (error) {
@@ -256,7 +265,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const userId = resolveUserId(req.user);
         const parsedLimit = typeof req.query.limit === 'string' ? Number.parseInt(req.query.limit, 10) : NaN;
         const limit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? Math.min(parsedLimit, 50) : 10;
-        const jobs = await veo3AnimationRenderJobService.listJobsForUser(userId, { limit });
+        const projectId = typeof req.query.projectId === 'string' ? req.query.projectId : undefined;
+        
+        // If projectId is provided, validate project ownership
+        if (projectId) {
+          const project = await storage.getProject(projectId);
+          if (!project || project.userId !== userId) {
+            return res.status(403).json({ message: 'Project not found or access denied' });
+          }
+        }
+        
+        const jobs = await veo3AnimationRenderJobService.listJobsForUser(userId, { limit, projectId });
         res.json({ jobs });
       } catch (error) {
         next(error);

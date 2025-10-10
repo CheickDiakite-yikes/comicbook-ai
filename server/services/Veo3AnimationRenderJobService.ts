@@ -137,7 +137,7 @@ export class Veo3AnimationRenderJobService {
     this.log.info('Initialized animation render service', { loadedJobs: pendingJobs.length });
   }
 
-  private buildJobRecord(userId: string, request: VeoJobRequest, promptDiff: PromptDiff | null): InsertAnimationRenderJob {
+  private buildJobRecord(userId: string, request: VeoJobRequest & { projectId?: string }, promptDiff: PromptDiff | null): InsertAnimationRenderJob {
     const jobSettings: Record<string, unknown> = {
       safetySettings: request.safetySettings ?? this.defaultSafetySettings,
     };
@@ -156,6 +156,7 @@ export class Veo3AnimationRenderJobService {
 
     return {
       userId,
+      projectId: request.projectId ?? null,
       prompt: request.prompt,
       promptDiff: promptDiff ?? null,
       model: request.model ?? this.defaultModel,
@@ -433,7 +434,7 @@ export class Veo3AnimationRenderJobService {
     this.operations.delete(tracker.jobId);
   }
 
-  async createJob(userId: string, request: VeoJobRequest): Promise<AnimationRenderJob> {
+  async createJob(userId: string, request: VeoJobRequest & { projectId?: string }): Promise<AnimationRenderJob> {
     const previousJob = await this.storage.getMostRecentAnimationRenderJob(userId);
     const promptDiff = computePromptDiff(previousJob?.prompt ?? null, request.prompt);
     const jobRecord = this.buildJobRecord(userId, request, promptDiff);
@@ -506,7 +507,7 @@ export class Veo3AnimationRenderJobService {
     };
   }
 
-  async listJobsForUser(userId: string, options: { limit?: number } = {}): Promise<AnimationRenderJob[]> {
+  async listJobsForUser(userId: string, options: { limit?: number; projectId?: string } = {}): Promise<AnimationRenderJob[]> {
     return this.storage.listAnimationRenderJobsForUser(userId, options);
   }
 

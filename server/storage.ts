@@ -222,7 +222,7 @@ export interface IStorage {
   ): Promise<AnimationRenderJob | undefined>;
   getAnimationRenderJobById(jobId: string): Promise<AnimationRenderJob | undefined>;
   getMostRecentAnimationRenderJob(userId: string): Promise<AnimationRenderJob | undefined>;
-  listAnimationRenderJobsForUser(userId: string, options?: { limit?: number }): Promise<AnimationRenderJob[]>;
+  listAnimationRenderJobsForUser(userId: string, options?: { limit?: number; projectId?: string }): Promise<AnimationRenderJob[]>;
   getAnimationRenderJobsByStatus(statuses: string[]): Promise<AnimationRenderJob[]>;
 
   // Compliance logging
@@ -1346,6 +1346,7 @@ export class MemStorage implements IStorage {
     const record: AnimationRenderJob = {
       id: randomUUID(),
       userId: job.userId,
+      projectId: job.projectId ?? null,
       prompt: job.prompt,
       promptDiff: job.promptDiff ?? null,
       model: job.model ?? null,
@@ -1387,10 +1388,14 @@ export class MemStorage implements IStorage {
     return jobs.sort((a, b) => (b.createdAt?.getTime?.() ?? 0) - (a.createdAt?.getTime?.() ?? 0))[0];
   }
 
-  async listAnimationRenderJobsForUser(userId: string, options: { limit?: number } = {}): Promise<AnimationRenderJob[]> {
+  async listAnimationRenderJobsForUser(userId: string, options: { limit?: number; projectId?: string } = {}): Promise<AnimationRenderJob[]> {
     const limit = options.limit && options.limit > 0 ? options.limit : 10;
     return Array.from(this.renderJobs.values())
-      .filter(job => job.userId === userId)
+      .filter(job => {
+        if (job.userId !== userId) return false;
+        if (options.projectId && job.projectId !== options.projectId) return false;
+        return true;
+      })
       .sort((a, b) => (b.createdAt?.getTime?.() ?? 0) - (a.createdAt?.getTime?.() ?? 0))
       .slice(0, limit);
   }
@@ -3444,6 +3449,7 @@ export class DatabaseStorage implements IStorage {
       .insert(animationRenderJobs)
       .values({
         userId: job.userId,
+        projectId: job.projectId ?? null,
         prompt: job.prompt,
         promptDiff: job.promptDiff ?? null,
         model: job.model ?? null,
@@ -3496,12 +3502,18 @@ export class DatabaseStorage implements IStorage {
     return record || undefined;
   }
 
-  async listAnimationRenderJobsForUser(userId: string, options: { limit?: number } = {}): Promise<AnimationRenderJob[]> {
+  async listAnimationRenderJobsForUser(userId: string, options: { limit?: number; projectId?: string } = {}): Promise<AnimationRenderJob[]> {
     const limit = options.limit && options.limit > 0 ? Math.min(options.limit, 50) : 10;
+    
+    const conditions = [eq(animationRenderJobs.userId, userId)];
+    if (options.projectId) {
+      conditions.push(eq(animationRenderJobs.projectId, options.projectId));
+    }
+    
     const records = await db
       .select()
       .from(animationRenderJobs)
-      .where(eq(animationRenderJobs.userId, userId))
+      .where(and(...conditions))
       .orderBy(desc(animationRenderJobs.createdAt))
       .limit(limit);
 

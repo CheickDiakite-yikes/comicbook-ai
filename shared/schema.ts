@@ -644,6 +644,7 @@ export const userFeatureEntitlements = pgTable("user_feature_entitlements", {
 export const animationRenderJobs = pgTable("animation_render_jobs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
+  projectId: varchar("project_id").references(() => projects.id), // Links animation to specific project
   prompt: text("prompt").notNull(),
   promptDiff: jsonb("prompt_diff"),
   model: varchar("model"),

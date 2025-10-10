@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 export interface Veo3JobRecord {
   id: string;
   userId: string;
+  projectId: string | null;
   prompt: string;
   model: string | null;
   status: string;
@@ -16,11 +17,15 @@ interface JobListResponse {
   jobs: Veo3JobRecord[];
 }
 
-export function useVeo3Jobs(limit: number = 10) {
+export function useVeo3Jobs(limit: number = 10, projectId?: string) {
   return useQuery<JobListResponse>({
-    queryKey: ["veo3", "jobs", limit],
+    queryKey: ["veo3", "jobs", limit, projectId],
     queryFn: async () => {
-      const response = await fetch(`/api/animations/jobs?limit=${limit}`, { credentials: "include" });
+      const params = new URLSearchParams({ limit: limit.toString() });
+      if (projectId) {
+        params.append('projectId', projectId);
+      }
+      const response = await fetch(`/api/animations/jobs?${params.toString()}`, { credentials: "include" });
       if (response.status === 404) {
         return { jobs: [] };
       }

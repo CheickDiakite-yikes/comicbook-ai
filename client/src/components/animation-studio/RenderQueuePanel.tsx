@@ -22,8 +22,12 @@ function resolveStatusBadge(status: string) {
   }
 }
 
-export function RenderQueuePanel() {
-  const { data, isLoading, isError, error, refetch, isFetching } = useVeo3Jobs();
+interface RenderQueuePanelProps {
+  projectId?: string;
+}
+
+export function RenderQueuePanel({ projectId }: RenderQueuePanelProps) {
+  const { data, isLoading, isError, error, refetch, isFetching } = useVeo3Jobs(10, projectId);
   const { toast } = useToast();
 
   if (isLoading) {
