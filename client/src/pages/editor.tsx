@@ -7,7 +7,6 @@ import PanelEditor from "@/components/panel-editor";
 import LayoutChangeModal from "@/components/layout-change-modal";
 import ComicPageLayout from "@/components/comic-page-layout";
 import StructuredScriptViewer from "@/components/structured-script-viewer";
-import { PanelAnimationTimeline } from "@/components/panel-animation/PanelAnimationTimeline";
 import { AnimationStatusTimeline } from "@/components/animation-status-timeline";
 import { ComicReader } from "@/components/comic-reader";
 import { ShareDialog } from "@/components/share-dialog";
@@ -18,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Save, Download, ChevronLeft, ChevronRight, Wand2, Loader2, Plus, Edit, Trash2, Cloud, FileText, Layout, Play, Share, Globe, Lock, FileCheck } from "lucide-react";
+import { ArrowLeft, Save, Download, ChevronLeft, ChevronRight, Wand2, Loader2, Plus, Edit, Trash2, Cloud, FileText, Layout, Play, Share, Globe, Lock, FileCheck, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMetaTags } from "@/hooks/useMetaTags";
 import { apiRequest } from "@/lib/queryClient";
@@ -1454,11 +1453,6 @@ export default function Editor() {
 
 
                   <TabsContent value="animate" className="space-y-4">
-                    <PanelAnimationTimeline
-                      panelId={currentPanelData?.id}
-                      panelNumber={selectedPanel ?? undefined}
-                    />
-                    <AnimationStatusTimeline />
                     {isAnimationEnabled ? (
                       <PanelAnimationProvider projectId={projectId}>
                         <div className="space-y-6">
