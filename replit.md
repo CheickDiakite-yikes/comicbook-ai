@@ -58,7 +58,7 @@ The panel animation workflow provides asynchronous Veo3 video renders for any ge
 - Errors: `400 validation_failed`, `403 forbidden` (job owned by another user), `404 job_not_found`.
 
 ### `GET /api/animation/panels/{panelId}/events` — SSE stream
-- Streams real-time updates as [`PanelVideoJobEvent`](./server/services/Veo3JobService.ts) payloads with `type` values `queued`, `rendering`, `ready`, `error`, or `approval` and the current `job` snapshot.
+- Streams real-time updates as [`PanelVideoJobEvent`](./server/services/PanelVideoJobService.ts) payloads with `type` values `queued`, `rendering`, `ready`, `error`, or `approval` and the current `job` snapshot.
 - Clients should keep the connection open and update UI incrementally. Reconnect on network errors.
 
 ## Data Storage Solutions

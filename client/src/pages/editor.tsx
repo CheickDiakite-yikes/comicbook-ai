@@ -67,7 +67,7 @@ export default function Editor() {
   const [showComicReader, setShowComicReader] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
-  const isAnimationEnabled = (import.meta.env.VITE_FEATURE_PANEL_ANIMATION ?? "false") === "true";
+  const isAnimationEnabled = (import.meta.env.VITE_FEATURE_PANEL_ANIMATION ?? "true") === "true";
   
   // Detect mobile screen size
   useEffect(() => {
