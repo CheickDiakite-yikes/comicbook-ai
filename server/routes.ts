@@ -331,8 +331,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.setHeader('Content-Length', contentLength);
         }
         
-        // @ts-ignore - Node.js streams compatibility
-        videoResponse.body.pipe(res);
+        // Convert Web Stream to Node.js stream and pipe to response
+        const { Readable } = await import('stream');
+        if (videoResponse.body) {
+          const nodeStream = Readable.fromWeb(videoResponse.body as any);
+          nodeStream.pipe(res);
+        } else {
+          throw new Error('No video body in response');
+        }
       } catch (error) {
         next(error);
       }
