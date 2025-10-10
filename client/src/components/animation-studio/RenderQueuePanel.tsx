@@ -67,6 +67,8 @@ export function RenderQueuePanel({ projectId }: RenderQueuePanelProps) {
         <CardContent>
           <Button
             variant="outline"
+            size="lg"
+            className="h-12"
             onClick={() => {
               refetch();
               toast({
@@ -74,6 +76,7 @@ export function RenderQueuePanel({ projectId }: RenderQueuePanelProps) {
                 description: "Trying to reconnect to the animation service.",
               });
             }}
+            data-testid="button-retry-render-queue"
           >
             Retry
           </Button>
@@ -86,18 +89,26 @@ export function RenderQueuePanel({ projectId }: RenderQueuePanelProps) {
 
   return (
     <Card className="border-border/60">
-      <CardHeader className="flex flex-row items-start justify-between gap-2">
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
         <div>
           <CardTitle className="flex items-center gap-2 text-base font-semibold">
             <Sparkles className="h-4 w-4 text-primary" />
             Render queue
           </CardTitle>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground sm:text-sm">
             We refresh every few seconds while clips are rendering. Completed scenes include inline playback.
           </p>
         </div>
-        <Button variant="ghost" size="icon" onClick={() => refetch()} disabled={isFetching} aria-label="Refresh render queue">
-          <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-12 w-12" 
+          onClick={() => refetch()} 
+          disabled={isFetching} 
+          aria-label="Refresh render queue"
+          data-testid="button-refresh-render-queue"
+        >
+          <RefreshCw className={`h-4 w-4 sm:h-5 sm:w-5 ${isFetching ? "animate-spin" : ""}`} />
         </Button>
       </CardHeader>
       <CardContent className="space-y-5">

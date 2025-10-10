@@ -20,25 +20,25 @@ interface SceneTimelineProps {
 export function SceneTimeline({ scenes, selectedSceneId, onSelectScene, onDropPanel, onRemoveClip, onAddScene, onClearScene, onRemoveLastClip }: SceneTimelineProps) {
   return (
     <Card className="border-border/60">
-      <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <CardTitle className="text-base font-semibold">Scene timeline</CardTitle>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground sm:text-sm">
             Stitch frames into cinematic beats. Drop panels to craft motion for each moment.
           </p>
         </div>
-        <Button size="sm" className="gap-2" onClick={onAddScene}>
-          <Plus className="h-4 w-4" />
+        <Button size="lg" className="gap-2 h-12" onClick={onAddScene} data-testid="button-add-scene">
+          <Plus className="h-5 w-5" />
           Add scene
         </Button>
       </CardHeader>
       <CardContent>
         {scenes.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border/60 p-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border/60 p-6 sm:p-8 text-center text-sm text-muted-foreground">
             No scenes yet. Start by adding a scene and dropping panels in.
           </div>
         ) : (
-          <ScrollArea className="h-[340px]">
+          <ScrollArea className="h-[300px] sm:h-[340px] lg:h-[400px]">
             <div className="flex min-h-[260px] gap-4 pb-4">
               {scenes.map(scene => {
                 const isActive = scene.id === selectedSceneId;
@@ -91,31 +91,33 @@ export function SceneTimeline({ scenes, selectedSceneId, onSelectScene, onDropPa
                             : `${scene.clips.length} ${scene.clips.length === 1 ? "frame" : "frames"} stitched`}
                         </p>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-1 sm:gap-2">
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="h-8 w-8"
+                          className="h-12 w-12"
                           onClick={event => {
                             event.stopPropagation();
                             onClearScene(scene.id);
                           }}
                           title="Clear scene"
+                          data-testid={`button-clear-scene-${scene.id}`}
                         >
-                          <Scissors className="h-4 w-4" />
+                          <Scissors className="h-4 w-4 sm:h-5 sm:w-5" />
                         </Button>
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="h-8 w-8"
+                          className="h-12 w-12"
                           onClick={event => {
                             event.stopPropagation();
                             onRemoveLastClip(scene.id);
                           }}
                           title="Remove last clip"
                           disabled={scene.clips.length === 0}
+                          data-testid={`button-remove-last-clip-${scene.id}`}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
                         </Button>
                       </div>
                     </div>
@@ -151,14 +153,15 @@ export function SceneTimeline({ scenes, selectedSceneId, onSelectScene, onDropPa
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                className="h-8 w-8 opacity-0 transition group-hover:opacity-100"
+                                className="h-12 w-12 opacity-100 sm:opacity-0 transition sm:group-hover:opacity-100"
                                 onClick={event => {
                                   event.stopPropagation();
                                   onRemoveClip(scene.id, clip.id);
                                 }}
                                 title="Remove frame"
+                                data-testid={`button-remove-clip-${clip.id}`}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
                               </Button>
                             </div>
                           ))}

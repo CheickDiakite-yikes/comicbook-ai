@@ -110,19 +110,20 @@ export function SceneComposer({ scene, autoPrompt, onUpdate, onGenerate, onGener
             placeholder={autoPrompt || "Describe the motion, cinematography, and mood for this stitch."}
             onChange={event => onUpdate(scene.id, { prompt: event.target.value, promptWasEdited: true })}
           />
-          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground sm:text-sm">
             <Button
               type="button"
-              size="sm"
+              size="lg"
               variant="outline"
-              className="gap-1"
+              className="gap-2 h-12"
               onClick={() => onUpdate(scene.id, { prompt: autoPrompt, promptWasEdited: false })}
               disabled={!autoPrompt}
+              data-testid="button-use-story-context"
             >
-              <RefreshCw className="h-3 w-3" />
+              <RefreshCw className="h-4 w-4" />
               Use story context
             </Button>
-            <span className="self-center">
+            <span className="self-center text-xs sm:text-sm">
               {scene.prompt.trim().length === 0
                 ? "We’ll fall back to the story-derived prompt above."
                 : `${scene.prompt.trim().length} characters`}
@@ -132,7 +133,7 @@ export function SceneComposer({ scene, autoPrompt, onUpdate, onGenerate, onGener
 
         <Separator />
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
           <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">Duration</Label>
             <Select

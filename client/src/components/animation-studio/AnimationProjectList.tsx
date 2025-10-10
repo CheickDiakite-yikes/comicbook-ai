@@ -25,12 +25,12 @@ export function AnimationProjectList({ projects, selectedProjectId, onSelect, is
 
   return (
     <Card className="h-full border-border/60">
-      <CardHeader className="space-y-1">
+      <CardHeader className="space-y-1.5">
         <CardTitle className="flex items-center gap-2 text-base font-semibold">
           <Sparkles className="h-4 w-4 text-primary" />
           Story worlds ready to animate
         </CardTitle>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground sm:text-sm">
           Choose a comic project to stitch its panels into cinematic beats.
         </p>
       </CardHeader>
@@ -55,7 +55,7 @@ export function AnimationProjectList({ projects, selectedProjectId, onSelect, is
             </div>
           </div>
         ) : (
-          <ScrollArea className="h-[calc(100vh-15rem)]">
+          <ScrollArea className="h-[400px] sm:h-[500px] lg:h-[calc(100vh-15rem)]">
             <div className="space-y-2 px-4 pb-6">
               {sortedProjects.map(project => {
                 const isSelected = project.id === selectedProjectId;
@@ -63,7 +63,7 @@ export function AnimationProjectList({ projects, selectedProjectId, onSelect, is
                   <button
                     key={project.id}
                     onClick={() => onSelect(project.id)}
-                    className={`w-full rounded-lg border px-3 py-3 text-left transition-all ${
+                    className={`w-full rounded-lg border px-4 py-4 text-left transition-all min-h-[60px] ${
                       isSelected
                         ? "border-primary/60 bg-primary/10 shadow-inner"
                         : "border-transparent bg-transparent hover:border-border/60 hover:bg-muted/40"

@@ -16,7 +16,9 @@ import { useMetaTags } from "@/hooks/useMetaTags";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Sparkles, BookOpen } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Loader2, Sparkles, BookOpen, FolderOpen } from "lucide-react";
 
 function createScene(index: number): Scene {
   return {
@@ -91,6 +93,7 @@ export default function AnimationStudioPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [scenes, setScenes] = useState<Scene[]>([createScene(1)]);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -210,6 +213,7 @@ export default function AnimationStudioPage() {
     (projectId: string) => {
       setSelectedProjectId(projectId);
       setLocation(`/animation?projectId=${projectId}`);
+      setMobileSheetOpen(false);
     },
     [setLocation],
   );
@@ -427,30 +431,57 @@ export default function AnimationStudioPage() {
   return (
     <div className="min-h-screen bg-background" style={{ paddingTop: "var(--safe-top)" }}>
       <Navigation />
-      <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pb-12 pt-6 sm:px-6 lg:px-8">
-        <header className="rounded-3xl border border-border/60 bg-card/80 p-6 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-2">
+      <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 pb-12 pt-4 sm:gap-6 sm:px-6 sm:pt-6 lg:px-8">
+        <header className="rounded-2xl border border-border/60 bg-card/80 p-4 shadow-sm sm:rounded-3xl sm:p-6">
+          <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-1.5 sm:space-y-2">
               <Badge variant="outline" className="w-fit gap-1">
                 <Sparkles className="h-3 w-3" />
                 Animation Studio
               </Badge>
-              <h1 className="text-2xl font-serif font-bold">Stitch your comic into motion</h1>
+              <h1 className="text-xl font-serif font-bold sm:text-2xl">Stitch your comic into motion</h1>
               <p className="max-w-2xl text-sm text-muted-foreground">
                 Drag panels into scenes, remix the story beats, and render Veo 3 clips that feel handcrafted for your comic.
               </p>
             </div>
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <Loader2 className={`h-4 w-4 ${isPanelLibraryLoading || isPagesLoading ? "animate-spin" : ""}`} />
-              <span>
+              <span className="hidden sm:inline">
                 {selectedProject ? `Working in ${selectedProject.title}` : "Select a project to begin"}
               </span>
             </div>
           </div>
         </header>
 
-        <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
-          <aside className="space-y-4 lg:sticky lg:top-28 lg:h-[calc(100vh-8rem)]">
+        <Sheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
+          <SheetTrigger asChild>
+            <Button 
+              size="lg" 
+              variant="outline" 
+              className="w-full gap-2 lg:hidden"
+              data-testid="button-select-project-mobile"
+            >
+              <FolderOpen className="h-5 w-5" />
+              {selectedProject ? selectedProject.title : "Select Project"}
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-[85vw] sm:w-[400px] p-0">
+            <SheetHeader className="p-6 pb-4">
+              <SheetTitle>Select Project</SheetTitle>
+            </SheetHeader>
+            <div className="px-6 pb-6">
+              <AnimationProjectList
+                projects={projects}
+                selectedProjectId={selectedProjectId}
+                onSelect={handleSelectProject}
+                isLoading={isProjectsLoading}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        <div className="flex flex-col gap-4 sm:gap-6 lg:grid lg:grid-cols-[300px_minmax(0,1fr)]">
+          <aside className="hidden space-y-4 lg:block lg:sticky lg:top-28 lg:h-[calc(100vh-8rem)]">
             <AnimationProjectList
               projects={projects}
               selectedProjectId={selectedProjectId}
