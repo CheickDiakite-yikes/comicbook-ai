@@ -114,6 +114,60 @@ export class Veo3JobService extends EventEmitter {
       .map(job => this.serialize(job));
   }
 
+  getJobsForUser(userId: string): PanelVideoJob[] {
+    const userJobs: PanelVideoJob[] = [];
+    for (const job of this.jobs.values()) {
+      if (job.userId === userId) {
+        userJobs.push(this.serialize(job));
+      }
+    }
+    // Sort by creation date, newest first
+    return userJobs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  retryJob(jobId: string, userId: string, metadata?: Record<string, unknown>): PanelVideoJob {
+    const job = this.jobs.get(jobId);
+    if (!job) {
+      throw new AnimationJobError("Job not found", 404);
+    }
+    if (job.userId !== userId) {
+      throw new AnimationJobError("Forbidden", 403);
+    }
+    if (job.status === "rendering" || job.status === "queued") {
+      throw new AnimationJobError("Job is already in progress", 400);
+    }
+    if (job.status === "ready") {
+      throw new AnimationJobError("Job already completed successfully", 400);
+    }
+
+    // Update metadata if provided
+    if (metadata) {
+      job.metadata = { ...job.metadata, ...metadata };
+    }
+
+    // Reset job to queued status
+    job.status = "queued";
+    job.error = undefined;
+    job.updatedAt = new Date();
+    job.history.push({
+      status: "queued",
+      timestamp: job.updatedAt,
+      message: "Job retried",
+    });
+
+    this.emitJobEvent("queued", job);
+    
+    // Re-enqueue for processing
+    this.enqueueProcessing(job.id).catch(error => {
+      console.error("Veo3JobService: failed to retry job", {
+        jobId: job.id,
+        error,
+      });
+    });
+
+    return this.serialize(job);
+  }
+
   updateApproval(request: PanelVideoJobApprovalRequest, userId: string): PanelVideoJob {
     const job = this.jobs.get(request.jobId);
     if (!job) {
