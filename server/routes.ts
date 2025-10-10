@@ -216,7 +216,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post(
     '/api/animations/jobs',
     isAuthenticated,
-    requireFeatureEntitlement('animation_generation', { allowedPlans: ANIMATION_ALLOWED_PLANS }),
     async (req: any, res, next) => {
       try {
         const payload = veoJobRequestSchema.extend({
@@ -241,7 +240,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get(
     '/api/animations/jobs/recent',
     isAuthenticated,
-    requireFeatureEntitlement('animation_generation', { allowedPlans: ANIMATION_ALLOWED_PLANS }),
     async (req: any, res, next) => {
       try {
         const userId = resolveUserId(req.user);
@@ -259,7 +257,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get(
     '/api/animations/jobs',
     isAuthenticated,
-    requireFeatureEntitlement('animation_generation', { allowedPlans: ANIMATION_ALLOWED_PLANS }),
     async (req: any, res, next) => {
       try {
         const userId = resolveUserId(req.user);
@@ -286,7 +283,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get(
     '/api/animations/jobs/:jobId',
     isAuthenticated,
-    requireFeatureEntitlement('animation_generation', { allowedPlans: ANIMATION_ALLOWED_PLANS }),
     async (req: any, res, next) => {
       try {
         const userId = resolveUserId(req.user);

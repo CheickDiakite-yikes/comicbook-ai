@@ -64,6 +64,8 @@ The panel animation workflow provides asynchronous Veo3 video renders for any ge
 ## Animation Studio API
 The Animation Studio provides project-scoped animation render jobs using Veo 3, allowing users to create video clips organized by comic project. All endpoints require authentication and enforce project ownership validation.
 
+**Access Control (2025-10-10)**: Animation feature is **open to all authenticated users**. Previously required pro/enterprise plan or animation_generation entitlement - these restrictions have been removed to make the feature universally accessible.
+
 ### Project-Based Organization (2025-10-10)
 **Implementation**: Animation render jobs are now linked to specific projects via `projectId` column in `animation_render_jobs` table.
 - Each animation job belongs to one project
