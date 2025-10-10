@@ -116,7 +116,8 @@ export class Veo3JobService extends EventEmitter {
 
   getJobsForUser(userId: string): PanelVideoJob[] {
     const userJobs: PanelVideoJob[] = [];
-    for (const job of this.jobs.values()) {
+    const allJobs = Array.from(this.jobs.values());
+    for (const job of allJobs) {
       if (job.userId === userId) {
         userJobs.push(this.serialize(job));
       }
