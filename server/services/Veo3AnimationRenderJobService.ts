@@ -368,8 +368,10 @@ export class Veo3AnimationRenderJobService {
       metadata: JSON.stringify(operation.metadata, null, 2),
     });
 
-    const generated = operation.response?.generatedVideos ?? [];
-    const primary = generated[0] as any;
+    // Extract video URL from the actual response structure
+    const responseData = operation.response as any;
+    const generatedSamples = responseData?.generateVideoResponse?.generatedSamples ?? [];
+    const primary = generatedSamples[0];
     const videoUri: string | null = primary?.video?.uri ?? null;
     const posterUri: string | null = primary?.posterUri ?? null;
 
