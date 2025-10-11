@@ -27,6 +27,9 @@ export const CREDIT_COSTS = {
   
   // Visual analysis
   visual_analysis: 1,
+  
+  // Animation Studio - Veo3 video generation (high cost due to $0.40/second pricing)
+  animation_studio: 80, // ~2-3 videos per month on free tier (200 credits)
 } as const;
 
 export type CreditOperationType = keyof typeof CREDIT_COSTS;
