@@ -79,10 +79,12 @@ The Animation Studio provides project-scoped animation render jobs using Veo 3, 
   - `projectId` *(string, required)* — UUID of the project this animation belongs to
   - `model` *(string, optional)* — Veo model to use (defaults to `veo-3.0-generate-001`)
   - `settings` *(object, optional)* — Additional Veo configuration
+- **Credit Cost**: 80 credits per video (allows 2-3 videos/month on free tier's 200 credit limit)
 - **Validation**: Verifies user owns the specified project before creating job
 - **Success (201)**: Returns job metadata with `id`, `status`, `prompt`, `projectId`, timestamps
 - **Errors**:
   - `400 validation_failed` — Missing required fields or invalid projectId format
+  - `402 insufficient_credits` — User has less than 80 credits remaining
   - `403 forbidden` — User does not own the specified project
   - `404 project_not_found` — Project does not exist
 
