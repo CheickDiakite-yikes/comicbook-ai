@@ -216,6 +216,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post(
     '/api/animations/jobs',
     isAuthenticated,
+    requireCredits({
+      operationType: "animation_studio",
+      getResourceId: (req) => req.body.projectId,
+      getMetadata: (req) => createOperationMetadata(req, {
+        projectId: req.body.projectId,
+        prompt: req.body.prompt?.substring(0, 100),
+        model: req.body.model,
+      }),
+    }),
     async (req: any, res, next) => {
       try {
         const payload = veoJobRequestSchema.extend({
