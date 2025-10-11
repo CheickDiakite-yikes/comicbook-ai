@@ -18,7 +18,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Loader2, Sparkles, BookOpen, FolderOpen } from "lucide-react";
+import { Loader2, Sparkles, BookOpen, FolderOpen, Coins, AlertTriangle, ArrowRight } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Link } from "wouter";
 
 function createScene(index: number): Scene {
   return {
@@ -94,8 +96,19 @@ export default function AnimationStudioPage() {
   const [scenes, setScenes] = useState<Scene[]>([createScene(1)]);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const { data: creditsData, isLoading: isCreditsLoading } = useQuery<{
+    isAdmin: boolean;
+    monthlyLimit: number | null;
+    remainingCredits: number | string;
+    creditsPercentage: number;
+  }>({
+    queryKey: ["/api/credits"],
+    refetchInterval: 30000,
+  });
 
   const { data: projects = [], isLoading: isProjectsLoading } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -158,6 +171,21 @@ export default function AnimationStudioPage() {
 
   const activeScene = useMemo(() => scenes.find(scene => scene.id === selectedSceneId) ?? scenes[0] ?? null, [scenes, selectedSceneId]);
   const activeSceneAutoPrompt = useMemo(() => generateScenePrompt(selectedProject?.title, activeScene?.clips ?? []), [selectedProject?.title, activeScene?.clips]);
+
+  const remainingCredits = useMemo(() => {
+    if (!creditsData) return 0;
+    if (creditsData.isAdmin || creditsData.remainingCredits === "Unlimited") return Infinity;
+    return typeof creditsData.remainingCredits === 'number' ? creditsData.remainingCredits : 0;
+  }, [creditsData]);
+
+  const videosCanMake = useMemo(() => {
+    if (remainingCredits === Infinity) return Infinity;
+    return Math.floor(remainingCredits / 80);
+  }, [remainingCredits]);
+
+  const isLowOnCredits = useMemo(() => {
+    return remainingCredits !== Infinity && remainingCredits < 80;
+  }, [remainingCredits]);
 
   useMetaTags({
     title: "Animation Studio | Kumayiri",
@@ -346,6 +374,11 @@ export default function AnimationStudioPage() {
         return;
       }
 
+      if (remainingCredits !== Infinity && remainingCredits < 80) {
+        setUpgradeDialogOpen(true);
+        return;
+      }
+
       const autoPrompt = generateScenePrompt(selectedProject?.title, scene.clips);
       const finalPrompt = scene.prompt.trim().length > 0 ? scene.prompt : autoPrompt;
 
@@ -369,6 +402,7 @@ export default function AnimationStudioPage() {
           description: "We’re stitching your frames into motion. Check the render queue for updates.",
         });
         queryClient.invalidateQueries({ queryKey: ["veo3", "jobs"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/credits"] });
         setScenes(prevScenes =>
           prevScenes.map(entry =>
             entry.id === sceneId
@@ -378,17 +412,22 @@ export default function AnimationStudioPage() {
         );
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unable to submit animation job.";
-        toast({
-          title: "Veo render failed",
-          description: message,
-          variant: "destructive",
-        });
+        if (message.includes("402") || message.toLowerCase().includes("insufficient credits")) {
+          setUpgradeDialogOpen(true);
+          queryClient.invalidateQueries({ queryKey: ["/api/credits"] });
+        } else {
+          toast({
+            title: "Veo render failed",
+            description: message,
+            variant: "destructive",
+          });
+        }
         setScenes(prevScenes =>
           prevScenes.map(entry => (entry.id === sceneId ? { ...entry, isSubmitting: false } : entry)),
         );
       }
     },
-    [queryClient, scenes, selectedProject?.title, selectedProjectId, toast],
+    [queryClient, scenes, selectedProject?.title, selectedProjectId, toast, remainingCredits],
   );
 
   const handleRenderAllScenes = useCallback(
@@ -453,6 +492,49 @@ export default function AnimationStudioPage() {
           </div>
         </header>
 
+        <Card className="border-border/60 lg:hidden" data-testid="card-credits-mobile">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <Coins className={`h-4 w-4 ${isLowOnCredits ? "text-orange-500" : "text-primary"}`} />
+              AI Credits
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {isCreditsLoading ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm text-muted-foreground">Loading credits...</span>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold" data-testid="text-remaining-credits">
+                    {remainingCredits === Infinity ? "Unlimited" : remainingCredits}
+                  </span>
+                  {remainingCredits !== Infinity && creditsData?.monthlyLimit && (
+                    <span className="text-sm text-muted-foreground">/ {creditsData.monthlyLimit}</span>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">
+                    {videosCanMake === Infinity ? (
+                      "Create unlimited videos"
+                    ) : (
+                      <>Can make <strong>{videosCanMake}</strong> video{videosCanMake !== 1 ? 's' : ''} (80 credits each)</>
+                    )}
+                  </p>
+                  {isLowOnCredits && (
+                    <div className="flex items-center gap-1.5 rounded-md bg-orange-500/10 px-2 py-1" data-testid="alert-low-credits">
+                      <AlertTriangle className="h-3 w-3 text-orange-500" />
+                      <span className="text-xs font-medium text-orange-600 dark:text-orange-500">Low on credits</span>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
         <Sheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
           <SheetTrigger asChild>
             <Button 
@@ -482,6 +564,49 @@ export default function AnimationStudioPage() {
 
         <div className="flex flex-col gap-4 sm:gap-6 lg:grid lg:grid-cols-[300px_minmax(0,1fr)]">
           <aside className="hidden space-y-4 lg:block lg:sticky lg:top-28 lg:h-[calc(100vh-8rem)]">
+            <Card className="border-border/60" data-testid="card-credits-desktop">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                  <Coins className={`h-4 w-4 ${isLowOnCredits ? "text-orange-500" : "text-primary"}`} />
+                  AI Credits
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {isCreditsLoading ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm text-muted-foreground">Loading...</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-bold">
+                        {remainingCredits === Infinity ? "∞" : remainingCredits}
+                      </span>
+                      {remainingCredits !== Infinity && creditsData?.monthlyLimit && (
+                        <span className="text-sm text-muted-foreground">/ {creditsData.monthlyLimit}</span>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">
+                        {videosCanMake === Infinity ? (
+                          "Unlimited videos"
+                        ) : (
+                          <>Can make <strong>{videosCanMake}</strong> video{videosCanMake !== 1 ? 's' : ''}</>
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground">80 credits per video</p>
+                      {isLowOnCredits && (
+                        <div className="flex items-center gap-1.5 rounded-md bg-orange-500/10 px-2 py-1">
+                          <AlertTriangle className="h-3 w-3 text-orange-500" />
+                          <span className="text-xs font-medium text-orange-600 dark:text-orange-500">Low on credits</span>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
             <AnimationProjectList
               projects={projects}
               selectedProjectId={selectedProjectId}
@@ -555,6 +680,35 @@ export default function AnimationStudioPage() {
             )}
           </section>
         </div>
+
+        <AlertDialog open={upgradeDialogOpen} onOpenChange={setUpgradeDialogOpen}>
+          <AlertDialogContent data-testid="dialog-upgrade">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-orange-500" />
+                Insufficient Credits
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-3">
+                <p>
+                  You need <strong>80 credits</strong> to render a video animation. You currently have{" "}
+                  <strong>{remainingCredits === Infinity ? "unlimited" : remainingCredits} credits</strong> remaining.
+                </p>
+                <p className="text-sm">
+                  Upgrade to the <strong>Pro plan</strong> for more credits and unlock advanced features, or check back soon for our pay-per-video option.
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-upgrade">Cancel</AlertDialogCancel>
+              <Link href="/profile">
+                <AlertDialogAction className="gap-2" data-testid="button-upgrade">
+                  Upgrade to Pro
+                  <ArrowRight className="h-4 w-4" />
+                </AlertDialogAction>
+              </Link>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   );
