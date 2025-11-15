@@ -1,10 +1,11 @@
+import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useVeo3Jobs } from "@/hooks/useVeo3Jobs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, Video, AlertTriangle, Sparkles } from "lucide-react";
+import { RefreshCw, Video, AlertTriangle, Sparkles, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 function resolveStatusBadge(status: string) {
@@ -20,6 +21,40 @@ function resolveStatusBadge(status: string) {
     default:
       return { label: status, className: "bg-muted text-muted-foreground" };
   }
+}
+
+function VideoPlayer({ videoUri, posterUri }: { videoUri: string; posterUri?: string }) {
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError) {
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center">
+        <XCircle className="h-8 w-8 text-destructive/70" />
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-destructive">Video no longer available</p>
+          <p className="text-xs text-muted-foreground">
+            This video URL has expired. Videos from before this update weren't saved to permanent storage.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-border/60 bg-background">
+      <video 
+        key={videoUri} 
+        controls 
+        poster={posterUri} 
+        className="h-auto w-full rounded-xl"
+        onError={() => setHasError(true)}
+        data-testid="video-player"
+      >
+        <source src={videoUri} type="video/mp4" />
+        Your browser does not support the video element.
+      </video>
+    </div>
+  );
 }
 
 interface RenderQueuePanelProps {
@@ -144,12 +179,7 @@ export function RenderQueuePanel({ projectId }: RenderQueuePanelProps) {
                 </div>
 
                 {videoUri ? (
-                  <div className="overflow-hidden rounded-xl border border-border/60 bg-background">
-                    <video key={videoUri} controls poster={posterUri ?? undefined} className="h-auto w-full rounded-xl">
-                      <source src={videoUri} type="video/mp4" />
-                      Your browser does not support the video element.
-                    </video>
-                  </div>
+                  <VideoPlayer videoUri={videoUri} posterUri={posterUri ?? undefined} />
                 ) : (
                   <div className="flex items-center gap-2 rounded-xl border border-dashed border-border/60 bg-muted/30 p-4 text-sm text-muted-foreground">
                     <Video className="h-4 w-4" />
