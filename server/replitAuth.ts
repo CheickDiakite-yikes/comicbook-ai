@@ -1,7 +1,6 @@
 import * as client from "openid-client";
 import { Strategy, type VerifyFunction } from "openid-client/passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import { Strategy as LocalStrategy } from "passport-local";
 
 import passport from "passport";
 import session from "express-session";
@@ -11,7 +10,6 @@ import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 import { ObjectStorageService } from "./objectStorage";
 import { randomUUID } from "crypto";
-import bcrypt from "bcrypt";
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
@@ -324,57 +322,6 @@ export async function setupAuth(app: Express) {
     }));
   }
 
-  // Local Strategy (Email/Password)
-  passport.use(new LocalStrategy({
-    usernameField: 'email',
-    passwordField: 'password'
-  },
-  async (email: string, password: string, done: any) => {
-    console.log(`🔥 Local Auth: Attempting login for email: ${email}`);
-    
-    try {
-      // Find user by email
-      const user = await storage.getUserByEmail(email);
-      
-      if (!user) {
-        console.log(`🔥 Local Auth: No user found with email: ${email}`);
-        return done(null, false, { message: 'Incorrect email or password' });
-      }
-      
-      // Check if user has a password set
-      if (!user.password) {
-        console.log(`🔥 Local Auth: User ${user.id} has no password set (likely a Google OAuth user)`);
-        return done(null, false, { message: 'This account uses Google sign-in. Please use Google to log in.' });
-      }
-      
-      // Verify password
-      const isValidPassword = await bcrypt.compare(password, user.password);
-      
-      if (!isValidPassword) {
-        console.log(`🔥 Local Auth: Invalid password for user: ${email}`);
-        return done(null, false, { message: 'Incorrect email or password' });
-      }
-      
-      console.log(`🔥 Local Auth: Login successful for user:`, {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName
-      });
-      
-      // Create session user object
-      const sessionUser = {
-        id: user.id,
-        email: user.email,
-        provider: 'local'
-      };
-      
-      return done(null, sessionUser);
-    } catch (error) {
-      console.error(`🔥 Local Auth: Error during login:`, error);
-      return done(error);
-    }
-  }));
-
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
@@ -431,19 +378,19 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  // Handle Google OAuth and Local Auth users (simpler auth check)
-  if (user && (user.provider === 'google' || user.provider === 'local')) {
-    console.log(`🔥 isAuthenticated: ${user.provider} user detected:`, { id: user.id, provider: user.provider });
+  // Handle Google OAuth users (simpler auth check)
+  if (user && user.provider === 'google') {
+    console.log(`🔥 isAuthenticated: Google OAuth user detected:`, { id: user.id, provider: user.provider });
     
     // Verify the user still exists in the database
     try {
       const dbUser = await storage.getUser(user.id);
       if (!dbUser) {
-        console.error(`🔥 isAuthenticated: ${user.provider} user ${user.id} NOT found in database!`);
+        console.error(`🔥 isAuthenticated: Google OAuth user ${user.id} NOT found in database!`);
         return res.status(401).json({ message: "User not found in database", code: "user_not_found" });
       }
       
-      console.log(`🔥 isAuthenticated: ${user.provider} user verified in database:`, { id: dbUser.id, email: dbUser.email });
+      console.log(`🔥 isAuthenticated: Google OAuth user verified in database:`, { id: dbUser.id, email: dbUser.email });
       
       // Touch session to keep it alive
       if (req.session && req.session.touch) {
@@ -451,7 +398,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
       }
       return next();
     } catch (error) {
-      console.error(`🔥 isAuthenticated: Database error checking ${user.provider} user:`, error);
+      console.error(`🔥 isAuthenticated: Database error checking Google OAuth user:`, error);
       return res.status(500).json({ message: "Internal server error" });
     }
   }

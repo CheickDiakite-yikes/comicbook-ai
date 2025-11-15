@@ -30,7 +30,6 @@ export const sessions = pgTable(
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),
-  password: varchar("password"), // Hashed password - nullable for existing Google OAuth users
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
@@ -680,7 +679,6 @@ export const auditLogs = pgTable("audit_logs", {
 export const insertUserSchema = createInsertSchema(users).pick({
   id: true,
   email: true,
-  password: true,
   firstName: true,
   lastName: true,
   profileImageUrl: true,
