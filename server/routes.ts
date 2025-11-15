@@ -307,7 +307,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
-  // Video proxy endpoint - streams videos from Google with authentication
+  // Video endpoint - serves videos from object storage or proxies from Google (legacy)
   app.get(
     '/api/animations/jobs/:jobId/video',
     isAuthenticated,
@@ -326,7 +326,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ message: 'Video not available yet.' });
         }
         
-        // Fetch video from Google with API key
+        // If video is in object storage, stream it from there
+        if (job.resultAssetUri.startsWith('/objects/')) {
+          const { parseObjectPath } = await import('./objectStorage');
+          const { objectStorageClient } = await import('./objectStorage');
+          
+          const privateObjectDir = process.env.PRIVATE_OBJECT_DIR || '';
+          const relativePath = job.resultAssetUri.replace('/objects/', '');
+          const fullPath = `${privateObjectDir}/${relativePath}`;
+          const { bucketName, objectName } = parseObjectPath(fullPath);
+          
+          const bucket = objectStorageClient.bucket(bucketName);
+          const file = bucket.file(objectName);
+          
+          res.set({
+            'Content-Type': 'video/mp4',
+            'Cache-Control': 'private, max-age=3600',
+          });
+          
+          const stream = file.createReadStream({
+            validation: false, // Let GCS handle headers, avoid blocking metadata fetch
+          });
+          
+          stream.on('error', (err: Error) => {
+            logger.error('Error streaming video from object storage', err, { jobId });
+            if (!res.headersSent) {
+              res.status(404).json({ message: 'Video file not found in storage.' });
+            }
+          });
+          
+          stream.pipe(res);
+          return;
+        }
+        
+        // Legacy: Fetch video from Google with API key (for old jobs using temporary URLs)
         const apiKey = process.env.VEO_API_KEY || process.env.GEMINI_API_KEY;
         if (!apiKey) {
           return res.status(500).json({ message: 'API key not configured.' });

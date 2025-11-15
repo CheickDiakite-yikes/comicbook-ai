@@ -4,6 +4,7 @@ import { DEFAULT_VEO_SAFETY_SETTINGS, type VeoJobRequest, type VeoSafetySetting 
 import { storage, type IStorage } from '../storage';
 import { logger as appLogger } from '../logger';
 import { getVeoCredentials } from '../utils/secrets';
+import { uploadToObjectStorage } from '../utils/objectStorage';
 
 interface PromptDiff {
   removed?: string;
@@ -360,6 +361,36 @@ export class Veo3AnimationRenderJobService {
     }
   }
 
+  private async downloadAndUploadVideo(videoUri: string, jobId: string): Promise<string> {
+    this.log.info('Starting video download from Google', { jobId, videoUri });
+    
+    try {
+      const credentials = getVeoCredentials();
+      const destinationPath = `animations/${jobId}.mp4`;
+      
+      const permanentUrl = await uploadToObjectStorage({
+        sourceUrl: videoUri,
+        destinationPath,
+        apiKey: credentials.apiKey,
+        contentType: 'video/mp4',
+      });
+      
+      this.log.info('Video upload completed successfully', { 
+        jobId, 
+        permanentUrl,
+        originalUri: videoUri,
+      });
+      
+      return permanentUrl;
+    } catch (error) {
+      this.log.error('Failed to download and upload video', error as Error, {
+        jobId,
+        videoUri,
+      });
+      throw error;
+    }
+  }
+
   private async completeOperation(tracker: OperationTracker, operation: GenerateVideosOperation) {
     // Log the full operation response to debug video URL extraction
     this.log.info('Veo3 operation completed - raw response', {
@@ -376,6 +407,20 @@ export class Veo3AnimationRenderJobService {
     const videoUri: string | null = primary?.video?.uri ?? null;
     const posterUri: string | null = primary?.posterUri ?? null;
 
+    let permanentUrl = videoUri;
+    
+    if (videoUri) {
+      try {
+        permanentUrl = await this.downloadAndUploadVideo(videoUri, tracker.jobId);
+      } catch (error) {
+        this.log.error('Failed to upload video to object storage, using temporary Google URL as fallback', error as Error, {
+          jobId: tracker.jobId,
+          videoUri,
+        });
+        permanentUrl = videoUri;
+      }
+    }
+
     tracker.baseSettings = this.mergeSettings(tracker.baseSettings, buildOperationSettingsPatch({
       status: 'completed',
       completedAt: new Date().toISOString(),
@@ -383,11 +428,12 @@ export class Veo3AnimationRenderJobService {
         videoUri,
         posterUri,
         downloadUri: primary?.video?.downloadUri ?? null,
+        permanentUrl,
       },
     }));
 
     await this.storage.updateAnimationRenderJobStatus(tracker.jobId, 'completed', {
-      resultAssetUri: videoUri,
+      resultAssetUri: permanentUrl,
       settings: tracker.baseSettings,
     });
 
@@ -398,6 +444,7 @@ export class Veo3AnimationRenderJobService {
       metadata: {
         operationName: tracker.operationName,
         videoUri,
+        permanentUrl,
       },
     });
 

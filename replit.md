@@ -98,10 +98,15 @@ The Animation Studio provides project-scoped animation render jobs using Veo 3, 
 - **Success (200)**: Returns `{ jobs: [...] }` array ordered by creation date (newest first)
 
 ### `GET /api/animations/jobs/:jobId/video` — Stream video file
-- Proxies authenticated video requests to Google's storage
-- Converts Web Streams to Node.js streams for proper playback
-- **Success (200)**: Streams video with correct `Content-Type` header
-- **Errors**: `404` if job not found or video not ready
+- Serves videos from object storage (new jobs) or Google storage (legacy jobs)
+- New jobs: Streams video directly from private object storage using authenticated bucket access
+- Legacy jobs: Proxies temporary Google URLs with API key authentication
+- **Success (200)**: Streams video with `Content-Type: video/mp4` header
+- **Errors**: `404` if job not found, video not ready, or file not found in storage
+- **Implementation Notes**: 
+  - Videos are permanently saved to object storage during job completion to prevent URL expiration
+  - Upload uses streaming (not buffering) to avoid OOM crashes on large Veo3 videos
+  - Object storage path format: `/objects/animations/${jobId}.mp4` (served via authenticated streaming)
 
 ## Data Storage Solutions
 - **Primary Database**: PostgreSQL with Neon Database serverless hosting
