@@ -48,6 +48,9 @@ import {
   PanelVideoJobEvent,
   PanelAnimationRateLimitError,
 } from "./services/PanelVideoJobService";
+import bcrypt from "bcrypt";
+import passport from "passport";
+import { randomUUID } from "crypto";
 
 // Helper function to get user ID from different auth providers
 function getUserId(user: any): string {
@@ -144,6 +147,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
     }
+  });
+
+  // Signup route
+  app.post('/api/auth/signup', async (req: any, res) => {
+    try {
+      const { email, password, passwordConfirm, firstName, lastName } = req.body;
+
+      // Validation
+      if (!email || !password || !passwordConfirm || !firstName || !lastName) {
+        return res.status(400).json({ 
+          message: "All fields are required",
+          code: "validation_error" 
+        });
+      }
+
+      if (password !== passwordConfirm) {
+        return res.status(400).json({ 
+          message: "Passwords do not match",
+          code: "password_mismatch" 
+        });
+      }
+
+      if (password.length < 8) {
+        return res.status(400).json({ 
+          message: "Password must be at least 8 characters long",
+          code: "password_too_short" 
+        });
+      }
+
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({ 
+          message: "An account with this email already exists",
+          code: "email_exists" 
+        });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create user with generated UUID
+      const userId = randomUUID();
+      const newUser = await storage.upsertUser({
+        id: userId,
+        email,
+        password: hashedPassword,
+        firstName,
+        lastName,
+      });
+
+      console.log(`🔥 Signup: Successfully created user:`, {
+        id: newUser.id,
+        email: newUser.email,
+        firstName: newUser.firstName
+      });
+
+      // Log the user in automatically
+      req.login({ 
+        id: newUser.id, 
+        email: newUser.email,
+        provider: 'local' 
+      }, (err: any) => {
+        if (err) {
+          console.error(`🔥 Signup: Error logging in new user:`, err);
+          return res.status(500).json({ 
+            message: "Account created but login failed. Please try logging in.",
+            code: "login_failed" 
+          });
+        }
+        res.status(201).json({ 
+          message: "Account created successfully",
+          user: {
+            id: newUser.id,
+            email: newUser.email,
+            firstName: newUser.firstName,
+            lastName: newUser.lastName
+          }
+        });
+      });
+    } catch (error) {
+      console.error("Error during signup:", error);
+      res.status(500).json({ 
+        message: "Failed to create account. Please try again.",
+        code: "server_error" 
+      });
+    }
+  });
+
+  // Login route
+  app.post('/api/auth/login', (req: any, res, next) => {
+    passport.authenticate('local', (err: any, user: any, info: any) => {
+      if (err) {
+        console.error(`🔥 Login: Error during authentication:`, err);
+        return res.status(500).json({ 
+          message: "An error occurred during login",
+          code: "server_error" 
+        });
+      }
+
+      if (!user) {
+        return res.status(401).json({ 
+          message: info?.message || "Invalid email or password",
+          code: "invalid_credentials" 
+        });
+      }
+
+      req.login(user, (loginErr: any) => {
+        if (loginErr) {
+          console.error(`🔥 Login: Error creating session:`, loginErr);
+          return res.status(500).json({ 
+            message: "Failed to create session",
+            code: "session_error" 
+          });
+        }
+
+        console.log(`🔥 Login: User logged in successfully:`, {
+          id: user.id,
+          email: user.email
+        });
+
+        res.json({ 
+          message: "Login successful",
+          user: {
+            id: user.id,
+            email: user.email
+          }
+        });
+      });
+    })(req, res, next);
   });
 
   // Credits API endpoint

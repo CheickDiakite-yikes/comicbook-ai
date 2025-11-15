@@ -680,6 +680,7 @@ export const auditLogs = pgTable("audit_logs", {
 export const insertUserSchema = createInsertSchema(users).pick({
   id: true,
   email: true,
+  password: true,
   firstName: true,
   lastName: true,
   profileImageUrl: true,
