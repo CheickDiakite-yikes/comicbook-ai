@@ -91,6 +91,15 @@ export default function Profile({ userId }: ProfileProps = {}) {
   // Fetch user's public projects (for the viewed profile)
   const { data: userProjects = [], isLoading: projectsLoading } = useQuery<ProjectWithStats[]>({
     queryKey: ["/api/profile/projects", userId || currentUser?.id],
+    queryFn: async () => {
+      const response = await fetch("/api/profile/projects", {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch projects: ${response.status}`);
+      }
+      return response.json();
+    },
     enabled: !!currentUser,
   });
 
@@ -218,11 +227,7 @@ export default function Profile({ userId }: ProfileProps = {}) {
   // Update profile mutation
   const updateProfileMutation = useMutation({
     mutationFn: async (profileUpdate: Partial<UserProfile>) => {
-      return await fetch("/api/profile", {
-        method: "PUT",
-        body: JSON.stringify(profileUpdate),
-        headers: { "Content-Type": "application/json" },
-      });
+      return apiRequest("PUT", "/api/profile", profileUpdate);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
@@ -244,11 +249,7 @@ export default function Profile({ userId }: ProfileProps = {}) {
   // Toggle project public status
   const toggleProjectPublicMutation = useMutation({
     mutationFn: async ({ projectId, isPublic }: { projectId: string; isPublic: boolean }) => {
-      return await fetch(`/api/projects/${projectId}/public`, {
-        method: "PUT",
-        body: JSON.stringify({ isPublic }),
-        headers: { "Content-Type": "application/json" },
-      });
+      return apiRequest("PUT", `/api/projects/${projectId}/public`, { isPublic });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/profile/projects"] });
