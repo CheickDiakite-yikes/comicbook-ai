@@ -199,21 +199,29 @@ async function upsertGoogleUser(
     let user;
     
     if (existingUser) {
-      // Update the existing user's information without changing their ID
-      console.log(`🔥 Google OAuth: Updating existing user ${existingUser.id} with Google profile data`);
+      // PRESERVE manually-updated user data, only fill in missing fields from Google
+      console.log(`🔥 Google OAuth: Updating existing user ${existingUser.id}, preserving manual updates`);
       const userData = {
         id: existingUser.id, // Keep the original user ID
         email: userEmail,
-        firstName: profile.name?.givenName || existingUser.firstName,
-        lastName: profile.name?.familyName || existingUser.lastName,
-        profileImageUrl: profileImageUrl || existingUser.profileImageUrl,
+        // Only use Google data if user hasn't set their own firstName (preserve manual updates)
+        firstName: existingUser.firstName || profile.name?.givenName || null,
+        // Only use Google data if user hasn't set their own lastName (preserve manual updates)
+        lastName: existingUser.lastName || profile.name?.familyName || null,
+        // Only use new Google profile picture if user hasn't uploaded their own (preserve manual updates)
+        profileImageUrl: existingUser.profileImageUrl || profileImageUrl || null,
       };
       
       user = await storage.upsertUser(userData);
-      console.log(`🔥 Google OAuth: Successfully updated existing user:`, {
+      console.log(`🔥 Google OAuth: Successfully updated existing user (preserved manual updates):`, {
         id: user.id,
         email: user.email,
-        firstName: user.firstName
+        firstName: user.firstName,
+        manuallySet: {
+          firstName: !!existingUser.firstName,
+          lastName: !!existingUser.lastName,
+          profileImage: !!existingUser.profileImageUrl
+        }
       });
     } else {
       // Create a new user with Google ID
