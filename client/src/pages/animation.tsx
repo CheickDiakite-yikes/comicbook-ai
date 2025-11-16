@@ -19,7 +19,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Loader2, Sparkles, BookOpen, FolderOpen, Coins, AlertTriangle, ArrowRight } from "lucide-react";
+import { Loader2, Sparkles, BookOpen, FolderOpen, Coins, AlertTriangle, ArrowRight, Film } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Link } from "wouter";
 
