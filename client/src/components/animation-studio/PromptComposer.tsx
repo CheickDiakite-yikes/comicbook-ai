@@ -113,7 +113,6 @@ export function PromptComposer({ scene, autoPrompt, onUpdate }: PromptComposerPr
       activePromptVariant: variant,
       prompt: fallback,
       promptFreeform: fallback,
-      promptWasEdited: Boolean(fallback),
     });
   };
 
