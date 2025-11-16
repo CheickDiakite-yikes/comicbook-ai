@@ -37,8 +37,6 @@ We are introducing a "Panel Animation Studio" feature that converts generated co
    - Character spotlight toggles to highlight key characters and their intended actions/emotions.
    - Continuity lock options ("Match prior shot", "Reverse angle") that will influence prompt assembly.
    - Retry & version history list storing up to N past renders per panel.
-3. **Animation Studio Alignment**
-   - The full editor experience (scenes, beats, track-based timeline, inspector inheritance, prompt composer chips, render drawer) is detailed in `docs/animation-studio-ui-ux-spec.md`. Engineering and design teams should treat that document as the authoritative UX spec when implementing Animation mode, ensuring the backend features described here surface within the new scene-based workflow.
 
 ## 5. System Architecture
 ### 5.1 High-Level Components
