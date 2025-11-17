@@ -39,7 +39,7 @@ export const PanelLibrary = memo(function PanelLibrary({
     });
   }, [panels]);
 
-  const showProjectSelector = projects.length > 1 && onProjectSelect;
+  const showProjectSelector = projects.length > 1 && Boolean(onProjectSelect);
   const selectedProject = projects.find(p => p.id === selectedProjectId);
 
   return (
