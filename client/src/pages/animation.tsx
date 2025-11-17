@@ -8,8 +8,7 @@ import { SceneTimeline } from "@/components/animation-studio/SceneTimeline";
 import { SceneComposer } from "@/components/animation-studio/SceneComposer";
 import { RenderQueuePanel } from "@/components/animation-studio/RenderQueuePanel";
 import type { Project, Page } from "@shared/schema";
-import { Scene, SceneClip, PanelAsset, PromptTokenSelection } from "@/components/animation-studio/types";
-import { CinematicCanvas } from "@/components/animation-studio/CinematicCanvas";
+import { Scene, SceneClip, PanelAsset } from "@/components/animation-studio/types";
 import { apiRequest } from "@/lib/queryClient";
 import { DEFAULT_VEO_SAFETY_SETTINGS } from "@shared/veo";
 import { useToast } from "@/hooks/use-toast";
@@ -19,22 +18,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Loader2, Sparkles, BookOpen, FolderOpen, Coins, AlertTriangle, ArrowRight, Film } from "lucide-react";
+import { Loader2, Sparkles, BookOpen, FolderOpen, Coins, AlertTriangle, ArrowRight } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Link } from "wouter";
-
-const BASE_PROMPT_TOKENS: PromptTokenSelection = {
-  shot: null,
-  cameraMove: null,
-  mood: null,
-  lighting: null,
-  style: null,
-  consistencyLocks: [],
-};
-
-function createPromptTokens(): PromptTokenSelection {
-  return { ...BASE_PROMPT_TOKENS, consistencyLocks: [] };
-}
 
 function createScene(index: number): Scene {
   return {
@@ -43,11 +29,6 @@ function createScene(index: number): Scene {
     clips: [],
     prompt: "",
     promptWasEdited: false,
-    promptTokens: createPromptTokens(),
-    promptFreeform: "",
-    promptVersionHistory: [],
-    promptVariants: { A: "", B: null },
-    activePromptVariant: "A",
     durationSeconds: 6,
     aspectRatio: "16:9",
     quality: "quality",
@@ -75,26 +56,6 @@ function generateScenePrompt(projectTitle: string | undefined, clips: SceneClip[
   const footer = "Maintain character fidelity, panel composition, and color palette while introducing cinematic camera motion.";
 
   return [header, ...beats, footer].join("\n");
-}
-
-function derivePromptFromStory(scene: Scene, clips: SceneClip[], projectTitle?: string) {
-  if (scene.promptWasEdited) {
-    return {
-      prompt: scene.prompt,
-      promptFreeform: scene.promptFreeform,
-      promptVariants: scene.promptVariants,
-    };
-  }
-
-  const regenerated = generateScenePrompt(projectTitle, clips);
-  return {
-    prompt: regenerated,
-    promptFreeform: regenerated,
-    promptVariants: {
-      ...scene.promptVariants,
-      [scene.activePromptVariant]: regenerated,
-    },
-  };
 }
 
 async function submitSceneToVeo(prompt: string, scene: Scene, projectId: string) {
@@ -127,61 +88,6 @@ async function submitSceneToVeo(prompt: string, scene: Scene, projectId: string)
   }
 
   return await response.json();
-}
-
-interface CreditsCardProps {
-  isLoading: boolean;
-  remainingCredits: number | typeof Infinity;
-  monthlyLimit?: number | null;
-  videosCanMake: number | typeof Infinity;
-  isLowOnCredits: boolean;
-  className?: string;
-}
-
-function CreditsCard({ isLoading, remainingCredits, monthlyLimit, videosCanMake, isLowOnCredits, className }: CreditsCardProps) {
-  return (
-    <Card className={`border-border/60 ${className ?? ""}`} data-testid="card-credits">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-          <Coins className={`h-4 w-4 ${isLowOnCredits ? "text-orange-500" : "text-primary"}`} />
-          AI Credits
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm">
-        {isLoading ? (
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading credits…
-          </div>
-        ) : (
-          <>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold" data-testid="text-remaining-credits">
-                {remainingCredits === Infinity ? "∞" : remainingCredits}
-              </span>
-              {remainingCredits !== Infinity && monthlyLimit ? (
-                <span className="text-xs text-muted-foreground">/ {monthlyLimit}</span>
-              ) : null}
-            </div>
-            <div className="space-y-1 text-xs text-muted-foreground">
-              {videosCanMake === Infinity ? (
-                <p>Create unlimited videos this cycle.</p>
-              ) : (
-                <p>
-                  Can make <strong>{videosCanMake}</strong> video{videosCanMake === 1 ? "" : "s"} (80 credits each)
-                </p>
-              )}
-              {isLowOnCredits ? (
-                <div className="flex items-center gap-1.5 rounded-md bg-orange-500/10 px-2 py-1 text-orange-600 dark:text-orange-500">
-                  <AlertTriangle className="h-3 w-3" /> Low on credits
-                </div>
-              ) : null}
-            </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
 }
 
 export default function AnimationStudioPage() {
@@ -346,30 +252,9 @@ export default function AnimationStudioPage() {
         prevScenes.map(scene => {
           if (scene.id !== sceneId) return scene;
           const merged: Scene = { ...scene, ...updates };
-          const clipsChanged = updates.clips !== undefined;
-
-          if (updates.prompt !== undefined && updates.prompt !== scene.prompt) {
-            const previousPrompt = scene.prompt.trim().length ? scene.prompt : null;
-            if (previousPrompt) {
-              merged.promptVersionHistory = [previousPrompt, ...scene.promptVersionHistory].slice(0, 10);
-            }
-            const variantKey = updates.activePromptVariant ?? scene.activePromptVariant;
-            merged.promptVariants = {
-              ...scene.promptVariants,
-              [variantKey]: updates.prompt,
-            };
+          if (!merged.promptWasEdited) {
+            merged.prompt = generateScenePrompt(selectedProject?.title, merged.clips);
           }
-
-          if (clipsChanged && !merged.promptWasEdited) {
-            const regenerated = generateScenePrompt(selectedProject?.title, merged.clips);
-            merged.prompt = regenerated;
-            merged.promptFreeform = regenerated;
-            merged.promptVariants = {
-              ...merged.promptVariants,
-              [merged.activePromptVariant]: regenerated,
-            };
-          }
-
           return merged;
         }),
       );
@@ -394,8 +279,8 @@ export default function AnimationStudioPage() {
           if (scene.id !== sceneId) return scene;
           const clip: SceneClip = { id: createClipId(panelId), panel };
           const clips = [...scene.clips, clip];
-          const promptState = derivePromptFromStory(scene, clips, selectedProject?.title);
-          return { ...scene, clips, ...promptState };
+          const prompt = scene.promptWasEdited ? scene.prompt : generateScenePrompt(selectedProject?.title, clips);
+          return { ...scene, clips, prompt };
         }),
       );
       setSelectedSceneId(sceneId);
@@ -424,8 +309,8 @@ export default function AnimationStudioPage() {
         prevScenes.map(scene => {
           if (scene.id !== sceneId) return scene;
           const clips = scene.clips.filter(clip => clip.id !== clipId);
-          const promptState = derivePromptFromStory(scene, clips, selectedProject?.title);
-          return { ...scene, clips, ...promptState };
+          const prompt = scene.promptWasEdited ? scene.prompt : generateScenePrompt(selectedProject?.title, clips);
+          return { ...scene, clips, prompt };
         }),
       );
     },
@@ -439,8 +324,8 @@ export default function AnimationStudioPage() {
           if (scene.id !== sceneId) return scene;
           if (scene.clips.length === 0) return scene;
           const clips = scene.clips.slice(0, -1);
-          const promptState = derivePromptFromStory(scene, clips, selectedProject?.title);
-          return { ...scene, clips, ...promptState };
+          const prompt = scene.promptWasEdited ? scene.prompt : generateScenePrompt(selectedProject?.title, clips);
+          return { ...scene, clips, prompt };
         }),
       );
     },
@@ -451,17 +336,8 @@ export default function AnimationStudioPage() {
     setScenes(prevScenes =>
       prevScenes.map(scene => {
         if (scene.id !== sceneId) return scene;
-        const shouldPreservePrompt = scene.promptWasEdited;
-        return {
-          ...scene,
-          clips: [],
-          prompt: shouldPreservePrompt ? scene.prompt : "",
-          promptFreeform: shouldPreservePrompt ? scene.promptFreeform : "",
-          promptVariants: shouldPreservePrompt
-            ? scene.promptVariants
-            : { ...scene.promptVariants, [scene.activePromptVariant]: "" },
-          promptTokens: shouldPreservePrompt ? scene.promptTokens : createPromptTokens(),
-        };
+        const prompt = scene.promptWasEdited ? scene.prompt : "";
+        return { ...scene, clips: [], prompt };
       }),
     );
   }, []);
@@ -528,20 +404,11 @@ export default function AnimationStudioPage() {
         queryClient.invalidateQueries({ queryKey: ["veo3", "jobs"] });
         queryClient.invalidateQueries({ queryKey: ["/api/credits"] });
         setScenes(prevScenes =>
-          prevScenes.map(entry => {
-            if (entry.id !== sceneId) return entry;
-            const shouldSyncPrompt = !entry.promptWasEdited;
-            return {
-              ...entry,
-              isSubmitting: false,
-              lastSubmittedAt: new Date().toISOString(),
-              prompt: shouldSyncPrompt ? autoPrompt : entry.prompt,
-              promptFreeform: shouldSyncPrompt ? autoPrompt : entry.promptFreeform,
-              promptVariants: shouldSyncPrompt
-                ? { ...entry.promptVariants, [entry.activePromptVariant]: autoPrompt }
-                : entry.promptVariants,
-            };
-          }),
+          prevScenes.map(entry =>
+            entry.id === sceneId
+              ? { ...entry, isSubmitting: false, lastSubmittedAt: new Date().toISOString(), prompt: entry.promptWasEdited ? entry.prompt : autoPrompt }
+              : entry,
+          ),
         );
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unable to submit animation job.";
@@ -599,89 +466,147 @@ export default function AnimationStudioPage() {
   );
 
   const projectHasPages = pages.length > 0;
-  const creditsCardProps = {
-    isLoading: isCreditsLoading,
-    remainingCredits,
-    monthlyLimit: creditsData?.monthlyLimit ?? null,
-    videosCanMake,
-    isLowOnCredits,
-  };
-  const hasRenderableScenes = scenes.some(scene => scene.clips.length > 0);
-  const canRenderSelectedScene = Boolean(activeScene && activeScene.clips.length > 0);
 
   return (
-    <div className="min-h-screen bg-muted/10" style={{ paddingTop: "var(--safe-top)" }}>
+    <div className="min-h-screen bg-background" style={{ paddingTop: "var(--safe-top)" }}>
       <Navigation />
-      <main className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-4 pb-16 pt-4 sm:px-6 lg:px-8">
-        <header className="rounded-3xl border border-border/60 bg-card/90 p-4 shadow-sm sm:p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="space-y-1.5">
-              <Badge variant="outline" className="w-fit gap-1 uppercase tracking-wide">
-                <Sparkles className="h-3 w-3" /> Animation Studio
+      <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 pb-12 pt-4 sm:gap-6 sm:px-6 sm:pt-6 lg:px-8">
+        <header className="rounded-2xl border border-border/60 bg-card/80 p-4 shadow-sm sm:rounded-3xl sm:p-6">
+          <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-1.5 sm:space-y-2">
+              <Badge variant="outline" className="w-fit gap-1">
+                <Sparkles className="h-3 w-3" />
+                Animation Studio
               </Badge>
-              <h1 className="text-2xl font-serif font-bold">Turn panels into motion</h1>
+              <h1 className="text-xl font-serif font-bold sm:text-2xl">Stitch your comic into motion</h1>
               <p className="max-w-2xl text-sm text-muted-foreground">
-                Drag panels into beats, dial in prompts, and send Veo clips that respect Kumayiri’s handcrafted DNA.
+                Drag panels into scenes, remix the story beats, and render Veo 3 clips that feel handcrafted for your comic.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <Loader2 className={`h-4 w-4 ${isPanelLibraryLoading || isPagesLoading ? "animate-spin" : ""}`} />
-              <span>{selectedProject ? `Working in ${selectedProject.title}` : "Select a project to begin"}</span>
-            </div>
-          </div>
-          <div className="mt-4 flex flex-wrap items-center gap-3 text-xs">
-            <div className="flex rounded-full border border-border/60 bg-background/70 p-1 text-sm font-medium">
-              {(["Page", "Animation", "Script"] as const).map(label => (
-                <button
-                  key={label}
-                  type="button"
-                  className={`rounded-full px-4 py-1 text-[11px] ${label === "Animation" ? "bg-primary text-white" : "text-muted-foreground"}`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Sheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
-                <SheetTrigger asChild>
-                  <Button size="sm" variant="outline" className="gap-2 lg:hidden">
-                    <FolderOpen className="h-4 w-4" />
-                    {selectedProject ? selectedProject.title : "Select project"}
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="w-[85vw] sm:w-[400px] p-0">
-                  <SheetHeader className="p-6 pb-4">
-                    <SheetTitle>Select Project</SheetTitle>
-                  </SheetHeader>
-                  <div className="px-6 pb-6">
-                    <AnimationProjectList
-                      projects={projects}
-                      selectedProjectId={selectedProjectId}
-                      onSelect={handleSelectProject}
-                      isLoading={isProjectsLoading}
-                    />
-                  </div>
-                </SheetContent>
-              </Sheet>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-2"
-                disabled={!canRenderSelectedScene}
-                onClick={() => activeScene && handleRenderScene(activeScene.id)}
-              >
-                <Film className="h-4 w-4" /> Render selection
-              </Button>
-              <Button size="sm" className="gap-2" disabled={!hasRenderableScenes} onClick={handleRenderAllScenes}>
-                <Sparkles className="h-4 w-4" /> Render all
-              </Button>
+              <span className="hidden sm:inline">
+                {selectedProject ? `Working in ${selectedProject.title}` : "Select a project to begin"}
+              </span>
             </div>
           </div>
         </header>
 
-        <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)_360px]">
-          <div className="space-y-4">
-            <CreditsCard {...creditsCardProps} />
+        <Card className="border-border/60 lg:hidden" data-testid="card-credits-mobile">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <Coins className={`h-4 w-4 ${isLowOnCredits ? "text-orange-500" : "text-primary"}`} />
+              AI Credits
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {isCreditsLoading ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm text-muted-foreground">Loading credits...</span>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold" data-testid="text-remaining-credits">
+                    {remainingCredits === Infinity ? "Unlimited" : remainingCredits}
+                  </span>
+                  {remainingCredits !== Infinity && creditsData?.monthlyLimit && (
+                    <span className="text-sm text-muted-foreground">/ {creditsData.monthlyLimit}</span>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">
+                    {videosCanMake === Infinity ? (
+                      "Create unlimited videos"
+                    ) : (
+                      <>Can make <strong>{videosCanMake}</strong> video{videosCanMake !== 1 ? 's' : ''} (80 credits each)</>
+                    )}
+                  </p>
+                  {isLowOnCredits && (
+                    <div className="flex items-center gap-1.5 rounded-md bg-orange-500/10 px-2 py-1" data-testid="alert-low-credits">
+                      <AlertTriangle className="h-3 w-3 text-orange-500" />
+                      <span className="text-xs font-medium text-orange-600 dark:text-orange-500">Low on credits</span>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Sheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
+          <SheetTrigger asChild>
+            <Button 
+              size="lg" 
+              variant="outline" 
+              className="w-full gap-2 lg:hidden"
+              data-testid="button-select-project-mobile"
+            >
+              <FolderOpen className="h-5 w-5" />
+              {selectedProject ? selectedProject.title : "Select Project"}
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-[85vw] sm:w-[400px] p-0">
+            <SheetHeader className="p-6 pb-4">
+              <SheetTitle>Select Project</SheetTitle>
+            </SheetHeader>
+            <div className="px-6 pb-6">
+              <AnimationProjectList
+                projects={projects}
+                selectedProjectId={selectedProjectId}
+                onSelect={handleSelectProject}
+                isLoading={isProjectsLoading}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        <div className="flex flex-col gap-4 sm:gap-6 lg:grid lg:grid-cols-[300px_minmax(0,1fr)]">
+          <aside className="hidden space-y-4 lg:block lg:sticky lg:top-28 lg:h-[calc(100vh-8rem)]">
+            <Card className="border-border/60" data-testid="card-credits-desktop">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                  <Coins className={`h-4 w-4 ${isLowOnCredits ? "text-orange-500" : "text-primary"}`} />
+                  AI Credits
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {isCreditsLoading ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm text-muted-foreground">Loading...</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-bold">
+                        {remainingCredits === Infinity ? "∞" : remainingCredits}
+                      </span>
+                      {remainingCredits !== Infinity && creditsData?.monthlyLimit && (
+                        <span className="text-sm text-muted-foreground">/ {creditsData.monthlyLimit}</span>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">
+                        {videosCanMake === Infinity ? (
+                          "Unlimited videos"
+                        ) : (
+                          <>Can make <strong>{videosCanMake}</strong> video{videosCanMake !== 1 ? 's' : ''}</>
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground">80 credits per video</p>
+                      {isLowOnCredits && (
+                        <div className="flex items-center gap-1.5 rounded-md bg-orange-500/10 px-2 py-1">
+                          <AlertTriangle className="h-3 w-3 text-orange-500" />
+                          <span className="text-xs font-medium text-orange-600 dark:text-orange-500">Low on credits</span>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
             <AnimationProjectList
               projects={projects}
               selectedProjectId={selectedProjectId}
@@ -710,53 +635,51 @@ export default function AnimationStudioPage() {
                 </CardContent>
               </Card>
             )}
-            <PanelLibrary
-              panels={panelLibrary}
-              pages={pageDescriptors}
-              scenes={scenes}
-              selectedSceneId={activeScene?.id ?? null}
-              onSelectScene={setSelectedSceneId}
-              isLoading={isPanelLibraryLoading}
-              onQuickAdd={projectHasPages ? handleQuickAddPanel : undefined}
-              activeSceneName={activeScene?.title}
-            />
-          </div>
+          </aside>
 
-          <div className="space-y-6">
-            <CinematicCanvas scene={activeScene ?? null} autoPrompt={activeSceneAutoPrompt} isLoadingPanels={isPanelLibraryLoading} />
-          </div>
+          <section className="space-y-6">
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+              <div className="space-y-6">
+                <SceneTimeline
+                  scenes={scenes}
+                  selectedSceneId={activeScene?.id ?? null}
+                  onSelectScene={setSelectedSceneId}
+                  onDropPanel={handleAttachPanel}
+                  onRemoveClip={handleRemoveClip}
+                  onAddScene={handleAddScene}
+                  onClearScene={handleClearScene}
+                  onRemoveLastClip={handleRemoveLastClip}
+                />
+                <PanelLibrary
+                  panels={panelLibrary}
+                  isLoading={isPanelLibraryLoading}
+                  onQuickAdd={projectHasPages ? handleQuickAddPanel : undefined}
+                  activeSceneName={activeScene?.title}
+                />
+              </div>
 
-          <div className="space-y-6">
-            <SceneComposer
-              scene={activeScene}
-              autoPrompt={activeSceneAutoPrompt}
-              onUpdate={handleUpdateScene}
-              onGenerate={handleRenderScene}
-              onGenerateAll={handleRenderAllScenes}
-              scenes={scenes}
-            />
-            <RenderQueuePanel projectId={selectedProjectId ?? undefined} />
-          </div>
+              <div className="space-y-6">
+                <SceneComposer
+                  scene={activeScene}
+                  autoPrompt={activeSceneAutoPrompt}
+                  onUpdate={handleUpdateScene}
+                  onGenerate={handleRenderScene}
+                  onGenerateAll={handleRenderAllScenes}
+                  scenes={scenes}
+                />
+                <RenderQueuePanel projectId={selectedProjectId ?? undefined} />
+              </div>
+            </div>
+
+            {!projectHasPages && !isPagesLoading && selectedProject && (
+              <Card className="border-dashed border-border/60 bg-muted/20">
+                <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                  Generate comic pages for “{selectedProject.title}” to unlock animation stitching.
+                </CardContent>
+              </Card>
+            )}
+          </section>
         </div>
-
-        <SceneTimeline
-          scenes={scenes}
-          selectedSceneId={activeScene?.id ?? null}
-          onSelectScene={setSelectedSceneId}
-          onDropPanel={handleAttachPanel}
-          onRemoveClip={handleRemoveClip}
-          onAddScene={handleAddScene}
-          onClearScene={handleClearScene}
-          onRemoveLastClip={handleRemoveLastClip}
-        />
-
-        {!projectHasPages && !isPagesLoading && selectedProject && (
-          <Card className="border-dashed border-border/60 bg-muted/20">
-            <CardContent className="py-8 text-center text-sm text-muted-foreground">
-              Generate comic pages for “{selectedProject.title}” to unlock animation stitching.
-            </CardContent>
-          </Card>
-        )}
 
         <AlertDialog open={upgradeDialogOpen} onOpenChange={setUpgradeDialogOpen}>
           <AlertDialogContent data-testid="dialog-upgrade">
@@ -767,7 +690,7 @@ export default function AnimationStudioPage() {
               </AlertDialogTitle>
               <AlertDialogDescription className="space-y-3">
                 <p>
-                  You need <strong>80 credits</strong> to render a video animation. You currently have{' '}
+                  You need <strong>80 credits</strong> to render a video animation. You currently have{" "}
                   <strong>{remainingCredits === Infinity ? "unlimited" : remainingCredits} credits</strong> remaining.
                 </p>
                 <p className="text-sm">
