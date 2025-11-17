@@ -465,9 +465,9 @@ export default function AnimationStudioPage() {
   const projectHasPages = pages.length > 0;
 
   return (
-    <div className="min-h-screen bg-background" style={{ paddingTop: "var(--safe-top)" }}>
+    <div className="min-h-screen overflow-x-hidden bg-background" style={{ paddingTop: "var(--safe-top)" }}>
       <Navigation />
-      <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 pb-12 pt-4 sm:gap-6 sm:px-6 sm:pt-6 lg:px-8">
+      <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 pb-12 pt-4 sm:gap-6 sm:px-6 sm:pt-6 lg:px-8">
         <header className="rounded-2xl border border-border/60 bg-card/80 p-4 shadow-sm sm:rounded-3xl sm:p-6">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -559,9 +559,33 @@ export default function AnimationStudioPage() {
                 <p className="mb-2 text-xs text-muted-foreground">Reference the script while crafting motion cues.</p>
                 {selectedProject.script ? (
                   <ScrollArea className="h-24">
-                    <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
-                      {selectedProject.script}
-                    </p>
+                    <div className="space-y-2 pr-4">
+                      {(() => {
+                        try {
+                          const parsed = JSON.parse(selectedProject.script);
+                          return (
+                            <>
+                              {parsed.title && (
+                                <p className="text-xs font-semibold text-foreground">
+                                  {parsed.title}
+                                </p>
+                              )}
+                              {parsed.logline && (
+                                <p className="text-xs leading-relaxed text-muted-foreground">
+                                  {parsed.logline}
+                                </p>
+                              )}
+                            </>
+                          );
+                        } catch {
+                          return (
+                            <p className="break-words text-xs leading-relaxed text-muted-foreground">
+                              {selectedProject.script}
+                            </p>
+                          );
+                        }
+                      })()}
+                    </div>
                   </ScrollArea>
                 ) : (
                   <p className="text-xs text-muted-foreground">This project does not have a stored script yet.</p>
@@ -571,9 +595,9 @@ export default function AnimationStudioPage() {
           </div>
         </header>
 
-        <section className="space-y-6">
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-            <div className="space-y-6">
+        <section className="w-full space-y-6">
+          <div className="grid w-full gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <div className="min-w-0 space-y-6">
                 <SceneTimeline
                   scenes={scenes}
                   selectedSceneId={activeScene?.id ?? null}
@@ -593,7 +617,7 @@ export default function AnimationStudioPage() {
                 <RenderQueuePanel projectId={selectedProjectId ?? undefined} />
               </div>
 
-              <div className="space-y-6">
+              <div className="min-w-0 space-y-6">
                 <SceneComposer
                   scene={activeScene}
                   autoPrompt={activeSceneAutoPrompt}
