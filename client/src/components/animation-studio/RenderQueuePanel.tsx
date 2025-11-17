@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { formatDistanceToNow } from "date-fns";
 import useEmblaCarousel from "embla-carousel-react";
 import { useVeo3Jobs } from "@/hooks/useVeo3Jobs";
@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, Video, AlertTriangle, Sparkles, XCircle } from "lucide-react";
+import { RefreshCw, Video, AlertTriangle, Sparkles, XCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 function resolveStatusBadge(status: string) {
@@ -65,11 +65,19 @@ interface RenderQueuePanelProps {
 export function RenderQueuePanel({ projectId }: RenderQueuePanelProps) {
   const { data, isLoading, isError, error, refetch, isFetching } = useVeo3Jobs(10, projectId);
   const { toast } = useToast();
-  const [emblaRef] = useEmblaCarousel({ 
+  const [emblaRef, emblaApi] = useEmblaCarousel({ 
     loop: false, 
     align: "start",
     containScroll: "trimSnaps"
   });
+
+  const scrollPrev = useCallback(() => {
+    if (emblaApi) emblaApi.scrollPrev();
+  }, [emblaApi]);
+
+  const scrollNext = useCallback(() => {
+    if (emblaApi) emblaApi.scrollNext();
+  }, [emblaApi]);
 
   if (isLoading) {
     return (
@@ -160,49 +168,77 @@ export function RenderQueuePanel({ projectId }: RenderQueuePanelProps) {
         ) : (
           <>
             {/* Mobile: Horizontal Carousel */}
-            <div className="overflow-hidden lg:hidden" ref={emblaRef}>
-              <div className="flex gap-4">
-                {jobs.map(job => {
-                  const status = resolveStatusBadge(job.status);
-                  const createdAt = new Date(job.createdAt);
-                  const updatedAt = new Date(job.updatedAt);
-                  const result = (job.settings as Record<string, any> | null)?.operation ?? {};
-                  const outcome = result?.result ?? {};
-                  const posterUri: string | null = outcome?.posterUri ?? null;
-                  const hasVideo = Boolean(job.resultAssetUri ?? outcome?.videoUri);
-                  const videoUri: string | null = hasVideo ? `/api/animations/jobs/${job.id}/video` : null;
-                  const errorMessage: string | undefined = result?.error ?? undefined;
+            <div className="space-y-4 lg:hidden">
+              <div className="overflow-hidden" ref={emblaRef}>
+                <div className="flex gap-3">
+                  {jobs.map(job => {
+                    const status = resolveStatusBadge(job.status);
+                    const createdAt = new Date(job.createdAt);
+                    const updatedAt = new Date(job.updatedAt);
+                    const result = (job.settings as Record<string, any> | null)?.operation ?? {};
+                    const outcome = result?.result ?? {};
+                    const posterUri: string | null = outcome?.posterUri ?? null;
+                    const hasVideo = Boolean(job.resultAssetUri ?? outcome?.videoUri);
+                    const videoUri: string | null = hasVideo ? `/api/animations/jobs/${job.id}/video` : null;
+                    const errorMessage: string | undefined = result?.error ?? undefined;
 
-                  return (
-                    <div key={job.id} className="min-w-[85vw] flex-shrink-0 space-y-3 rounded-2xl border border-border/60 bg-card/60 p-4">
-                      <div className="space-y-2">
-                        <Badge className={status.className}>{status.label}</Badge>
-                        <p className="text-sm font-medium text-foreground">
-                          {job.prompt.length > 120 ? `${job.prompt.slice(0, 120)}…` : job.prompt}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Requested {formatDistanceToNow(createdAt, { addSuffix: true })} · Updated {formatDistanceToNow(updatedAt, { addSuffix: true })}
-                        </p>
+                    return (
+                      <div key={job.id} className="min-w-[calc(100vw-4rem)] max-w-[calc(100vw-4rem)] flex-shrink-0 space-y-3 rounded-2xl border border-border/60 bg-card/60 p-4">
+                        <div className="space-y-2">
+                          <Badge className={status.className}>{status.label}</Badge>
+                          <p className="text-sm font-medium text-foreground">
+                            {job.prompt.length > 120 ? `${job.prompt.slice(0, 120)}…` : job.prompt}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Requested {formatDistanceToNow(createdAt, { addSuffix: true })} · Updated {formatDistanceToNow(updatedAt, { addSuffix: true })}
+                          </p>
+                        </div>
+
+                        {videoUri ? (
+                          <VideoPlayer videoUri={videoUri} posterUri={posterUri ?? undefined} />
+                        ) : (
+                          <div className="flex items-center gap-2 rounded-xl border border-dashed border-border/60 bg-muted/30 p-4 text-sm text-muted-foreground">
+                            <Video className="h-4 w-4" />
+                            Clip is still rendering. We'll attach the MP4 once Veo 3 returns the final frames.
+                          </div>
+                        )}
+
+                        {errorMessage ? (
+                          <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+                            {errorMessage}
+                          </div>
+                        ) : null}
                       </div>
-
-                      {videoUri ? (
-                        <VideoPlayer videoUri={videoUri} posterUri={posterUri ?? undefined} />
-                      ) : (
-                        <div className="flex items-center gap-2 rounded-xl border border-dashed border-border/60 bg-muted/30 p-4 text-sm text-muted-foreground">
-                          <Video className="h-4 w-4" />
-                          Clip is still rendering. We'll attach the MP4 once Veo 3 returns the final frames.
-                        </div>
-                      )}
-
-                      {errorMessage ? (
-                        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-                          {errorMessage}
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
+              
+              {/* Navigation Arrows */}
+              {jobs.length > 1 && (
+                <div className="flex items-center justify-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="icon"
+                    className="h-10 w-10 rounded-full"
+                    onClick={scrollPrev}
+                    aria-label="Previous video"
+                    data-testid="button-carousel-prev"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="icon"
+                    className="h-10 w-10 rounded-full"
+                    onClick={scrollNext}
+                    aria-label="Next video"
+                    data-testid="button-carousel-next"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Desktop: Vertical List */}
