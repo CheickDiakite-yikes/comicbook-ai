@@ -270,10 +270,12 @@ export default function AnimationStudioPage() {
   );
 
   const handleSelectPanelLibraryProject = useCallback((projectId: string) => {
-    setPanelLibraryProjectId(projectId);
-    setSelectedProjectId(projectId);
-    setLocation(`/animation?projectId=${projectId}`);
-  }, [setLocation]);
+    if (projectId === selectedProjectId) {
+      setPanelLibraryProjectId(null);
+    } else {
+      setPanelLibraryProjectId(projectId);
+    }
+  }, [selectedProjectId]);
 
   const handleUpdateScene = useCallback(
     (sceneId: string, updates: Partial<Scene>) => {

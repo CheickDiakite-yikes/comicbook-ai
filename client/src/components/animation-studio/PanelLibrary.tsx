@@ -55,12 +55,12 @@ export const PanelLibrary = memo(function PanelLibrary({
         </div>
         {showProjectSelector && (
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Story world</label>
+            <label className="text-xs font-medium text-muted-foreground">Browse panels from</label>
             <Select value={selectedProjectId ?? undefined} onValueChange={onProjectSelect}>
               <SelectTrigger className="w-full" data-testid="select-panel-library-project">
                 <div className="flex items-center gap-2">
                   <BookOpen className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                  <SelectValue placeholder="Select a project" />
+                  <SelectValue placeholder="Select a project to browse" />
                 </div>
               </SelectTrigger>
               <SelectContent>
@@ -73,7 +73,7 @@ export const PanelLibrary = memo(function PanelLibrary({
             </Select>
             {selectedProject && (
               <p className="text-xs text-muted-foreground">
-                Showing panels from <span className="font-medium text-foreground">{selectedProject.title}</span>
+                Browsing panels from <span className="font-medium text-foreground">{selectedProject.title}</span>
               </p>
             )}
           </div>
