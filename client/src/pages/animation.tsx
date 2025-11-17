@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import Navigation from "@/components/navigation";
-import { AnimationProjectList } from "@/components/animation-studio/AnimationProjectList";
 import { PanelLibrary } from "@/components/animation-studio/PanelLibrary";
 import { SceneTimeline } from "@/components/animation-studio/SceneTimeline";
 import { SceneComposer } from "@/components/animation-studio/SceneComposer";
@@ -17,8 +16,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Loader2, Sparkles, BookOpen, FolderOpen, Coins, AlertTriangle, ArrowRight } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Sparkles, BookOpen, Coins, AlertTriangle, ArrowRight } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Link } from "wouter";
 
@@ -96,7 +95,6 @@ export default function AnimationStudioPage() {
   const [panelLibraryProjectId, setPanelLibraryProjectId] = useState<string | null>(null);
   const [scenes, setScenes] = useState<Scene[]>([createScene(1)]);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
-  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -265,15 +263,17 @@ export default function AnimationStudioPage() {
   const handleSelectProject = useCallback(
     (projectId: string) => {
       setSelectedProjectId(projectId);
+      setPanelLibraryProjectId(null);
       setLocation(`/animation?projectId=${projectId}`);
-      setMobileSheetOpen(false);
     },
     [setLocation],
   );
 
   const handleSelectPanelLibraryProject = useCallback((projectId: string) => {
     setPanelLibraryProjectId(projectId);
-  }, []);
+    setSelectedProjectId(projectId);
+    setLocation(`/animation?projectId=${projectId}`);
+  }, [setLocation]);
 
   const handleUpdateScene = useCallback(
     (sceneId: string, updates: Partial<Scene>) => {
@@ -512,11 +512,34 @@ export default function AnimationStudioPage() {
                 Drag panels into scenes, remix the story beats, and render Veo 3 clips that feel handcrafted for your comic.
               </p>
             </div>
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <Loader2 className={`h-4 w-4 ${isPanelLibraryLoading || isPagesLoading ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">
-                {selectedProject ? `Working in ${selectedProject.title}` : "Select a project to begin"}
-              </span>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              {isProjectsLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Loading projects...</span>
+                </div>
+              ) : projects.length > 0 ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Working in:</span>
+                  <Select value={selectedProjectId ?? undefined} onValueChange={handleSelectProject}>
+                    <SelectTrigger className="w-[200px] sm:w-[250px]" data-testid="select-active-project">
+                      <SelectValue placeholder="Select a project" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map(project => (
+                        <SelectItem key={project.id} value={project.id} data-testid={`select-item-project-${project.id}`}>
+                          {project.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {(isPanelLibraryLoading || isPagesLoading) && (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No projects available</p>
+              )}
             </div>
           </div>
         </header>
@@ -564,33 +587,6 @@ export default function AnimationStudioPage() {
           </CardContent>
         </Card>
 
-        <Sheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
-          <SheetTrigger asChild>
-            <Button 
-              size="lg" 
-              variant="outline" 
-              className="w-full gap-2 lg:hidden"
-              data-testid="button-select-project-mobile"
-            >
-              <FolderOpen className="h-5 w-5" />
-              {selectedProject ? selectedProject.title : "Select Project"}
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-[85vw] sm:w-[400px] p-0">
-            <SheetHeader className="p-6 pb-4">
-              <SheetTitle>Select Project</SheetTitle>
-            </SheetHeader>
-            <div className="px-6 pb-6">
-              <AnimationProjectList
-                projects={projects}
-                selectedProjectId={selectedProjectId}
-                onSelect={handleSelectProject}
-                isLoading={isProjectsLoading}
-              />
-            </div>
-          </SheetContent>
-        </Sheet>
-
         <div className="flex flex-col gap-4 sm:gap-6 lg:grid lg:grid-cols-[300px_minmax(0,1fr)]">
           <aside className="hidden space-y-4 lg:block lg:sticky lg:top-28 lg:h-[calc(100vh-8rem)]">
             <Card className="border-border/60" data-testid="card-credits-desktop">
@@ -636,12 +632,6 @@ export default function AnimationStudioPage() {
                 )}
               </CardContent>
             </Card>
-            <AnimationProjectList
-              projects={projects}
-              selectedProjectId={selectedProjectId}
-              onSelect={handleSelectProject}
-              isLoading={isProjectsLoading}
-            />
             {selectedProject && (
               <Card className="border-border/60">
                 <CardHeader>
