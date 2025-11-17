@@ -512,66 +512,62 @@ export default function AnimationStudioPage() {
               </div>
             </div>
             
-            <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
-              <div className="space-y-4">
-                <div className="rounded-lg border border-border/60 bg-card p-3" data-testid="card-credits-header">
-                  <div className="mb-2 flex items-center gap-2">
-                    <Coins className={`h-4 w-4 ${isLowOnCredits ? "text-orange-500" : "text-primary"}`} />
-                    <span className="text-sm font-semibold">AI Credits</span>
-                  </div>
-                  {isCreditsLoading ? (
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-xs text-muted-foreground">Loading...</span>
-                    </div>
-                  ) : (
-                    <div className="space-y-1.5">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-xl font-bold">
-                          {remainingCredits === Infinity ? "∞" : remainingCredits}
-                        </span>
-                        {remainingCredits !== Infinity && creditsData?.monthlyLimit && (
-                          <span className="text-xs text-muted-foreground">/ {creditsData.monthlyLimit}</span>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {videosCanMake === Infinity ? (
-                          "Unlimited videos"
-                        ) : (
-                          <>Can make <strong>{videosCanMake}</strong> video{videosCanMake !== 1 ? 's' : ''}</>
-                        )}
-                      </p>
-                      <p className="text-xs text-muted-foreground">80 credits per video</p>
-                      {isLowOnCredits && (
-                        <div className="flex items-center gap-1.5 rounded-md bg-orange-500/10 px-2 py-1">
-                          <AlertTriangle className="h-3 w-3 text-orange-500" />
-                          <span className="text-xs font-medium text-orange-600 dark:text-orange-500">Low on credits</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+            <div className="rounded-lg border border-border/60 bg-card p-3" data-testid="card-credits-header">
+              <div className="mb-2 flex items-center gap-2">
+                <Coins className={`h-4 w-4 ${isLowOnCredits ? "text-orange-500" : "text-primary"}`} />
+                <span className="text-sm font-semibold">AI Credits</span>
               </div>
-
-              {selectedProject && (
-                <div className="rounded-lg border border-border/60 bg-card p-3">
-                  <div className="mb-2 flex items-center gap-2">
-                    <BookOpen className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-semibold">Story overview</span>
+              {isCreditsLoading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-xs text-muted-foreground">Loading...</span>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-xl font-bold">
+                      {remainingCredits === Infinity ? "∞" : remainingCredits}
+                    </span>
+                    {remainingCredits !== Infinity && creditsData?.monthlyLimit && (
+                      <span className="text-xs text-muted-foreground">/ {creditsData.monthlyLimit}</span>
+                    )}
                   </div>
-                  <p className="mb-2 text-xs text-muted-foreground">Reference the script while crafting motion cues.</p>
-                  {selectedProject.script ? (
-                    <ScrollArea className="h-24">
-                      <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
-                        {selectedProject.script}
-                      </p>
-                    </ScrollArea>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">This project does not have a stored script yet.</p>
+                  <p className="text-xs text-muted-foreground">
+                    {videosCanMake === Infinity ? (
+                      "Unlimited videos"
+                    ) : (
+                      <>Can make <strong>{videosCanMake}</strong> video{videosCanMake !== 1 ? 's' : ''}</>
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground">80 credits per video</p>
+                  {isLowOnCredits && (
+                    <div className="flex items-center gap-1.5 rounded-md bg-orange-500/10 px-2 py-1">
+                      <AlertTriangle className="h-3 w-3 text-orange-500" />
+                      <span className="text-xs font-medium text-orange-600 dark:text-orange-500">Low on credits</span>
+                    </div>
                   )}
                 </div>
               )}
             </div>
+
+            {selectedProject && (
+              <div className="rounded-lg border border-border/60 bg-card p-3">
+                <div className="mb-2 flex items-center gap-2">
+                  <BookOpen className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold">Story overview</span>
+                </div>
+                <p className="mb-2 text-xs text-muted-foreground">Reference the script while crafting motion cues.</p>
+                {selectedProject.script ? (
+                  <ScrollArea className="h-24">
+                    <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
+                      {selectedProject.script}
+                    </p>
+                  </ScrollArea>
+                ) : (
+                  <p className="text-xs text-muted-foreground">This project does not have a stored script yet.</p>
+                )}
+              </div>
+            )}
           </div>
         </header>
 
