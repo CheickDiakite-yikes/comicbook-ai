@@ -470,12 +470,19 @@ export default function AnimationStudioPage() {
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 pb-12 pt-4 sm:gap-6 sm:px-6 sm:pt-6 lg:px-8">
         <header className="rounded-2xl border border-border/60 bg-card/80 p-4 shadow-sm sm:rounded-3xl sm:p-6">
           <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="space-y-1.5 sm:space-y-2">
-                <Badge variant="outline" className="w-fit gap-1">
-                  <Sparkles className="h-3 w-3" />
-                  Animation Studio
-                </Badge>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className="w-fit gap-1">
+                    <Sparkles className="h-3 w-3" />
+                    Animation Studio
+                  </Badge>
+                  {!isCreditsLoading && (
+                    <span className={`text-sm font-medium ${isLowOnCredits ? "text-orange-600 dark:text-orange-500" : "text-muted-foreground"}`}>
+                      AI Credit: {remainingCredits === Infinity ? "∞" : `${remainingCredits}${creditsData?.monthlyLimit ? `/${creditsData.monthlyLimit}` : ''}`} {remainingCredits !== Infinity && 'left'}
+                    </span>
+                  )}
+                </div>
                 <h1 className="text-xl font-serif font-bold sm:text-2xl">Stitch your comic into motion</h1>
                 <p className="max-w-2xl text-sm text-muted-foreground">
                   Drag panels into scenes, remix the story beats, and render Veo 3 clips that feel handcrafted for your comic.
@@ -510,44 +517,6 @@ export default function AnimationStudioPage() {
                   <p className="text-sm text-muted-foreground">No projects available</p>
                 )}
               </div>
-            </div>
-            
-            <div className="rounded-lg border border-border/60 bg-card p-3" data-testid="card-credits-header">
-              <div className="mb-2 flex items-center gap-2">
-                <Coins className={`h-4 w-4 ${isLowOnCredits ? "text-orange-500" : "text-primary"}`} />
-                <span className="text-sm font-semibold">AI Credits</span>
-              </div>
-              {isCreditsLoading ? (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-xs text-muted-foreground">Loading...</span>
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-xl font-bold">
-                      {remainingCredits === Infinity ? "∞" : remainingCredits}
-                    </span>
-                    {remainingCredits !== Infinity && creditsData?.monthlyLimit && (
-                      <span className="text-xs text-muted-foreground">/ {creditsData.monthlyLimit}</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {videosCanMake === Infinity ? (
-                      "Unlimited videos"
-                    ) : (
-                      <>Can make <strong>{videosCanMake}</strong> video{videosCanMake !== 1 ? 's' : ''}</>
-                    )}
-                  </p>
-                  <p className="text-xs text-muted-foreground">80 credits per video</p>
-                  {isLowOnCredits && (
-                    <div className="flex items-center gap-1.5 rounded-md bg-orange-500/10 px-2 py-1">
-                      <AlertTriangle className="h-3 w-3 text-orange-500" />
-                      <span className="text-xs font-medium text-orange-600 dark:text-orange-500">Low on credits</span>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
 
             {selectedProject && (
