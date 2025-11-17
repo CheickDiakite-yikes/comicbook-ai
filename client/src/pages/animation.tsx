@@ -469,118 +469,71 @@ export default function AnimationStudioPage() {
       <Navigation />
       <main className="mx-auto flex max-w-7xl flex-col gap-4 px-4 pb-12 pt-4 sm:gap-6 sm:px-6 sm:pt-6 lg:px-8">
         <header className="rounded-2xl border border-border/60 bg-card/80 p-4 shadow-sm sm:rounded-3xl sm:p-6">
-          <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-1.5 sm:space-y-2">
-              <Badge variant="outline" className="w-fit gap-1">
-                <Sparkles className="h-3 w-3" />
-                Animation Studio
-              </Badge>
-              <h1 className="text-xl font-serif font-bold sm:text-2xl">Stitch your comic into motion</h1>
-              <p className="max-w-2xl text-sm text-muted-foreground">
-                Drag panels into scenes, remix the story beats, and render Veo 3 clips that feel handcrafted for your comic.
-              </p>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-              {isProjectsLoading ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Loading projects...</span>
-                </div>
-              ) : projects.length > 0 ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Working in:</span>
-                  <Select value={selectedProjectId ?? undefined} onValueChange={handleSelectProject}>
-                    <SelectTrigger className="w-[200px] sm:w-[250px]" data-testid="select-active-project">
-                      <SelectValue placeholder="Select a project" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {projects.map(project => (
-                        <SelectItem key={project.id} value={project.id} data-testid={`select-item-project-${project.id}`}>
-                          {project.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {(isPanelLibraryLoading || isPagesLoading) && (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  )}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No projects available</p>
-              )}
-            </div>
-          </div>
-        </header>
-
-        <Card className="border-border/60 lg:hidden" data-testid="card-credits-mobile">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-              <Coins className={`h-4 w-4 ${isLowOnCredits ? "text-orange-500" : "text-primary"}`} />
-              AI Credits
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {isCreditsLoading ? (
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm text-muted-foreground">Loading credits...</span>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="space-y-1.5 sm:space-y-2">
+                <Badge variant="outline" className="w-fit gap-1">
+                  <Sparkles className="h-3 w-3" />
+                  Animation Studio
+                </Badge>
+                <h1 className="text-xl font-serif font-bold sm:text-2xl">Stitch your comic into motion</h1>
+                <p className="max-w-2xl text-sm text-muted-foreground">
+                  Drag panels into scenes, remix the story beats, and render Veo 3 clips that feel handcrafted for your comic.
+                </p>
               </div>
-            ) : (
-              <>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold" data-testid="text-remaining-credits">
-                    {remainingCredits === Infinity ? "Unlimited" : remainingCredits}
-                  </span>
-                  {remainingCredits !== Infinity && creditsData?.monthlyLimit && (
-                    <span className="text-sm text-muted-foreground">/ {creditsData.monthlyLimit}</span>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">
-                    {videosCanMake === Infinity ? (
-                      "Create unlimited videos"
-                    ) : (
-                      <>Can make <strong>{videosCanMake}</strong> video{videosCanMake !== 1 ? 's' : ''} (80 credits each)</>
-                    )}
-                  </p>
-                  {isLowOnCredits && (
-                    <div className="flex items-center gap-1.5 rounded-md bg-orange-500/10 px-2 py-1" data-testid="alert-low-credits">
-                      <AlertTriangle className="h-3 w-3 text-orange-500" />
-                      <span className="text-xs font-medium text-orange-600 dark:text-orange-500">Low on credits</span>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <div className="flex flex-col gap-4 sm:gap-6 lg:grid lg:grid-cols-[300px_minmax(0,1fr)]">
-          <aside className="hidden space-y-4 lg:block lg:sticky lg:top-28 lg:h-[calc(100vh-8rem)]">
-            <Card className="border-border/60" data-testid="card-credits-desktop">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                  <Coins className={`h-4 w-4 ${isLowOnCredits ? "text-orange-500" : "text-primary"}`} />
-                  AI Credits
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {isCreditsLoading ? (
-                  <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                {isProjectsLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm text-muted-foreground">Loading...</span>
+                    <span>Loading projects...</span>
+                  </div>
+                ) : projects.length > 0 ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Working in:</span>
+                    <Select value={selectedProjectId ?? undefined} onValueChange={handleSelectProject}>
+                      <SelectTrigger className="w-[200px] sm:w-[250px]" data-testid="select-active-project">
+                        <SelectValue placeholder="Select a project" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {projects.map(project => (
+                          <SelectItem key={project.id} value={project.id} data-testid={`select-item-project-${project.id}`}>
+                            {project.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {(isPanelLibraryLoading || isPagesLoading) && (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    )}
                   </div>
                 ) : (
-                  <>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-bold">
-                        {remainingCredits === Infinity ? "∞" : remainingCredits}
-                      </span>
-                      {remainingCredits !== Infinity && creditsData?.monthlyLimit && (
-                        <span className="text-sm text-muted-foreground">/ {creditsData.monthlyLimit}</span>
-                      )}
+                  <p className="text-sm text-muted-foreground">No projects available</p>
+                )}
+              </div>
+            </div>
+            
+            <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
+              <div className="space-y-4">
+                <div className="rounded-lg border border-border/60 bg-card p-3" data-testid="card-credits-header">
+                  <div className="mb-2 flex items-center gap-2">
+                    <Coins className={`h-4 w-4 ${isLowOnCredits ? "text-orange-500" : "text-primary"}`} />
+                    <span className="text-sm font-semibold">AI Credits</span>
+                  </div>
+                  {isCreditsLoading ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-xs text-muted-foreground">Loading...</span>
                     </div>
-                    <div className="space-y-1">
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-xl font-bold">
+                          {remainingCredits === Infinity ? "∞" : remainingCredits}
+                        </span>
+                        {remainingCredits !== Infinity && creditsData?.monthlyLimit && (
+                          <span className="text-xs text-muted-foreground">/ {creditsData.monthlyLimit}</span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {videosCanMake === Infinity ? (
                           "Unlimited videos"
@@ -596,22 +549,19 @@ export default function AnimationStudioPage() {
                         </div>
                       )}
                     </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-            {selectedProject && (
-              <Card className="border-border/60">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                  )}
+                </div>
+              </div>
+
+              {selectedProject && (
+                <div className="rounded-lg border border-border/60 bg-card p-3">
+                  <div className="mb-2 flex items-center gap-2">
                     <BookOpen className="h-4 w-4 text-primary" />
-                    Story overview
-                  </CardTitle>
-                  <p className="text-xs text-muted-foreground">Reference the script while crafting motion cues.</p>
-                </CardHeader>
-                <CardContent>
+                    <span className="text-sm font-semibold">Story overview</span>
+                  </div>
+                  <p className="mb-2 text-xs text-muted-foreground">Reference the script while crafting motion cues.</p>
                   {selectedProject.script ? (
-                    <ScrollArea className="h-40">
+                    <ScrollArea className="h-24">
                       <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
                         {selectedProject.script}
                       </p>
@@ -619,14 +569,15 @@ export default function AnimationStudioPage() {
                   ) : (
                     <p className="text-xs text-muted-foreground">This project does not have a stored script yet.</p>
                   )}
-                </CardContent>
-              </Card>
-            )}
-          </aside>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
 
-          <section className="space-y-6">
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-              <div className="space-y-6">
+        <section className="space-y-6">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <div className="space-y-6">
                 <SceneTimeline
                   scenes={scenes}
                   selectedSceneId={activeScene?.id ?? null}
@@ -665,8 +616,7 @@ export default function AnimationStudioPage() {
                 </CardContent>
               </Card>
             )}
-          </section>
-        </div>
+        </section>
 
         <AlertDialog open={upgradeDialogOpen} onOpenChange={setUpgradeDialogOpen}>
           <AlertDialogContent data-testid="dialog-upgrade">
