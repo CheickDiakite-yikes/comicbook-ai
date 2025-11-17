@@ -643,6 +643,7 @@ export default function AnimationStudioPage() {
                   onQuickAdd={projectHasPages ? handleQuickAddPanel : undefined}
                   activeSceneName={activeScene?.title}
                 />
+                <RenderQueuePanel projectId={selectedProjectId ?? undefined} />
               </div>
 
               <div className="space-y-6">
@@ -654,7 +655,6 @@ export default function AnimationStudioPage() {
                   onGenerateAll={handleRenderAllScenes}
                   scenes={scenes}
                 />
-                <RenderQueuePanel projectId={selectedProjectId ?? undefined} />
               </div>
             </div>
 
