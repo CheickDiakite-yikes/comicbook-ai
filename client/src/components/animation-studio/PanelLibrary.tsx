@@ -3,8 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PanelAsset } from "./types";
-import { ImageOff, PlusCircle } from "lucide-react";
+import { ImageOff, PlusCircle, BookOpen } from "lucide-react";
+import type { Project } from "@shared/schema";
 
 const DRAG_DATA_TYPE = "application/x-kumayiri-panel";
 
@@ -13,9 +15,20 @@ interface PanelLibraryProps {
   isLoading?: boolean;
   onQuickAdd?: (panelId: string) => void;
   activeSceneName?: string;
+  projects?: Project[];
+  selectedProjectId?: string | null;
+  onProjectSelect?: (projectId: string) => void;
 }
 
-export const PanelLibrary = memo(function PanelLibrary({ panels, isLoading, onQuickAdd, activeSceneName }: PanelLibraryProps) {
+export const PanelLibrary = memo(function PanelLibrary({ 
+  panels, 
+  isLoading, 
+  onQuickAdd, 
+  activeSceneName, 
+  projects = [], 
+  selectedProjectId, 
+  onProjectSelect 
+}: PanelLibraryProps) {
   const totalPanels = panels.length;
   const sortedPanels = useMemo(() => {
     return [...panels].sort((a, b) => {
@@ -26,13 +39,45 @@ export const PanelLibrary = memo(function PanelLibrary({ panels, isLoading, onQu
     });
   }, [panels]);
 
+  const showProjectSelector = projects.length > 1 && onProjectSelect;
+  const selectedProject = projects.find(p => p.id === selectedProjectId);
+
   return (
     <Card className="border-border/60">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-base font-semibold">Panel library</CardTitle>
-        <p className="text-xs text-muted-foreground">
-          Drag panels into your scene timeline or tap to drop them into {activeSceneName ?? "the current scene"}.
-        </p>
+      <CardHeader className="space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1 flex-1 min-w-0">
+            <CardTitle className="text-base font-semibold">Panel library</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Drag panels into your scene timeline or tap to drop them into {activeSceneName ?? "the current scene"}.
+            </p>
+          </div>
+        </div>
+        {showProjectSelector && (
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Story world</label>
+            <Select value={selectedProjectId ?? undefined} onValueChange={onProjectSelect}>
+              <SelectTrigger className="w-full" data-testid="select-panel-library-project">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                  <SelectValue placeholder="Select a project" />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map(project => (
+                  <SelectItem key={project.id} value={project.id} data-testid={`select-item-project-${project.id}`}>
+                    {project.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedProject && (
+              <p className="text-xs text-muted-foreground">
+                Showing panels from <span className="font-medium text-foreground">{selectedProject.title}</span>
+              </p>
+            )}
+          </div>
+        )}
       </CardHeader>
       <CardContent className="px-0 pt-0">
         {isLoading ? (

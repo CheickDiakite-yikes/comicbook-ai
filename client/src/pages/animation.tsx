@@ -93,6 +93,7 @@ async function submitSceneToVeo(prompt: string, scene: Scene, projectId: string)
 export default function AnimationStudioPage() {
   const [location, setLocation] = useLocation();
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [panelLibraryProjectId, setPanelLibraryProjectId] = useState<string | null>(null);
   const [scenes, setScenes] = useState<Scene[]>([createScene(1)]);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
@@ -116,12 +117,24 @@ export default function AnimationStudioPage() {
 
   const selectedProject = useMemo(() => projects.find(project => project.id === selectedProjectId) ?? null, [projects, selectedProjectId]);
 
+  const effectivePanelLibraryProjectId = panelLibraryProjectId || selectedProjectId;
+  const isPanelLibraryDifferentProject = panelLibraryProjectId && panelLibraryProjectId !== selectedProjectId;
+
   const { data: pages = [], isLoading: isPagesLoading } = useQuery<Page[]>({
     queryKey: ["animation", "pages", selectedProjectId],
     enabled: Boolean(selectedProjectId),
     queryFn: async () => {
       if (!selectedProjectId) return [] as Page[];
       return await apiRequest("GET", `/api/projects/${selectedProjectId}/pages`);
+    },
+  });
+
+  const { data: panelLibraryPages = [], isLoading: isPanelLibraryPagesLoading } = useQuery<Page[]>({
+    queryKey: ["animation", "panel-pages", panelLibraryProjectId],
+    enabled: Boolean(isPanelLibraryDifferentProject),
+    queryFn: async () => {
+      if (!panelLibraryProjectId) return [] as Page[];
+      return await apiRequest("GET", `/api/projects/${panelLibraryProjectId}/pages`);
     },
   });
 
@@ -135,14 +148,26 @@ export default function AnimationStudioPage() {
     [pages],
   );
 
+  const panelLibraryPageDescriptors = useMemo(
+    () => {
+      const sourcePagesData = isPanelLibraryDifferentProject ? panelLibraryPages : pages;
+      return sourcePagesData.map(page => ({
+        id: page.id,
+        pageNumber: page.pageNumber,
+        scriptSnippet: page.scriptSnippet ?? null,
+      }));
+    },
+    [isPanelLibraryDifferentProject, panelLibraryPages, pages],
+  );
+
   const { data: panelLibrary = [], isLoading: isPanelLibraryLoading } = useQuery<PanelAsset[]>({
-    queryKey: ["animation", "panel-library", selectedProjectId, pageDescriptors.map(page => page.id).join(",")],
-    enabled: Boolean(selectedProjectId && pageDescriptors.length > 0),
+    queryKey: ["animation", "panel-library", effectivePanelLibraryProjectId, panelLibraryPageDescriptors.map(page => page.id).join(",")],
+    enabled: Boolean(effectivePanelLibraryProjectId && panelLibraryPageDescriptors.length > 0),
     queryFn: async () => {
-      if (!selectedProjectId || pageDescriptors.length === 0) return [] as PanelAsset[];
+      if (!effectivePanelLibraryProjectId || panelLibraryPageDescriptors.length === 0) return [] as PanelAsset[];
 
       const results = await Promise.all(
-        pageDescriptors.map(async page => {
+        panelLibraryPageDescriptors.map(async page => {
           const panels = await apiRequest("GET", `/api/pages/${page.id}/panels`);
           return (panels as any[]).map(panel => ({
             id: panel.id as string,
@@ -245,6 +270,10 @@ export default function AnimationStudioPage() {
     },
     [setLocation],
   );
+
+  const handleSelectPanelLibraryProject = useCallback((projectId: string) => {
+    setPanelLibraryProjectId(projectId);
+  }, []);
 
   const handleUpdateScene = useCallback(
     (sceneId: string, updates: Partial<Scene>) => {
@@ -655,6 +684,9 @@ export default function AnimationStudioPage() {
                   isLoading={isPanelLibraryLoading}
                   onQuickAdd={projectHasPages ? handleQuickAddPanel : undefined}
                   activeSceneName={activeScene?.title}
+                  projects={projects}
+                  selectedProjectId={effectivePanelLibraryProjectId}
+                  onProjectSelect={handleSelectPanelLibraryProject}
                 />
               </div>
 
