@@ -320,7 +320,7 @@ export default function Explore() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredProjects.map((project) => (
-                  <Card key={project.id} className="group hover:shadow-lg transition-shadow duration-200">
+                  <Card key={project.id} className="group hover:shadow-lg transition-shadow duration-200 cursor-pointer" onClick={() => window.location.href = `/comic/${project.id}`}>
                     {/* Preview Image */}
                     <div className="relative h-48 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-t-lg overflow-hidden">
                       {project.previewImageUrl ? (
@@ -359,7 +359,11 @@ export default function Explore() {
                       </div>
 
                       {/* Creator Info */}
-                      <div className="flex items-center space-x-2">
+                      <Link 
+                        href={`/profile/${project.user.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center space-x-2 hover:opacity-80 transition-opacity w-fit"
+                      >
                         <Avatar className="w-6 h-6">
                           <AvatarImage src={project.user.profileImageUrl || ""} />
                           <AvatarFallback className="text-xs">
@@ -369,7 +373,7 @@ export default function Explore() {
                         <span className="text-sm text-muted-foreground">
                           by {project.user.firstName || project.user.email?.split('@')[0] || 'Anonymous'}
                         </span>
-                      </div>
+                      </Link>
 
                       {/* Date */}
                       <div className="flex items-center space-x-1 text-xs text-muted-foreground">
@@ -378,13 +382,16 @@ export default function Explore() {
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="flex items-center justify-between pt-2">
+                      <div className="flex items-center justify-between pt-2" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center space-x-4">
                           {/* Like Button */}
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleLike(project)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleLike(project);
+                            }}
                             disabled={likeMutation.isPending}
                             className={`flex items-center space-x-1 ${
                               project.isLikedByCurrentUser ? 'text-red-500' : 'text-muted-foreground'
@@ -399,7 +406,10 @@ export default function Explore() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setSelectedProject(project)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedProject(project);
+                            }}
                             className="flex items-center space-x-1 text-muted-foreground"
                             data-testid={`comment-button-${project.id}`}
                           >
@@ -408,23 +418,25 @@ export default function Explore() {
                           </Button>
 
                           {/* Share Button */}
-                          <SocialShareButtons
-                            url={`${window.location.origin}/share/${project.id}`}
-                            title={`${project.title} by ${project.user.firstName || 'Creator'} | Kumayiri AI Comics`}
-                            description={`${project.publicDescription || project.description || `A ${project.genre || 'amazing'} story created with AI on Kumayiri.`} Explore more AI-created comics at Kumayiri!`}
-                            image={project.previewImageUrl || project.coverArt || undefined}
-                            hashtags={[
-                              'AIComics', 
-                              'DigitalComics', 
-                              'ComicCreation',
-                              ...(project.genre ? [project.genre.replace(/\s+/g, '')] : [])
-                            ]}
-                            data-testid={`share-button-${project.id}`}
-                          />
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <SocialShareButtons
+                              url={`${window.location.origin}/share/${project.id}`}
+                              title={`${project.title} by ${project.user.firstName || 'Creator'} | Kumayiri AI Comics`}
+                              description={`${project.publicDescription || project.description || `A ${project.genre || 'amazing'} story created with AI on Kumayiri.`} Explore more AI-created comics at Kumayiri!`}
+                              image={project.previewImageUrl || project.coverArt || undefined}
+                              hashtags={[
+                                'AIComics', 
+                                'DigitalComics', 
+                                'ComicCreation',
+                                ...(project.genre ? [project.genre.replace(/\s+/g, '')] : [])
+                              ]}
+                              data-testid={`share-button-${project.id}`}
+                            />
+                          </div>
                         </div>
 
                         {/* View Comic Button */}
-                        <Link href={`/comic/${project.id}`}>
+                        <Link href={`/comic/${project.id}`} onClick={(e) => e.stopPropagation()}>
                           <Button size="sm" data-testid={`view-comic-${project.id}`}>
                             <Eye className="w-4 h-4 mr-1" />
                             View
