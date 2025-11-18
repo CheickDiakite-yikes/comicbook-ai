@@ -231,6 +231,24 @@ export default function Profile({ userId }: ProfileProps = {}) {
     mutationFn: async (profileUpdate: Partial<UserProfile>) => {
       return apiRequest("PUT", "/api/profile", profileUpdate);
     },
+    onMutate: async (profileUpdate) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/profile"] });
+      
+      // Snapshot the previous value
+      const previousProfile = queryClient.getQueryData<UserProfile>(["/api/profile", userId || currentUser?.id]);
+      
+      // Optimistically update to the new value
+      if (previousProfile) {
+        queryClient.setQueryData<UserProfile>(["/api/profile", userId || currentUser?.id], {
+          ...previousProfile,
+          ...profileUpdate,
+        });
+      }
+      
+      // Return a context object with the snapshot value
+      return { previousProfile };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
       setIsEditing(false);
@@ -239,7 +257,11 @@ export default function Profile({ userId }: ProfileProps = {}) {
         description: "Your profile has been saved successfully.",
       });
     },
-    onError: (error) => {
+    onError: (error, variables, context) => {
+      // Roll back to the previous value on error
+      if (context?.previousProfile) {
+        queryClient.setQueryData(["/api/profile", userId || currentUser?.id], context.previousProfile);
+      }
       toast({
         title: "Error",
         description: error.message || "Failed to update profile",

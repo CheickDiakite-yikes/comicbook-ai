@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +50,7 @@ export default function Explore() {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
 
   // Fetch user's projects for sidebar
   const { data: projects = [] } = useQuery<Project[]>({
@@ -320,9 +321,15 @@ export default function Explore() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredProjects.map((project) => (
-                  <Card key={project.id} className="group hover:shadow-lg transition-shadow duration-200 cursor-pointer" onClick={() => window.location.href = `/comic/${project.id}`}>
-                    {/* Preview Image */}
-                    <div className="relative h-48 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-t-lg overflow-hidden">
+                  <div 
+                    key={project.id} 
+                    onClick={() => navigate(`/comic/${project.id}`)}
+                    data-testid={`card-${project.id}`}
+                    className="cursor-pointer"
+                  >
+                    <Card className="group hover:shadow-lg transition-shadow duration-200 cursor-pointer h-full">
+                      {/* Preview Image */}
+                      <div className="relative h-48 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-t-lg overflow-hidden">
                       {project.previewImageUrl ? (
                         <img 
                           src={project.previewImageUrl} 
@@ -436,15 +443,21 @@ export default function Explore() {
                         </div>
 
                         {/* View Comic Button */}
-                        <Link href={`/comic/${project.id}`} onClick={(e) => e.stopPropagation()}>
-                          <Button size="sm" data-testid={`view-comic-${project.id}`}>
-                            <Eye className="w-4 h-4 mr-1" />
-                            View
-                          </Button>
-                        </Link>
+                        <Button 
+                          size="sm" 
+                          data-testid={`view-comic-${project.id}`} 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/comic/${project.id}`);
+                          }}
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          View
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
+                </div>
                 ))}
               </div>
             )}
