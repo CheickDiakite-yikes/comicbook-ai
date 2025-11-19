@@ -87,7 +87,6 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [isGeneratingCharacterBio, setIsGeneratingCharacterBio] = useState<number | null>(null);
   const [isGeneratingCharacterVisual, setIsGeneratingCharacterVisual] = useState<number | null>(null);
-  const [isGeneratingReferencePortrait, setIsGeneratingReferencePortrait] = useState<number | null>(null);
   const [isUploadingReferenceImage, setIsUploadingReferenceImage] = useState<number | null>(null);
   const [showAIStoryGenerator, setShowAIStoryGenerator] = useState(false);
   const [characters, setCharacters] = useState([
@@ -366,10 +365,9 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
     }
   };
 
-  // Handle AI reference portrait generation (immediate generation)
-  const handleGenerateReferencePortrait = async (index: number) => {
+  // Handle AI reference portrait generation (scheduled for project creation)
+  const handleGenerateReferencePortrait = (index: number) => {
     const character = characters[index];
-    const formData = form.getValues();
     
     if (!character.name || !character.bio) {
       toast({
@@ -380,42 +378,19 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
       return;
     }
 
-    setIsGeneratingReferencePortrait(index);
-    
-    try {
-      const response = await apiRequest("POST", "/api/generate-reference-portrait", {
-        characterName: character.name,
-        bio: character.bio,
-        visualDescriptors: character.visualDescriptors,
-        artStyle: selectedArtStyle || formData.artStyle || "comic book"
-      });
+    // Schedule generation for after project creation
+    const updated = [...characters];
+    updated[index] = {
+      ...updated[index],
+      shouldGeneratePortrait: true
+    };
+    setCharacters(updated);
 
-      if (response.status === "completed" && response.referenceImageUrl) {
-        const updated = [...characters];
-        updated[index] = {
-          ...updated[index],
-          referenceImageUrl: response.referenceImageUrl,
-          shouldGeneratePortrait: false // No need to regenerate later
-        };
-        setCharacters(updated);
-
-        toast({
-          title: "Portrait Generated!",
-          description: `Reference portrait for ${character.name} has been created successfully.`,
-        });
-      } else {
-        throw new Error(response.error || "Failed to generate portrait");
-      }
-    } catch (error) {
-      console.error("Failed to generate reference portrait:", error);
-      toast({
-        title: "Generation Failed",
-        description: error instanceof Error ? error.message : "Failed to generate reference portrait. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGeneratingReferencePortrait(null);
-    }
+    toast({
+      title: "AI Generation Scheduled",
+      description: `Portrait for ${character.name} will be generated when you create the project.`,
+      duration: 4000,
+    });
   };
 
   // Handle background generation completion
@@ -1089,7 +1064,7 @@ Create a visual description that fits the ${selectedArtStyle || 'comic-book'} ar
                               )}
                               
                               {/* Loading overlay */}
-                              {(isGeneratingReferencePortrait === index || isUploadingReferenceImage === index) && (
+                              {isUploadingReferenceImage === index && (
                                 <div className="absolute inset-0 bg-background/80 rounded-lg flex items-center justify-center">
                                   <Loader2 className="h-4 w-4 animate-spin text-primary" />
                                 </div>
@@ -1103,12 +1078,12 @@ Create a visual description that fits the ${selectedArtStyle || 'comic-book'} ar
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleGenerateReferencePortrait(index)}
-                                disabled={isGeneratingReferencePortrait === index || isUploadingReferenceImage === index}
+                                disabled={isUploadingReferenceImage === index || character.shouldGeneratePortrait}
                                 className="h-8 text-xs"
                                 data-testid={`button-generate-portrait-${index}`}
                               >
                                 <Wand2 className="mr-1 h-3 w-3" />
-                                {isGeneratingReferencePortrait === index ? "Generating..." : "Generate with AI"}
+                                {character.shouldGeneratePortrait ? "AI Scheduled" : "Generate with AI"}
                               </Button>
                               
                               <div className="relative">
@@ -1122,14 +1097,14 @@ Create a visual description that fits the ${selectedArtStyle || 'comic-book'} ar
                                     }
                                   }}
                                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                  disabled={isGeneratingReferencePortrait === index || isUploadingReferenceImage === index}
+                                  disabled={isUploadingReferenceImage === index}
                                   data-testid={`input-upload-portrait-${index}`}
                                 />
                                 <Button
                                   type="button"
                                   variant="outline"
                                   size="sm"
-                                  disabled={isGeneratingReferencePortrait === index || isUploadingReferenceImage === index}
+                                  disabled={isUploadingReferenceImage === index}
                                   className="h-8 text-xs w-full"
                                   data-testid={`button-upload-portrait-${index}`}
                                 >
