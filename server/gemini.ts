@@ -865,19 +865,17 @@ Generate a clean, professional reference portrait suitable for maintaining visua
         throw new Error("No image data received from Gemini - response had no inlineData parts");
       }
       
-      // Upload to object storage
-      const storageService = new ObjectStorageService();
+      // Upload to object storage using the existing helper method
       const filename = `portrait_${request.characterName.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.png`;
-      const objectPath = `.private/reference-portraits/${filename}`;
       
-      console.log(`📤 Uploading portrait to object storage: ${objectPath}`);
-      const uploadResult = await storageService.uploadObject(imageBuffer, objectPath, 'image/png');
+      console.log(`📤 Uploading portrait to object storage: ${filename}`);
+      const portraitUrl = await this.saveImageToObjectStorage(imageBuffer, filename);
       
-      console.log(`✅ [Standalone] Reference portrait generated successfully: ${uploadResult.objectPath}`);
+      console.log(`✅ [Standalone] Reference portrait generated successfully: ${portraitUrl}`);
       
       return {
         status: "completed",
-        referenceImageUrl: uploadResult.objectPath,
+        referenceImageUrl: portraitUrl,
         characterName: request.characterName
       };
       
