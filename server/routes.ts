@@ -349,9 +349,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const bucket = objectStorageClient.bucket(bucketName);
           const file = bucket.file(objectName);
           
-          // Check if file exists before attempting to stream
+          // Check if file exists before attempting to stream (with timeout)
           try {
-            const [exists] = await file.exists();
+            const existsPromise = file.exists();
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('File exists check timed out')), 5000)
+            );
+            
+            const [exists] = await Promise.race([existsPromise, timeoutPromise]) as [boolean];
+            
             if (!exists) {
               logger.error('Video file does not exist in object storage', { 
                 jobId,
@@ -361,6 +367,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               });
               return res.status(404).json({ message: 'Video file not found in storage.' });
             }
+            
+            logger.info('Video file exists, starting stream', { jobId, objectName });
           } catch (err) {
             logger.error('Error checking if video file exists', err as Error, { jobId, bucketName, objectName });
             return res.status(500).json({ message: 'Error accessing video storage.' });
