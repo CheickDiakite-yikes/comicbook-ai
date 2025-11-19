@@ -709,6 +709,117 @@ export class GeminiService {
   }
   
   /**
+   * 🎨 STANDALONE PRE-PROJECT PORTRAIT GENERATION
+   * Generate reference portrait without requiring a project context
+   * Used during character creation before project exists
+   */
+  async generateStandaloneReferencePortrait(request: {
+    characterName: string;
+    role?: string;
+    bio?: string;
+    visualDescriptors?: string;
+    artStyle?: string;
+  }): Promise<{ status: "completed" | "failed"; referenceImageUrl?: string; characterName: string; error?: string }> {
+    console.log(`🖼️ [Standalone] Generating reference portrait for: ${request.characterName}`);
+    
+    try {
+      // Build visual description from available data
+      let visualDescription = request.visualDescriptors || "";
+      
+      // If no visual descriptors, generate from bio using character descriptor service
+      if (!visualDescription && request.bio) {
+        const { characterDescriptorService } = await import("./character-descriptor-service");
+        const canonicalDescription = characterDescriptorService.generateCanonicalDescription(
+          request.bio,
+          "European", // Default ethnicity if not specified
+          request.role || "Character"
+        );
+        visualDescription = canonicalDescription.visualDescriptors;
+        console.log(`📝 Generated visual descriptors from bio: ${visualDescription}`);
+      }
+      
+      // Fallback: create interesting random character if still no description
+      if (!visualDescription) {
+        visualDescription = `An interesting and visually distinct ${request.role || "character"} with unique features and a memorable appearance`;
+        console.log(`🎲 Using creative fallback description`);
+      }
+      
+      // Build portrait prompt
+      const artStyle = request.artStyle || "professional comic book illustration";
+      const portraitPrompt = `REFERENCE CHARACTER PORTRAIT:
+
+Character: ${request.characterName}
+Role: ${request.role || "Main Character"}
+Visual Description: ${visualDescription}
+
+STYLE REQUIREMENTS:
+- Art Style: ${artStyle}
+- Professional character reference sheet format
+- Clean front-facing portrait against neutral white/light gray background
+- Clear focus on facial features and identifying characteristics
+- Consistent, even lighting
+- Neutral expression with slight smile
+- Eyes looking directly at viewer
+- High detail on: face, hair, skin tone, distinctive features
+
+COMPOSITION:
+- Head and shoulders shot (portrait crop)
+- Character centered in frame
+- Clean, uncluttered composition
+- Professional quality reference image
+
+Generate a clean, professional reference portrait suitable for maintaining visual consistency across comic panels.`;
+
+      console.log(`📝 Portrait prompt length: ${portraitPrompt.length} chars`);
+      
+      // Generate image using Gemini Imagen2
+      const response = await ai.models.generateImages({
+        model: "imagen-3.0-generate-002",
+        prompt: portraitPrompt,
+        config: {
+          numberOfImages: 1,
+          aspectRatio: "1:1", // Square for portraits
+          safetySetting: "block_some",
+          personGeneration: "allow_adult"
+        }
+      });
+
+      if (!response.generatedImages || response.generatedImages.length === 0) {
+        throw new Error("No images generated from Gemini");
+      }
+
+      const generatedImage = response.generatedImages[0];
+      
+      // Upload to object storage
+      const { objectStorageService } = await import("./object-storage-service");
+      const imageBuffer = Buffer.from(generatedImage.image.imageBytes, 'base64');
+      const filename = `portrait_${request.characterName.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.png`;
+      const objectPath = `.private/reference-portraits/${filename}`;
+      
+      console.log(`📤 Uploading portrait to object storage: ${objectPath}`);
+      const uploadResult = await objectStorageService.uploadObject(imageBuffer, objectPath, 'image/png');
+      
+      console.log(`✅ [Standalone] Reference portrait generated successfully: ${uploadResult.objectPath}`);
+      
+      return {
+        status: "completed",
+        referenceImageUrl: uploadResult.objectPath,
+        characterName: request.characterName
+      };
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`❌ [Standalone] Error generating reference portrait for ${request.characterName}:`, errorMessage);
+      
+      return {
+        status: "failed",
+        characterName: request.characterName,
+        error: errorMessage
+      };
+    }
+  }
+
+  /**
    * Build specialized prompt for reference portrait generation
    */
   private buildReferencePortraitPrompt(request: GenerateReferencePortraitRequest): string {
