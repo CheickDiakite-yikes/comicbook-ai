@@ -72,14 +72,21 @@ function generateScenePrompt(projectTitle: string | undefined, clips: SceneClip[
 
 async function submitSceneToVeo(prompt: string, scene: Scene, projectId: string) {
   // Use the first panel's image for image-to-video generation if available
-  const firstPanelImage = scene.clips.length > 0 && scene.clips[0].panel.imageUrl 
-    ? scene.clips[0].panel.imageUrl 
-    : null;
+  let sourceImageUrl: string | null = null;
+  if (scene.clips.length > 0 && scene.clips[0].panel.imageUrl) {
+    const imageUrl = scene.clips[0].panel.imageUrl;
+    // Convert relative paths to absolute URLs for Veo3 API
+    if (imageUrl.startsWith('/')) {
+      sourceImageUrl = `${window.location.origin}${imageUrl}`;
+    } else {
+      sourceImageUrl = imageUrl;
+    }
+  }
 
   const payload = {
     projectId,
     prompt,
-    sourceImageUrl: firstPanelImage, // Enable image-to-video generation
+    sourceImageUrl, // Enable image-to-video generation with full URL
     model: scene.model,
     safetySettings: DEFAULT_VEO_SAFETY_SETTINGS,
     generationConfig: {
