@@ -43,16 +43,25 @@ function createClipId(panelId: string) {
   return `${panelId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function generateScenePrompt(projectTitle: string | undefined, clips: SceneClip[]): string {
+function generateScenePrompt(projectTitle: string | undefined, clips: SceneClip[], projectArtStyle?: string): string {
   if (clips.length === 0) return "";
 
   const header = projectTitle ? `${projectTitle} animated sequence:` : "Animated sequence for this comic story:";
   
+  // Build art style guardrails - CRITICAL for preventing photorealistic 3D
+  const artStyleInstructions = [
+    "🎨 ART STYLE REQUIREMENTS (STRICTLY ENFORCE):",
+    projectArtStyle || "Hand-drawn illustrated comic book style with flat colors and bold ink linework",
+    "✅ MAINTAIN: Character designs, proportions, color palette, and artistic style from the source panels",
+    "❌ DO NOT USE: Photorealistic rendering, 3D animation, Pixar/Toy Story style, realistic textures, or CGI effects",
+    "The animation must look like the illustrated panels coming to life, NOT a 3D animated movie.",
+  ].join("\n");
+  
   if (clips.length === 1) {
     // Single panel: simple motion description
     const context = clips[0].panel.scriptSnippet || clips[0].panel.prompt || `Use the original art from page ${clips[0].panel.pageNumber}, panel ${clips[0].panel.panelNumber}.`;
-    const footer = "Maintain character fidelity, panel composition, and color palette while introducing subtle cinematic camera motion.";
-    return [header, context, footer].join("\n");
+    const motionNote = "Add subtle cinematic camera motion while preserving the exact character designs and art style.";
+    return [header, artStyleInstructions, "", context, motionNote].join("\n");
   }
   
   // Multi-panel: describe flow and transitions
@@ -62,12 +71,12 @@ function generateScenePrompt(projectTitle: string | undefined, clips: SceneClip[
   });
 
   const transitionDesc = clips.length === 2 
-    ? "Create a smooth transition between these two moments, using camera movement, subtle dissolves, or motion blur to connect the scenes naturally."
-    : `Create flowing transitions between these ${clips.length} story beats. Use dynamic camera movement, perspective shifts, and seamless visual continuity to connect each moment. Ensure characters and environments maintain consistent visual style throughout.`;
+    ? "Create smooth transitions using camera movement and motion blur. Characters must maintain their illustrated comic appearance throughout."
+    : `Create flowing transitions between these ${clips.length} story beats using dynamic camera movement and seamless visual continuity. Every frame must preserve the hand-drawn comic aesthetic - do NOT transition to 3D or photorealistic styles.`;
   
   const combinedNarrative = `The sequence flows through ${clips.length} connected beats:\n${beats.map((b, i) => `${i + 1}. ${b}`).join('\n')}\n\n${transitionDesc}`;
 
-  return [header, combinedNarrative].join("\n");
+  return [header, artStyleInstructions, "", combinedNarrative].join("\n");
 }
 
 async function submitSceneToVeo(prompt: string, scene: Scene, projectId: string) {
@@ -194,7 +203,7 @@ export default function AnimationStudioPage() {
   }, [panelLibrary]);
 
   const activeScene = useMemo(() => scenes.find(scene => scene.id === selectedSceneId) ?? scenes[0] ?? null, [scenes, selectedSceneId]);
-  const activeSceneAutoPrompt = useMemo(() => generateScenePrompt(selectedProject?.title, activeScene?.clips ?? []), [selectedProject?.title, activeScene?.clips]);
+  const activeSceneAutoPrompt = useMemo(() => generateScenePrompt(selectedProject?.title, activeScene?.clips ?? [], selectedProject?.artStyle ?? undefined), [selectedProject?.title, activeScene?.clips, selectedProject?.artStyle]);
 
   const remainingCredits = useMemo(() => {
     if (!creditsData) return 0;
@@ -276,13 +285,13 @@ export default function AnimationStudioPage() {
           if (scene.id !== sceneId) return scene;
           const merged: Scene = { ...scene, ...updates };
           if (!merged.promptWasEdited) {
-            merged.prompt = generateScenePrompt(selectedProject?.title, merged.clips);
+            merged.prompt = generateScenePrompt(selectedProject?.title, merged.clips, selectedProject?.artStyle ?? undefined);
           }
           return merged;
         }),
       );
     },
-    [selectedProject?.title],
+    [selectedProject?.title, selectedProject?.artStyle],
   );
 
   const handleAttachPanel = useCallback(
@@ -302,13 +311,13 @@ export default function AnimationStudioPage() {
           if (scene.id !== sceneId) return scene;
           const clip: SceneClip = { id: createClipId(panelId), panel };
           const clips = [...scene.clips, clip];
-          const prompt = scene.promptWasEdited ? scene.prompt : generateScenePrompt(selectedProject?.title, clips);
+          const prompt = scene.promptWasEdited ? scene.prompt : generateScenePrompt(selectedProject?.title, clips, selectedProject?.artStyle ?? undefined);
           return { ...scene, clips, prompt };
         }),
       );
       setSelectedSceneId(sceneId);
     },
-    [panelMap, selectedProject?.title, toast],
+    [panelMap, selectedProject?.title, selectedProject?.artStyle, toast],
   );
 
   const handleQuickAddPanel = useCallback(
@@ -332,12 +341,12 @@ export default function AnimationStudioPage() {
         prevScenes.map(scene => {
           if (scene.id !== sceneId) return scene;
           const clips = scene.clips.filter(clip => clip.id !== clipId);
-          const prompt = scene.promptWasEdited ? scene.prompt : generateScenePrompt(selectedProject?.title, clips);
+          const prompt = scene.promptWasEdited ? scene.prompt : generateScenePrompt(selectedProject?.title, clips, selectedProject?.artStyle ?? undefined);
           return { ...scene, clips, prompt };
         }),
       );
     },
-    [selectedProject?.title],
+    [selectedProject?.title, selectedProject?.artStyle],
   );
 
   const handleRemoveLastClip = useCallback(
@@ -347,12 +356,12 @@ export default function AnimationStudioPage() {
           if (scene.id !== sceneId) return scene;
           if (scene.clips.length === 0) return scene;
           const clips = scene.clips.slice(0, -1);
-          const prompt = scene.promptWasEdited ? scene.prompt : generateScenePrompt(selectedProject?.title, clips);
+          const prompt = scene.promptWasEdited ? scene.prompt : generateScenePrompt(selectedProject?.title, clips, selectedProject?.artStyle ?? undefined);
           return { ...scene, clips, prompt };
         }),
       );
     },
-    [selectedProject?.title],
+    [selectedProject?.title, selectedProject?.artStyle],
   );
 
   const handleClearScene = useCallback((sceneId: string) => {
@@ -402,7 +411,7 @@ export default function AnimationStudioPage() {
         return;
       }
 
-      const autoPrompt = generateScenePrompt(selectedProject?.title, scene.clips);
+      const autoPrompt = generateScenePrompt(selectedProject?.title, scene.clips, selectedProject?.artStyle ?? undefined);
       const finalPrompt = scene.prompt.trim().length > 0 ? scene.prompt : autoPrompt;
 
       if (!finalPrompt) {
