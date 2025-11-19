@@ -4996,7 +4996,13 @@ Example JSON structure (adapt for your story):
       };
       
       console.log("🎉 ORCHESTRATED STORY COMPLETE: All steps completed successfully!");
-      return orchestratedStory;
+      
+      // 🎨 CHARACTER CANON PASS: Enhance characters with diverse names, detailed descriptions, and reference portraits
+      console.log("🖼️ Enhancing characters with reference portraits and canonical descriptions...");
+      const enhancedStory = await this.applyCharacterCanonPass(orchestratedStory, request.projectId);
+      console.log("✅ Character enhancement complete with reference portraits!");
+      
+      return enhancedStory;
     } catch (error) {
       console.error("🔥 Error in orchestrated story generation:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -6032,41 +6038,45 @@ Ensure story continuity and ${request.tones.join(" + ")} tones.`;
           role: character.role 
         });
 
-        // 🎨 GENERATE REFERENCE PORTRAIT for visual consistency
+        // 🎨 GENERATE REFERENCE PORTRAIT for visual consistency (only if projectId exists)
         let referenceImageUrl: string | undefined;
-        try {
-          console.log(`🖼️ Generating reference portrait for ${uniqueName.fullName}...`);
-          
-          const portraitPrompt = `Create a character reference portrait: ${canonicalDescription.visualDescriptors}. REFERENCE STYLE: Simple, clean front-facing portrait with neutral expression against white background. Focus on key identifying features: ${canonicalDescription.alwaysTraits}. Professional character design sheet style.`;
-          
-          const portraitResult = await this.generatePanelImage({
-            prompt: portraitPrompt,
-            panelId: `char_ref_${index}`,
-            projectId: projectId || 'fallback-project-id', // Add required projectId for security validation
-            projectContext: {
-              title: storyData.title,
-              genre: storyData.genre,
-              description: storyData.description,
-              artStyle: "character reference sheet",
-              characters: [], // Don't include other characters in reference generation
-            },
-            panelContext: {
-              layoutTemplate: "single",
-              panelNumber: 1,
-              aspectRatio: 1.0, // Square for portraits
-              dimensions: { width: 512, height: 512 },
-              panelType: "character_reference"
+        if (projectId) {
+          try {
+            console.log(`🖼️ Generating reference portrait for ${uniqueName.fullName}...`);
+            
+            const portraitPrompt = `Create a character reference portrait: ${canonicalDescription.visualDescriptors}. REFERENCE STYLE: Simple, clean front-facing portrait with neutral expression against white background. Focus on key identifying features: ${canonicalDescription.alwaysTraits}. Professional character design sheet style.`;
+            
+            const portraitResult = await this.generatePanelImage({
+              prompt: portraitPrompt,
+              panelId: `char_ref_${index}`,
+              projectId: projectId, // Valid projectId required for security
+              projectContext: {
+                title: storyData.title,
+                genre: storyData.genre,
+                description: storyData.description,
+                artStyle: "character reference sheet",
+                characters: [], // Don't include other characters in reference generation
+              },
+              panelContext: {
+                layoutTemplate: "single",
+                panelNumber: 1,
+                aspectRatio: 1.0, // Square for portraits
+                dimensions: { width: 512, height: 512 },
+                panelType: "character_reference"
+              }
+            });
+            
+            if (portraitResult.status === "completed" && portraitResult.imageUrl) {
+              referenceImageUrl = portraitResult.imageUrl;
+              console.log(`✅ Reference portrait generated for ${uniqueName.fullName}: ${referenceImageUrl}`);
+            } else {
+              console.warn(`⚠️ Failed to generate reference portrait for ${uniqueName.fullName}: ${portraitResult.error || 'Unknown error'}`);
             }
-          });
-          
-          if (portraitResult.status === "completed" && portraitResult.imageUrl) {
-            referenceImageUrl = portraitResult.imageUrl;
-            console.log(`✅ Reference portrait generated for ${uniqueName.fullName}: ${referenceImageUrl}`);
-          } else {
-            console.warn(`⚠️ Failed to generate reference portrait for ${uniqueName.fullName}: ${portraitResult.error || 'Unknown error'}`);
+          } catch (portraitError) {
+            console.error(`❌ Error generating reference portrait for ${uniqueName.fullName}:`, portraitError);
           }
-        } catch (portraitError) {
-          console.error(`❌ Error generating reference portrait for ${uniqueName.fullName}:`, portraitError);
+        } else {
+          console.log(`📝 Skipping reference portrait generation for ${uniqueName.fullName} (no projectId - will generate when project is created)`);
         }
 
         console.log(`✨ Enhanced character ${index + 1}: ${uniqueName.fullName} (${preferredEthnicity}) ${referenceImageUrl ? 'with reference portrait' : 'without reference portrait'}`);

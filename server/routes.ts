@@ -1943,6 +1943,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // 🎨 PHASE 1: REFERENCE PORTRAIT GENERATION ROUTES
+  
+  // Generate reference portrait for a character (no character ID required - for pre-creation)
+  app.post('/api/generate-reference-portrait',
+    isAuthenticated,
+    requireCredits({
+      operationType: "panel_generation",
+      getResourceId: (req: any) => `temp-character-${Date.now()}`,
+      getMetadata: (req) => createOperationMetadata(req, { 
+        characterName: req.body.characterName,
+        action: "reference_portrait_generation_preCreate"
+      })
+    }),
+    async (req: any, res) => {
+    try {
+      const { characterName, bio, visualDescriptors, artStyle } = req.body;
+
+      // Validate required data
+      if (!characterName || (!bio && !visualDescriptors)) {
+        return res.status(400).json({ 
+          status: "failed",
+          error: "characterName and either bio or visualDescriptors are required" 
+        });
+      }
+
+      // Generate reference portrait using the Gemini service
+      const portraitResult = await geminiService.generateReferencePortrait({
+        characterId: `temp-${Date.now()}`, // Temporary ID
+        characterName,
+        visualDescriptors: visualDescriptors || `Character based on: ${bio}`,
+        alwaysTraits: "", // Optional for pre-creation
+        artStyle: artStyle,
+        forceRegenerate: true,
+        projectId: `temp-project-${Date.now()}` // Temporary project ID for pre-creation
+      });
+
+      res.status(200).json(portraitResult);
+    } catch (error) {
+      console.error("Error generating reference portrait:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate reference portrait";
+      res.status(500).json({ 
+        status: "failed",
+        error: errorMessage 
+      });
+    }
+  });
+  
   // Generate reference portrait for a single character
   app.post('/api/characters/:characterId/generate-reference-portrait',
     isAuthenticated,

@@ -366,7 +366,7 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
     }
   };
 
-  // Handle AI reference portrait generation (schedule for project creation)
+  // Handle AI reference portrait generation (immediate generation)
   const handleGenerateReferencePortrait = async (index: number) => {
     const character = characters[index];
     const formData = form.getValues();
@@ -380,15 +380,42 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
       return;
     }
 
-    // Mark character for AI generation after project creation
-    const updated = [...characters];
-    updated[index] = { ...updated[index], shouldGeneratePortrait: true };
-    setCharacters(updated);
+    setIsGeneratingReferencePortrait(index);
+    
+    try {
+      const response = await apiRequest("POST", "/api/generate-reference-portrait", {
+        characterName: character.name,
+        bio: character.bio,
+        visualDescriptors: character.visualDescriptors,
+        artStyle: selectedArtStyle || formData.artStyle || "comic book"
+      });
 
-    toast({
-      title: "AI Generation Scheduled",
-      description: "Reference portrait will be generated when you create the project.",
-    });
+      if (response.status === "completed" && response.referenceImageUrl) {
+        const updated = [...characters];
+        updated[index] = {
+          ...updated[index],
+          referenceImageUrl: response.referenceImageUrl,
+          shouldGeneratePortrait: false // No need to regenerate later
+        };
+        setCharacters(updated);
+
+        toast({
+          title: "Portrait Generated!",
+          description: `Reference portrait for ${character.name} has been created successfully.`,
+        });
+      } else {
+        throw new Error(response.error || "Failed to generate portrait");
+      }
+    } catch (error) {
+      console.error("Failed to generate reference portrait:", error);
+      toast({
+        title: "Generation Failed",
+        description: error instanceof Error ? error.message : "Failed to generate reference portrait. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingReferencePortrait(null);
+    }
   };
 
   // Handle background generation completion
