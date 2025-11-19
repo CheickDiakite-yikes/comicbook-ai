@@ -47,20 +47,39 @@ function generateScenePrompt(projectTitle: string | undefined, clips: SceneClip[
   if (clips.length === 0) return "";
 
   const header = projectTitle ? `${projectTitle} animated sequence:` : "Animated sequence for this comic story:";
+  
+  if (clips.length === 1) {
+    // Single panel: simple motion description
+    const context = clips[0].panel.scriptSnippet || clips[0].panel.prompt || `Use the original art from page ${clips[0].panel.pageNumber}, panel ${clips[0].panel.panelNumber}.`;
+    const footer = "Maintain character fidelity, panel composition, and color palette while introducing subtle cinematic camera motion.";
+    return [header, context, footer].join("\n");
+  }
+  
+  // Multi-panel: describe flow and transitions
   const beats = clips.map((clip, index) => {
-    const context = clip.panel.scriptSnippet || clip.panel.prompt || `Use the original art from page ${clip.panel.pageNumber}, panel ${clip.panel.panelNumber}.`;
-    return `Beat ${index + 1}: ${context}`;
+    const context = clip.panel.scriptSnippet || clip.panel.prompt || `Scene from page ${clip.panel.pageNumber}, panel ${clip.panel.panelNumber}`;
+    return `${context}`;
   });
 
-  const footer = "Maintain character fidelity, panel composition, and color palette while introducing cinematic camera motion.";
+  const transitionDesc = clips.length === 2 
+    ? "Create a smooth transition between these two moments, using camera movement, subtle dissolves, or motion blur to connect the scenes naturally."
+    : `Create flowing transitions between these ${clips.length} story beats. Use dynamic camera movement, perspective shifts, and seamless visual continuity to connect each moment. Ensure characters and environments maintain consistent visual style throughout.`;
+  
+  const combinedNarrative = `The sequence flows through ${clips.length} connected beats:\n${beats.map((b, i) => `${i + 1}. ${b}`).join('\n')}\n\n${transitionDesc}`;
 
-  return [header, ...beats, footer].join("\n");
+  return [header, combinedNarrative].join("\n");
 }
 
 async function submitSceneToVeo(prompt: string, scene: Scene, projectId: string) {
+  // Use the first panel's image for image-to-video generation if available
+  const firstPanelImage = scene.clips.length > 0 && scene.clips[0].panel.imageUrl 
+    ? scene.clips[0].panel.imageUrl 
+    : null;
+
   const payload = {
     projectId,
     prompt,
+    sourceImageUrl: firstPanelImage, // Enable image-to-video generation
     model: scene.model,
     safetySettings: DEFAULT_VEO_SAFETY_SETTINGS,
     generationConfig: {

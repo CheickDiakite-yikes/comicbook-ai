@@ -242,9 +242,19 @@ export class Veo3AnimationRenderJobService {
   }
 
   private createVideoPayload(request: VeoJobRequest, safetySettings: VeoSafetySetting[]): GenerateVideosParameters {
+    // Build source object with prompt and optional image for image-to-video generation
+    const source: any = { prompt: request.prompt };
+    if (request.sourceImageUrl) {
+      source.imageUrl = request.sourceImageUrl;
+      this.log.info('🖼️ IMAGE-TO-VIDEO: Using source image', {
+        imageUrl: request.sourceImageUrl,
+        promptPreview: request.prompt.substring(0, 100),
+      });
+    }
+
     const payload: GenerateVideosParameters = {
       model: request.model ?? this.defaultModel,
-      source: { prompt: request.prompt },
+      source,
       safetySettings,
     } as GenerateVideosParameters;
 
