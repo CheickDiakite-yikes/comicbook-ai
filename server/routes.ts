@@ -338,8 +338,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const fullPath = `${privateObjectDir}/${relativePath}`;
           const { bucketName, objectName } = parseObjectPath(fullPath);
           
+          logger.info('Streaming video from object storage', { 
+            jobId, 
+            resultAssetUri: job.resultAssetUri,
+            fullPath,
+            bucketName,
+            objectName,
+          });
+          
           const bucket = objectStorageClient.bucket(bucketName);
           const file = bucket.file(objectName);
+          
+          // Check if file exists before attempting to stream
+          try {
+            const [exists] = await file.exists();
+            if (!exists) {
+              logger.error('Video file does not exist in object storage', { 
+                jobId,
+                bucketName,
+                objectName,
+                fullPath,
+              });
+              return res.status(404).json({ message: 'Video file not found in storage.' });
+            }
+          } catch (err) {
+            logger.error('Error checking if video file exists', err as Error, { jobId, bucketName, objectName });
+            return res.status(500).json({ message: 'Error accessing video storage.' });
+          }
           
           res.set({
             'Content-Type': 'video/mp4',
@@ -351,7 +376,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           
           stream.on('error', (err: Error) => {
-            logger.error('Error streaming video from object storage', err, { jobId });
+            logger.error('Error streaming video from object storage', err, { jobId, bucketName, objectName });
             if (!res.headersSent) {
               res.status(404).json({ message: 'Video file not found in storage.' });
             }
