@@ -22,6 +22,8 @@ import {
   panelVideoJobStatusResponseSchema,
   updatePanelVideoApprovalSchema,
   PanelVideoJob,
+  preProjectPortraitRequestSchema,
+  preProjectPortraitResponseSchema,
 } from "@shared/schema";
 import { veoJobRequestSchema } from "@shared/veo";
 import { geminiService } from "./gemini";
@@ -1943,6 +1945,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // 🎨 PHASE 1: REFERENCE PORTRAIT GENERATION ROUTES
+  
+  // Pre-project portrait generation (immediate, without requiring project)
+  app.post('/api/pre-project/reference-portrait', isAuthenticated, async (req: any, res) => {
+    const userId = resolveUserId(req.user);
+    
+    try {
+      // Validate request
+      const validatedData = preProjectPortraitRequestSchema.parse(req.body);
+      
+      console.log(`🖼️ [API] Pre-project portrait generation requested by user ${userId} for character: ${validatedData.characterName}`);
+      
+      // Generate portrait using standalone method (doesn't require projectId)
+      const result = await geminiService.generateStandaloneReferencePortrait({
+        characterName: validatedData.characterName,
+        role: validatedData.role,
+        bio: validatedData.bio,
+        visualDescriptors: validatedData.visualDescriptors,
+        artStyle: validatedData.artStyle
+      });
+      
+      // Only charge credits if generation was successful
+      if (result.status === "completed" && result.referenceImageUrl) {
+        try {
+          // Import credit service to manually charge credits
+          const { creditService } = await import("./creditService");
+          await creditService.chargeCredits({
+            userId,
+            operationType: "panel_generation", // 3 credits per portrait
+            resourceId: `pre_project_portrait_${Date.now()}`,
+            metadata: {
+              characterName: validatedData.characterName,
+              artStyle: validatedData.artStyle || "default",
+              action: "pre_project_portrait_generation"
+            }
+          });
+          
+          console.log(`💳 Credits charged successfully for pre-project portrait: ${validatedData.characterName}`);
+        } catch (creditError) {
+          console.error(`❌ Failed to charge credits for pre-project portrait:`, creditError);
+          // Note: Portrait was already generated, so we return success but log the credit error
+        }
+      }
+      
+      res.status(result.status === "completed" ? 200 : 500).json(result);
+      
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        console.error(`❌ Validation error for pre-project portrait:`, error.errors);
+        return res.status(400).json({
+          status: "failed",
+          characterName: req.body.characterName || "unknown",
+          error: `Validation error: ${error.errors.map(e => e.message).join(", ")}`
+        });
+      }
+      
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`❌ Error generating pre-project portrait:`, errorMessage);
+      res.status(500).json({
+        status: "failed",
+        characterName: req.body.characterName || "unknown",
+        error: errorMessage
+      });
+    }
+  });
   
   // Generate reference portrait for a single character
   app.post('/api/characters/:characterId/generate-reference-portrait',

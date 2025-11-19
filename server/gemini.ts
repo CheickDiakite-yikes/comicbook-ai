@@ -728,7 +728,7 @@ export class GeminiService {
       
       // If no visual descriptors, generate from bio using character descriptor service
       if (!visualDescription && request.bio) {
-        const { characterDescriptorService } = await import("./character-descriptor-service");
+        const { characterDescriptorService } = await import("./services/CharacterDescriptorService");
         const canonicalDescription = characterDescriptorService.generateCanonicalDescription(
           request.bio,
           "European", // Default ethnicity if not specified
@@ -779,8 +779,7 @@ Generate a clean, professional reference portrait suitable for maintaining visua
         config: {
           numberOfImages: 1,
           aspectRatio: "1:1", // Square for portraits
-          safetySetting: "block_some",
-          personGeneration: "allow_adult"
+          safetySetting: "block_some"
         }
       });
 
@@ -790,14 +789,18 @@ Generate a clean, professional reference portrait suitable for maintaining visua
 
       const generatedImage = response.generatedImages[0];
       
+      if (!generatedImage.image?.imageBytes) {
+        throw new Error("No image data in generated response");
+      }
+      
       // Upload to object storage
-      const { objectStorageService } = await import("./object-storage-service");
+      const storageService = new ObjectStorageService();
       const imageBuffer = Buffer.from(generatedImage.image.imageBytes, 'base64');
       const filename = `portrait_${request.characterName.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.png`;
       const objectPath = `.private/reference-portraits/${filename}`;
       
       console.log(`📤 Uploading portrait to object storage: ${objectPath}`);
-      const uploadResult = await objectStorageService.uploadObject(imageBuffer, objectPath, 'image/png');
+      const uploadResult = await storageService.uploadObject(imageBuffer, objectPath, 'image/png');
       
       console.log(`✅ [Standalone] Reference portrait generated successfully: ${uploadResult.objectPath}`);
       
