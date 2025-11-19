@@ -772,30 +772,101 @@ Generate a clean, professional reference portrait suitable for maintaining visua
 
       console.log(`📝 Portrait prompt length: ${portraitPrompt.length} chars`);
       
-      // Generate image using Gemini Imagen2
-      const response = await ai.models.generateImages({
-        model: "imagen-3.0-generate-002",
-        prompt: portraitPrompt,
-        config: {
-          numberOfImages: 1,
-          aspectRatio: "1:1", // Square for portraits
-          safetySetting: "block_some"
-        }
-      });
+      // Generate image using Gemini Flash Image Preview with retry logic (matching working panel generation)
+      let response: any = null;
+      let lastError: any = null;
+      const maxRetries = 3;
+      const retryDelay = 1000; // 1 second
 
-      if (!response.generatedImages || response.generatedImages.length === 0) {
-        throw new Error("No images generated from Gemini");
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`🎯 Portrait generation attempt ${attempt}/${maxRetries} for ${request.characterName}`);
+          
+          response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-image-preview",
+            contents: [
+              {
+                role: "user",
+                parts: [{ text: portraitPrompt }]
+              }
+            ],
+            generationConfig: {
+              imageGenerationConfig: {
+                aspectRatios: ["1:1"], // Square portraits for character consistency
+                negativePrompt: "blurry, low quality, distorted, deformed",
+                numberOfImages: 1,
+              }
+            },
+            safetySettings: [
+              {
+                category: "HARM_CATEGORY_HATE_SPEECH",
+                threshold: "BLOCK_MEDIUM_AND_ABOVE"
+              },
+              {
+                category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                threshold: "BLOCK_MEDIUM_AND_ABOVE"
+              },
+              {
+                category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                threshold: "BLOCK_MEDIUM_AND_ABOVE"
+              },
+              {
+                category: "HARM_CATEGORY_HARASSMENT",
+                threshold: "BLOCK_MEDIUM_AND_ABOVE"
+              }
+            ]
+          });
+
+          // Process the response to extract image data
+          if (!response.candidates || !response.candidates[0]?.content?.parts) {
+            throw new Error("No valid response received from Gemini");
+          }
+
+          // Success! Break the retry loop
+          console.log(`✅ Portrait generation succeeded on attempt ${attempt} for ${request.characterName}`);
+          break;
+
+        } catch (error) {
+          lastError = error;
+          console.error(`⚠️ Portrait generation attempt ${attempt} failed for ${request.characterName}: ${(error as Error).message}`);
+          
+          if (attempt < maxRetries) {
+            console.log(`🔄 Retrying in ${retryDelay}ms... (${maxRetries - attempt} attempts remaining)`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+          } else {
+            console.error(`❌ All ${maxRetries} portrait generation attempts exhausted for ${request.characterName}`);
+            throw lastError;
+          }
+        }
       }
 
-      const generatedImage = response.generatedImages[0];
-      
-      if (!generatedImage.image?.imageBytes) {
-        throw new Error("No image data in generated response");
+      // Ensure we have a valid response after retry attempts
+      if (!response || !response.candidates || !response.candidates[0]?.content?.parts) {
+        throw new Error("Failed to get valid response from Gemini after all retry attempts");
+      }
+
+      // Extract image from response parts - iterate through all parts to find inline data
+      let imageBuffer: Buffer | null = null;
+      for (const part of response.candidates[0].content.parts) {
+        if (part.text) {
+          console.log("Generated text response:", part.text);
+        } else if (part.inlineData) {
+          const imageData = part.inlineData.data;
+          if (!imageData) {
+            throw new Error("No image data in inlineData");
+          }
+          imageBuffer = Buffer.from(imageData, "base64");
+          console.log(`✅ Extracted image data: ${imageBuffer.length} bytes`);
+          break; // Found the image, stop searching
+        }
+      }
+
+      if (!imageBuffer) {
+        throw new Error("No image data received from Gemini - response had no inlineData parts");
       }
       
       // Upload to object storage
       const storageService = new ObjectStorageService();
-      const imageBuffer = Buffer.from(generatedImage.image.imageBytes, 'base64');
       const filename = `portrait_${request.characterName.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.png`;
       const objectPath = `.private/reference-portraits/${filename}`;
       
