@@ -1966,22 +1966,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Only charge credits if generation was successful
+      // Portrait generation costs 3 credits (same as panel_generation: 1 credit base * 3 for portrait complexity)
       if (result.status === "completed" && result.referenceImageUrl) {
         try {
-          // Import credit service to manually charge credits
-          const { creditService } = await import("./creditService");
-          await creditService.chargeCredits({
-            userId,
-            operationType: "panel_generation", // 3 credits per portrait
-            resourceId: `pre_project_portrait_${Date.now()}`,
-            metadata: {
-              characterName: validatedData.characterName,
-              artStyle: validatedData.artStyle || "default",
-              action: "pre_project_portrait_generation"
-            }
-          });
-          
-          console.log(`💳 Credits charged successfully for pre-project portrait: ${validatedData.characterName}`);
+          // Manually charge 3 credits after successful generation
+          await storage.deductCredits(userId, "panel_generation", 3);
+          console.log(`💳 Credits charged successfully (3 credits) for pre-project portrait: ${validatedData.characterName}`);
         } catch (creditError) {
           console.error(`❌ Failed to charge credits for pre-project portrait:`, creditError);
           // Note: Portrait was already generated, so we return success but log the credit error

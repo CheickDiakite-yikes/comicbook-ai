@@ -365,32 +365,60 @@ export default function CreateProjectModal({ open, onClose }: CreateProjectModal
     }
   };
 
-  // Handle AI reference portrait generation (scheduled for project creation)
-  const handleGenerateReferencePortrait = (index: number) => {
+  // State for tracking which character is generating portrait
+  const [isGeneratingPortrait, setIsGeneratingPortrait] = useState<number | null>(null);
+
+  // Handle AI reference portrait generation (immediate generation)
+  const handleGenerateReferencePortrait = async (index: number) => {
     const character = characters[index];
+    const formData = form.getValues();
     
-    if (!character.name || !character.bio) {
+    if (!character.name || (!character.bio && !character.visualDescriptors)) {
       toast({
         title: "Missing Information",
-        description: "Please enter character name and bio first.",
+        description: "Please enter character name and either bio or visual descriptors.",
         variant: "destructive",
       });
       return;
     }
 
-    // Schedule generation for after project creation
-    const updated = [...characters];
-    updated[index] = {
-      ...updated[index],
-      shouldGeneratePortrait: true
-    };
-    setCharacters(updated);
+    setIsGeneratingPortrait(index);
+    
+    try {
+      const response = await apiRequest("POST", "/api/pre-project/reference-portrait", {
+        characterName: character.name,
+        role: character.role,
+        bio: character.bio,
+        visualDescriptors: character.visualDescriptors,
+        artStyle: selectedArtStyle || formData.artStyle || "comic book"
+      });
 
-    toast({
-      title: "AI Generation Scheduled",
-      description: `Portrait for ${character.name} will be generated when you create the project.`,
-      duration: 4000,
-    });
+      if (response.status === "completed" && response.referenceImageUrl) {
+        const updated = [...characters];
+        updated[index] = {
+          ...updated[index],
+          referenceImageUrl: response.referenceImageUrl,
+          shouldGeneratePortrait: false
+        };
+        setCharacters(updated);
+
+        toast({
+          title: "Portrait Generated!",
+          description: `Reference portrait for ${character.name} has been created successfully.`,
+        });
+      } else {
+        throw new Error(response.error || "Failed to generate portrait");
+      }
+    } catch (error) {
+      console.error("Failed to generate reference portrait:", error);
+      toast({
+        title: "Generation Failed",
+        description: error instanceof Error ? error.message : "Failed to generate reference portrait. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingPortrait(null);
+    }
   };
 
   // Handle background generation completion
@@ -1064,7 +1092,7 @@ Create a visual description that fits the ${selectedArtStyle || 'comic-book'} ar
                               )}
                               
                               {/* Loading overlay */}
-                              {isUploadingReferenceImage === index && (
+                              {(isUploadingReferenceImage === index || isGeneratingPortrait === index) && (
                                 <div className="absolute inset-0 bg-background/80 rounded-lg flex items-center justify-center">
                                   <Loader2 className="h-4 w-4 animate-spin text-primary" />
                                 </div>
@@ -1078,12 +1106,21 @@ Create a visual description that fits the ${selectedArtStyle || 'comic-book'} ar
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleGenerateReferencePortrait(index)}
-                                disabled={isUploadingReferenceImage === index || character.shouldGeneratePortrait}
+                                disabled={isUploadingReferenceImage === index || isGeneratingPortrait === index}
                                 className="h-8 text-xs"
                                 data-testid={`button-generate-portrait-${index}`}
                               >
-                                <Wand2 className="mr-1 h-3 w-3" />
-                                {character.shouldGeneratePortrait ? "AI Scheduled" : "Generate with AI"}
+                                {isGeneratingPortrait === index ? (
+                                  <>
+                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                    Generating...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Wand2 className="mr-1 h-3 w-3" />
+                                    Generate with AI
+                                  </>
+                                )}
                               </Button>
                               
                               <div className="relative">
