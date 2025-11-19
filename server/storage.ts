@@ -248,6 +248,11 @@ export interface IStorage {
     commentsCount: number;
     isPublic: boolean;
   }>>;
+  getProjectsForUser(targetUserId: string, viewerUserId?: string): Promise<Array<Project & {
+    likesCount: number;
+    commentsCount: number;
+    isPublic: boolean;
+  }>>;
   
   // Likes
   likeProject(projectId: string, userId: string): Promise<ProjectLike>;
@@ -1443,6 +1448,10 @@ export class MemStorage implements IStorage {
   }
 
   async getUserProjectsWithStats(userId: string): Promise<any[]> {
+    return []; // Not implemented for in-memory storage
+  }
+
+  async getProjectsForUser(targetUserId: string, viewerUserId?: string): Promise<any[]> {
     return []; // Not implemented for in-memory storage
   }
 
@@ -3748,6 +3757,60 @@ export class DatabaseStorage implements IStorage {
     // Enrich with stats using simple count queries
     const enrichedProjects = await Promise.all(
       userProjects.map(async (project) => {
+        // Get likes count
+        const [likesResult] = await db
+          .select({ count: count() })
+          .from(projectLikes)
+          .where(eq(projectLikes.projectId, project.id));
+        const likesCount = likesResult?.count || 0;
+
+        // Get comments count
+        const [commentsResult] = await db
+          .select({ count: count() })
+          .from(projectComments)
+          .where(eq(projectComments.projectId, project.id));
+        const commentsCount = commentsResult?.count || 0;
+
+        // Get pages count
+        const [pagesResult] = await db
+          .select({ count: count() })
+          .from(pages)
+          .where(eq(pages.projectId, project.id));
+        const pagesCount = pagesResult?.count || 0;
+
+        return {
+          ...project,
+          likesCount,
+          commentsCount,
+          pagesCount,
+        };
+      })
+    );
+
+    return enrichedProjects;
+  }
+
+  // Get projects for a specific user with privacy filtering
+  async getProjectsForUser(targetUserId: string, viewerUserId?: string): Promise<any[]> {
+    const isOwnProfile = viewerUserId && viewerUserId === targetUserId;
+    
+    // Base query for all user's projects
+    const query = db
+      .select()
+      .from(projects)
+      .where(eq(projects.userId, targetUserId))
+      .orderBy(desc(projects.updatedAt));
+    
+    const userProjects = await query;
+    
+    // Filter to public projects only if viewing someone else's profile
+    const filteredProjects = isOwnProfile 
+      ? userProjects 
+      : userProjects.filter(project => project.isPublic);
+    
+    // Enrich with stats using simple count queries
+    const enrichedProjects = await Promise.all(
+      filteredProjects.map(async (project) => {
         // Get likes count
         const [likesResult] = await db
           .select({ count: count() })

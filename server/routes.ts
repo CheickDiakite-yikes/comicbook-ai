@@ -4348,6 +4348,21 @@ Redress this character in the specified outfit while maintaining their core visu
     }
   });
 
+  // Get projects for a specific user (filtered by privacy if not viewing own profile)
+  app.get("/api/users/:userId/projects", async (req: any, res) => {
+    try {
+      const targetUserId = req.params.userId;
+      // Check if user is authenticated and if they're viewing their own profile
+      const viewerUserId = req.isAuthenticated?.() ? resolveUserId(req.user) : undefined;
+      
+      const projects = await storage.getProjectsForUser(targetUserId, viewerUserId);
+      res.json(projects);
+    } catch (error) {
+      console.error("Error fetching user projects:", error);
+      res.status(500).json({ message: "Failed to fetch user projects" });
+    }
+  });
+
   // Project public status
   app.put("/api/projects/:id/public", isAuthenticated, async (req: any, res) => {
     try {

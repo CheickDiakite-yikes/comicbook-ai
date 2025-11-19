@@ -89,10 +89,12 @@ export default function Profile({ userId }: ProfileProps = {}) {
   });
 
   // Fetch user's public projects (for the viewed profile)
+  const targetUserId = userId || currentUser?.id;
   const { data: userProjects = [], isLoading: projectsLoading } = useQuery<ProjectWithStats[]>({
-    queryKey: ["/api/profile/projects", userId || currentUser?.id],
+    queryKey: ["/api/users", targetUserId, "projects"],
     queryFn: async () => {
-      const response = await fetch("/api/profile/projects", {
+      // Use the new endpoint that handles privacy filtering automatically
+      const response = await fetch(`/api/users/${targetUserId}/projects`, {
         credentials: "include",
       });
       if (!response.ok) {
@@ -100,7 +102,7 @@ export default function Profile({ userId }: ProfileProps = {}) {
       }
       return response.json();
     },
-    enabled: !!currentUser,
+    enabled: !!targetUserId,
   });
 
   // Use the actual profile user for meta tags (viewed user, not current user)
@@ -276,7 +278,8 @@ export default function Profile({ userId }: ProfileProps = {}) {
       return apiRequest("PUT", `/api/projects/${projectId}/public`, { isPublic });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/profile/projects"] });
+      // Invalidate the user's projects query with the new key structure
+      queryClient.invalidateQueries({ queryKey: ["/api/users", targetUserId, "projects"] });
       toast({
         title: "Project updated!",
         description: "Project sharing settings have been updated.",
