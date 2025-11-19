@@ -1309,6 +1309,28 @@ export const panelVideoJobStatusResponseSchema = z.object({
   jobs: z.array(panelVideoJobSchema),
 });
 
+// Pre-project reference portrait generation
+export const preProjectPortraitRequestSchema = z.object({
+  characterName: z.string().min(1, "Character name is required").max(100),
+  role: z.string().max(100).optional(),
+  bio: z.string().max(2000).optional(),
+  visualDescriptors: z.string().max(1000).optional(),
+  artStyle: z.string().max(100).optional(),
+}).refine(
+  (data) => data.bio || data.visualDescriptors,
+  {
+    message: "Either bio or visual descriptors must be provided",
+    path: ["bio"],
+  }
+);
+
+export const preProjectPortraitResponseSchema = z.object({
+  status: z.enum(["completed", "failed"]),
+  referenceImageUrl: z.string().url().optional(),
+  characterName: z.string(),
+  error: z.string().optional(),
+});
+
 // Parallel processing types
 export type ParallelPanelGenerationRequest = z.infer<typeof parallelPanelGenerationSchema>;
 export type ParallelPageGenerationRequest = z.infer<typeof parallelPageGenerationSchema>;
@@ -1320,3 +1342,7 @@ export type CreatePanelVideoRequest = z.infer<typeof createPanelVideoRequestSche
 export type PanelVideoJob = z.infer<typeof panelVideoJobSchema>;
 export type PanelVideoJobApprovalRequest = z.infer<typeof updatePanelVideoApprovalSchema>;
 export type PanelVideoJobStatusResponse = z.infer<typeof panelVideoJobStatusResponseSchema>;
+
+// Pre-project portrait types
+export type PreProjectPortraitRequest = z.infer<typeof preProjectPortraitRequestSchema>;
+export type PreProjectPortraitResponse = z.infer<typeof preProjectPortraitResponseSchema>;
