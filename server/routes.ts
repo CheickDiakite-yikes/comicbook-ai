@@ -374,10 +374,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return res.status(500).json({ message: 'Error accessing video storage.' });
           }
           
+          // Get file metadata to set proper headers for video playback
+          let fileSize: number | undefined;
+          try {
+            const [metadata] = await file.getMetadata();
+            fileSize = metadata.size ? parseInt(metadata.size as string) : undefined;
+          } catch (err) {
+            logger.warn('Could not get file metadata, streaming without Content-Length', { jobId, err });
+          }
+          
           res.set({
             'Content-Type': 'video/mp4',
             'Cache-Control': 'private, max-age=3600',
+            'Accept-Ranges': 'bytes',
           });
+          
+          if (fileSize) {
+            res.set('Content-Length', fileSize.toString());
+          }
           
           const stream = file.createReadStream({
             validation: false, // Let GCS handle headers, avoid blocking metadata fetch
