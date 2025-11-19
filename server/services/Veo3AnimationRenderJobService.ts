@@ -362,11 +362,22 @@ export class Veo3AnimationRenderJobService {
   }
 
   private async downloadAndUploadVideo(videoUri: string, jobId: string): Promise<string> {
-    this.log.info('Starting video download from Google', { jobId, videoUri });
+    const startTime = Date.now();
+    this.log.info('🎬 VIDEO PIPELINE START: Downloading video from Google', { 
+      jobId, 
+      videoUri,
+      timestamp: new Date().toISOString(),
+    });
     
     try {
       const credentials = getVeoCredentials();
       const destinationPath = `animations/${jobId}.mp4`;
+      
+      this.log.info('🔽 VIDEO DOWNLOAD: Initiating download from Google', { 
+        jobId,
+        videoUri,
+        destinationPath,
+      });
       
       const permanentUrl = await uploadToObjectStorage({
         sourceUrl: videoUri,
@@ -375,17 +386,58 @@ export class Veo3AnimationRenderJobService {
         contentType: 'video/mp4',
       });
       
-      this.log.info('Video upload completed successfully', { 
+      const duration = Date.now() - startTime;
+      this.log.info('✅ VIDEO PIPELINE SUCCESS: Upload completed', { 
         jobId, 
         permanentUrl,
         originalUri: videoUri,
+        durationMs: duration,
+        durationSeconds: (duration / 1000).toFixed(2),
       });
+      
+      // Verify the file exists in object storage
+      try {
+        const { parseObjectPath, objectStorageClient } = await import('../objectStorage');
+        const privateObjectDir = process.env.PRIVATE_OBJECT_DIR || '';
+        const relativePath = permanentUrl.replace('/objects/', '');
+        const fullPath = `${privateObjectDir}/${relativePath}`;
+        const { bucketName, objectName } = parseObjectPath(fullPath);
+        
+        const bucket = objectStorageClient.bucket(bucketName);
+        const file = bucket.file(objectName);
+        const [exists] = await file.exists();
+        
+        if (!exists) {
+          throw new Error('Video file verification failed: File does not exist in object storage after upload');
+        }
+        
+        const [metadata] = await file.getMetadata();
+        const fileSize = metadata.size ? parseInt(metadata.size as string) : 0;
+        
+        this.log.info('✓ VIDEO VERIFICATION: File exists in object storage', {
+          jobId,
+          bucketName,
+          objectName,
+          fileSizeMB: (fileSize / 1024 / 1024).toFixed(2),
+          fileSizeBytes: fileSize,
+        });
+      } catch (verifyError) {
+        this.log.error('❌ VIDEO VERIFICATION FAILED: Could not verify file in object storage', verifyError as Error, {
+          jobId,
+          permanentUrl,
+        });
+        throw new Error(`Video verification failed: ${(verifyError as Error).message}`);
+      }
       
       return permanentUrl;
     } catch (error) {
-      this.log.error('Failed to download and upload video', error as Error, {
+      const duration = Date.now() - startTime;
+      this.log.error('❌ VIDEO PIPELINE FAILED: Download/upload error', error as Error, {
         jobId,
         videoUri,
+        durationMs: duration,
+        errorMessage: (error as Error).message,
+        errorStack: (error as Error).stack,
       });
       throw error;
     }
@@ -393,9 +445,14 @@ export class Veo3AnimationRenderJobService {
 
   private async completeOperation(tracker: OperationTracker, operation: GenerateVideosOperation) {
     // Log the full operation response to debug video URL extraction
-    this.log.info('Veo3 operation completed - raw response', {
+    this.log.info('🎯 VEO3 OPERATION COMPLETE: Processing response', {
       jobId: tracker.jobId,
       operationName: tracker.operationName,
+      timestamp: new Date().toISOString(),
+    });
+
+    this.log.info('📦 VEO3 RAW RESPONSE', {
+      jobId: tracker.jobId,
       response: JSON.stringify(operation.response, null, 2),
       metadata: JSON.stringify(operation.metadata, null, 2),
     });
@@ -407,20 +464,53 @@ export class Veo3AnimationRenderJobService {
     const videoUri: string | null = primary?.video?.uri ?? null;
     const posterUri: string | null = primary?.posterUri ?? null;
 
-    let permanentUrl = videoUri;
-    
-    if (videoUri) {
-      try {
-        permanentUrl = await this.downloadAndUploadVideo(videoUri, tracker.jobId);
-      } catch (error) {
-        this.log.error('Failed to upload video to object storage, using temporary Google URL as fallback', error as Error, {
-          jobId: tracker.jobId,
-          videoUri,
-        });
-        permanentUrl = videoUri;
-      }
+    this.log.info('📹 VIDEO EXTRACTION', {
+      jobId: tracker.jobId,
+      videoUri,
+      posterUri,
+      hasVideo: !!videoUri,
+      sampleCount: generatedSamples.length,
+    });
+
+    if (!videoUri) {
+      const errorMsg = 'No video URI in Veo3 response';
+      this.log.error('❌ COMPLETION FAILED: Missing video URI', new Error(errorMsg), {
+        jobId: tracker.jobId,
+        response: operation.response,
+      });
+      await this.failOperation(tracker, errorMsg);
+      return;
     }
 
+    // Upload video to permanent storage - NO FALLBACK TO TEMPORARY URLs
+    let permanentUrl: string;
+    try {
+      this.log.info('🚀 STARTING PERMANENT UPLOAD', {
+        jobId: tracker.jobId,
+        videoUri,
+      });
+      
+      permanentUrl = await this.downloadAndUploadVideo(videoUri, tracker.jobId);
+      
+      this.log.info('💾 PERMANENT STORAGE SUCCESS', {
+        jobId: tracker.jobId,
+        permanentUrl,
+        originalUri: videoUri,
+      });
+    } catch (error) {
+      const errorMsg = `Video upload to object storage failed: ${(error as Error).message}`;
+      this.log.error('❌ UPLOAD FAILED: Marking job as failed (NO temporary URL fallback)', error as Error, {
+        jobId: tracker.jobId,
+        videoUri,
+        errorMessage: (error as Error).message,
+      });
+      
+      // CRITICAL FIX: Mark as FAILED, not completed with temporary URL
+      await this.failOperation(tracker, errorMsg);
+      return;
+    }
+
+    // Only mark as completed if we have a verified permanent URL
     tracker.baseSettings = this.mergeSettings(tracker.baseSettings, buildOperationSettingsPatch({
       status: 'completed',
       completedAt: new Date().toISOString(),
@@ -435,6 +525,12 @@ export class Veo3AnimationRenderJobService {
     await this.storage.updateAnimationRenderJobStatus(tracker.jobId, 'completed', {
       resultAssetUri: permanentUrl,
       settings: tracker.baseSettings,
+    });
+
+    this.log.info('✅ JOB MARKED COMPLETED', {
+      jobId: tracker.jobId,
+      permanentUrl,
+      status: 'completed',
     });
 
     await appLogger.audit('veo.render.completed', {
@@ -482,11 +578,26 @@ export class Veo3AnimationRenderJobService {
   }
 
   async createJob(userId: string, request: VeoJobRequest & { projectId?: string }): Promise<AnimationRenderJob> {
+    this.log.info('🎬 NEW VIDEO JOB REQUEST', {
+      userId,
+      projectId: request.projectId,
+      promptLength: request.prompt.length,
+      model: request.model ?? this.defaultModel,
+      timestamp: new Date().toISOString(),
+    });
+
     const previousJob = await this.storage.getMostRecentAnimationRenderJob(userId);
     const promptDiff = computePromptDiff(previousJob?.prompt ?? null, request.prompt);
     const jobRecord = this.buildJobRecord(userId, request, promptDiff);
 
     const job = await this.storage.createAnimationRenderJob(jobRecord);
+    
+    this.log.info('📝 JOB CREATED IN DATABASE', {
+      jobId: job.id,
+      userId,
+      projectId: request.projectId,
+      status: 'pending',
+    });
 
     await appLogger.audit('veo.render.requested', {
       userId,
@@ -502,11 +613,29 @@ export class Veo3AnimationRenderJobService {
     await this.persistSafetyOverride(job, userId, request, effectiveSafety);
 
     const payload = this.createVideoPayload(request, effectiveSafety);
+    
+    this.log.info('🚀 SUBMITTING TO VEO3 API', {
+      jobId: job.id,
+      model: payload.model,
+      promptPreview: request.prompt.substring(0, 100),
+    });
+    
     let operation: GenerateVideosOperation | undefined;
 
     try {
       operation = await this.client.models.generateVideos(payload);
+      
+      this.log.info('✅ VEO3 SUBMISSION SUCCESS', {
+        jobId: job.id,
+        operationName: operation?.name,
+      });
     } catch (error) {
+      this.log.error('❌ VEO3 SUBMISSION FAILED', error as Error, {
+        jobId: job.id,
+        errorMessage: (error as Error).message,
+        errorStack: (error as Error).stack,
+      });
+      
       const baseSettings = (job.settings ?? {}) as Record<string, unknown>;
       await this.storage.updateAnimationRenderJobStatus(job.id, 'failed', {
         settings: this.mergeSettings(baseSettings, buildOperationSettingsPatch({
@@ -523,6 +652,12 @@ export class Veo3AnimationRenderJobService {
 
     await this.storage.updateAnimationRenderJobStatus(job.id, 'submitted', {
       settings: initialSettings,
+    });
+
+    this.log.info('📊 JOB STATUS UPDATED', {
+      jobId: job.id,
+      status: 'submitted',
+      operationName,
     });
 
     await appLogger.audit('veo.render.submitted', {
@@ -544,6 +679,12 @@ export class Veo3AnimationRenderJobService {
         safetySettings: effectiveSafety,
         attempts: 0,
         baseSettings: initialSettings,
+      });
+      
+      this.log.info('⏰ POLLING SCHEDULED', {
+        jobId: job.id,
+        operationName,
+        initialDelay: INITIAL_POLL_DELAY_MS,
       });
     }
 
