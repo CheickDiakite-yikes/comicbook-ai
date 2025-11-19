@@ -1836,6 +1836,94 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
 
       let contentParts: any[];
       
+      // 🎯 CHARACTER CONSISTENCY: Download and include character reference images
+      const characterReferenceParts: any[] = [];
+      
+      // Collect all characters from both projectContext and characterContext
+      const allCharacters: Array<{name: string; referenceImageUrl?: string}> = [];
+      
+      // Add from projectContext.characters (primary source)
+      if (request.projectContext?.characters) {
+        allCharacters.push(...request.projectContext.characters.map(c => ({
+          name: c.name,
+          referenceImageUrl: c.referenceImageUrl
+        })));
+      }
+      
+      // Add from characterContext (fallback source) if not already included
+      if (request.characterContext) {
+        for (const charCtx of request.characterContext) {
+          if (!allCharacters.some(c => c.name === charCtx.name)) {
+            // Try to get reference URL from projectContext.characters by name
+            const matchedChar = request.projectContext?.characters?.find(
+              pc => pc.name === charCtx.name
+            );
+            allCharacters.push({
+              name: charCtx.name,
+              referenceImageUrl: matchedChar?.referenceImageUrl
+            });
+          }
+        }
+      }
+      
+      console.log(`🔍 CHARACTER REFERENCES: Found ${allCharacters.length} total characters to check for references`);
+      
+      // CRITICAL FALLBACK: Fetch missing reference URLs from storage
+      const charactersNeedingLookup = allCharacters.filter(c => !c.referenceImageUrl);
+      if (charactersNeedingLookup.length > 0 && projectId) {
+        console.log(`🔍 STORAGE FALLBACK: ${charactersNeedingLookup.length} character(s) missing reference URLs, fetching from storage...`);
+        try {
+          const { storage } = await import("./storage");
+          const projectCharacters = await storage.getProjectCharacters(projectId);
+          
+          for (const char of charactersNeedingLookup) {
+            const dbChar = projectCharacters.find(pc => pc.name === char.name);
+            if (dbChar?.referenceImageUrl) {
+              char.referenceImageUrl = dbChar.referenceImageUrl;
+              console.log(`✅ Found reference URL for "${char.name}" in storage: ${dbChar.referenceImageUrl}`);
+            }
+          }
+        } catch (storageError) {
+          console.warn(`⚠️ Failed to fetch character references from storage:`, storageError);
+        }
+      }
+      
+      // Download reference images for all characters that have them
+      for (const character of allCharacters) {
+        if (character.referenceImageUrl) {
+          try {
+            console.log(`🖼️ Loading reference image for character "${character.name}": ${character.referenceImageUrl}`);
+            const referenceData = await this.downloadImageAsBase64(character.referenceImageUrl);
+            
+            // CRITICAL: Add rich directive BEFORE image so Gemini understands its purpose
+            characterReferenceParts.push({ 
+              text: `REFERENCE IMAGE for character "${character.name}": Use this as the canonical visual appearance for ${character.name}. Match the exact facial features, hair style/color, body type, skin tone, and distinctive marks shown in this reference image.` 
+            });
+            characterReferenceParts.push({
+              inlineData: {
+                mimeType: referenceData.mimeType,
+                data: referenceData.data,
+              },
+            });
+            console.log(`✅ Reference image loaded for "${character.name}" (${referenceData.mimeType})`);
+          } catch (error) {
+            console.warn(`⚠️ Failed to load reference image for "${character.name}":`, error);
+            // Continue without this reference image - don't fail the entire generation
+          }
+        } else {
+          console.log(`📝 No reference image for character "${character.name}"`);
+        }
+      }
+      
+      // Log warning if no references were found for characters in this panel
+      if (allCharacters.length > 0 && characterReferenceParts.length === 0) {
+        console.warn(`⚠️ WARNING: Panel has ${allCharacters.length} character(s) but NO reference images loaded!`);
+        console.warn(`   Characters without references: ${allCharacters.map(c => c.name).join(', ')}`);
+        console.warn(`   This may result in inconsistent character appearances.`);
+      } else if (characterReferenceParts.length > 0) {
+        console.log(`✅ SUCCESS: Loaded ${characterReferenceParts.length / 2} character reference image(s) for this panel`);
+      }
+      
       if (request.sourceImageUrl) {
         // Image editing mode - include the source image
         const imageData = await this.downloadImageAsBase64(request.sourceImageUrl);
@@ -1847,11 +1935,15 @@ Analyze the character appearance thoroughly and provide structured feedback.`;
               data: imageData.data,
             },
           },
-          { text: contextualPrompt }
+          { text: contextualPrompt },
+          ...characterReferenceParts, // Include character references
         ];
       } else {
-        // Text-to-image generation mode
-        contentParts = [{ text: contextualPrompt }];
+        // Text-to-image generation mode - include text prompt and character references
+        contentParts = [
+          { text: contextualPrompt },
+          ...characterReferenceParts, // Include character references
+        ];
       }
 
       // 🔄 ENHANCED RELIABILITY: Automatic retry logic for transient API failures
