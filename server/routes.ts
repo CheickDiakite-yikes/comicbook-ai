@@ -4298,15 +4298,15 @@ Redress this character in the specified outfit while maintaining their core visu
     }
   });
 
-  // Profile routes
-  app.get("/api/profile/:userId", async (req: any, res) => {
+  // Profile routes - IMPORTANT: More specific routes must come before parameterized routes
+  app.get("/api/profile/projects", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.params.userId;
-      const profile = await storage.getUserProfile(userId);
-      res.json(profile);
+      const userId = resolveUserId(req.user);
+      const projects = await storage.getUserProjectsWithStats(userId);
+      res.json(projects);
     } catch (error) {
-      console.error("Error fetching user profile:", error);
-      res.status(500).json({ message: "Failed to fetch user profile" });
+      console.error("Error fetching user projects with stats:", error);
+      res.status(500).json({ message: "Failed to fetch user projects" });
     }
   });
 
@@ -4336,14 +4336,15 @@ Redress this character in the specified outfit while maintaining their core visu
     }
   });
 
-  app.get("/api/profile/projects", isAuthenticated, async (req: any, res) => {
+  // Parameterized route must come AFTER specific routes
+  app.get("/api/profile/:userId", async (req: any, res) => {
     try {
-      const userId = resolveUserId(req.user);
-      const projects = await storage.getUserProjectsWithStats(userId);
-      res.json(projects);
+      const userId = req.params.userId;
+      const profile = await storage.getUserProfile(userId);
+      res.json(profile);
     } catch (error) {
-      console.error("Error fetching user projects with stats:", error);
-      res.status(500).json({ message: "Failed to fetch user projects" });
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ message: "Failed to fetch user profile" });
     }
   });
 
