@@ -7,8 +7,7 @@ export const veoSafetySettingSchema = z.object({
 
 export const veoJobRequestSchema = z.object({
   prompt: z.string().min(1, "Prompt is required"),
-  sourceImageUrl: z.string().min(1).optional().nullable(), // Primary image for motion/scene context
-  referenceImageUrls: z.array(z.string().min(1)).optional(), // Additional panel images for character consistency
+  sourceImageUrl: z.string().min(1).optional().nullable(), // Enable image-to-video generation (accepts relative paths or URLs)
   safetySettings: z.array(veoSafetySettingSchema).optional(),
   justification: z.string().min(10, "Justification must be at least 10 characters").optional(),
   model: z.string().min(1).optional(),

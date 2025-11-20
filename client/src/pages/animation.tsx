@@ -43,7 +43,7 @@ function createClipId(panelId: string) {
   return `${panelId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function generateScenePrompt(projectTitle: string | undefined, clips: SceneClip[], projectArtStyle?: string, characters: any[] = []): string {
+function generateScenePrompt(projectTitle: string | undefined, clips: SceneClip[], projectArtStyle?: string): string {
   if (clips.length === 0) return "";
 
   const header = projectTitle ? `${projectTitle} animated sequence:` : "Animated sequence for this comic story:";
@@ -56,34 +56,16 @@ function generateScenePrompt(projectTitle: string | undefined, clips: SceneClip[
     "❌ DO NOT USE: Photorealistic rendering, 3D animation, Pixar/Toy Story style, realistic textures, or CGI effects",
     "The animation must look like the illustrated panels coming to life, NOT a 3D animated movie.",
   ].join("\n");
-
-  // Build character reference section from project characters
-  let characterReferences = "";
-  if (characters.length > 0) {
-    const charDescs = characters
-      .filter((c): c is any => !!c.name)
-      .map(c => {
-        const desc = [
-          c.name,
-          c.appearance ? `Appearance: ${c.appearance}` : null,
-          c.visualDescriptors ? `Visual traits: ${c.visualDescriptors}` : null,
-        ].filter(Boolean).join(", ");
-        return desc;
-      });
-    
-    if (charDescs.length > 0) {
-      characterReferences = `📋 CHARACTER REFERENCES (MUST MATCH EXACTLY FROM SOURCE PANELS):\n${charDescs.join("\n")}\n`;
-    }
-  }
   
   if (clips.length === 1) {
+    // Single panel: simple motion description
     const context = clips[0].panel.scriptSnippet || clips[0].panel.prompt || `Use the original art from page ${clips[0].panel.pageNumber}, panel ${clips[0].panel.panelNumber}.`;
     const motionNote = "Add subtle cinematic camera motion while preserving the exact character designs and art style.";
-    return [header, artStyleInstructions, characterReferences, context, motionNote].join("\n");
+    return [header, artStyleInstructions, "", context, motionNote].join("\n");
   }
   
   // Multi-panel: describe flow and transitions
-  const beats = clips.map((clip) => {
+  const beats = clips.map((clip, index) => {
     const context = clip.panel.scriptSnippet || clip.panel.prompt || `Scene from page ${clip.panel.pageNumber}, panel ${clip.panel.panelNumber}`;
     return `${context}`;
   });
@@ -94,31 +76,26 @@ function generateScenePrompt(projectTitle: string | undefined, clips: SceneClip[
   
   const combinedNarrative = `The sequence flows through ${clips.length} connected beats:\n${beats.map((b, i) => `${i + 1}. ${b}`).join('\n')}\n\n${transitionDesc}`;
 
-  return [header, artStyleInstructions, characterReferences, combinedNarrative].join("\n");
+  return [header, artStyleInstructions, "", combinedNarrative].join("\n");
 }
 
 async function submitSceneToVeo(prompt: string, scene: Scene, projectId: string) {
-  // Collect all panel images as references for character consistency
-  const referenceImageUrls: string[] = [];
-  for (const clip of scene.clips) {
-    if (clip.panel.imageUrl) {
-      const imageUrl = clip.panel.imageUrl;
-      if (imageUrl.startsWith('/')) {
-        referenceImageUrls.push(`${window.location.origin}${imageUrl}`);
-      } else {
-        referenceImageUrls.push(imageUrl);
-      }
+  // Use the first panel's image for image-to-video generation if available
+  let sourceImageUrl: string | null = null;
+  if (scene.clips.length > 0 && scene.clips[0].panel.imageUrl) {
+    const imageUrl = scene.clips[0].panel.imageUrl;
+    // Convert relative paths to absolute URLs for Veo3 API
+    if (imageUrl.startsWith('/')) {
+      sourceImageUrl = `${window.location.origin}${imageUrl}`;
+    } else {
+      sourceImageUrl = imageUrl;
     }
   }
-
-  // Use the first panel's image for primary motion conditioning
-  const sourceImageUrl = referenceImageUrls.length > 0 ? referenceImageUrls[0] : null;
 
   const payload = {
     projectId,
     prompt,
-    sourceImageUrl, // Primary image for motion and scene context
-    referenceImageUrls: referenceImageUrls.length > 1 ? referenceImageUrls : undefined, // Additional panels as character references
+    sourceImageUrl, // Enable image-to-video generation with full URL
     model: scene.model,
     safetySettings: DEFAULT_VEO_SAFETY_SETTINGS,
     generationConfig: {
@@ -221,26 +198,12 @@ export default function AnimationStudioPage() {
     },
   });
 
-  // Fetch characters for the project to include in animation prompts
-  const { data: projectCharacters = [] } = useQuery<any[]>({
-    queryKey: ["animation", "characters", selectedProjectId],
-    enabled: Boolean(selectedProjectId),
-    queryFn: async () => {
-      if (!selectedProjectId) return [];
-      try {
-        return await apiRequest("GET", `/api/projects/${selectedProjectId}/characters`);
-      } catch {
-        return [];
-      }
-    },
-  });
-
   const panelMap = useMemo(() => {
     return new Map(panelLibrary.map(panel => [panel.id, panel]));
   }, [panelLibrary]);
 
   const activeScene = useMemo(() => scenes.find(scene => scene.id === selectedSceneId) ?? scenes[0] ?? null, [scenes, selectedSceneId]);
-  const activeSceneAutoPrompt = useMemo(() => generateScenePrompt(selectedProject?.title, activeScene?.clips ?? [], selectedProject?.artStyle ?? undefined, projectCharacters), [selectedProject?.title, activeScene?.clips, selectedProject?.artStyle, projectCharacters]);
+  const activeSceneAutoPrompt = useMemo(() => generateScenePrompt(selectedProject?.title, activeScene?.clips ?? [], selectedProject?.artStyle ?? undefined), [selectedProject?.title, activeScene?.clips, selectedProject?.artStyle]);
 
   const remainingCredits = useMemo(() => {
     if (!creditsData) return 0;
@@ -322,7 +285,7 @@ export default function AnimationStudioPage() {
           if (scene.id !== sceneId) return scene;
           const merged: Scene = { ...scene, ...updates };
           if (!merged.promptWasEdited) {
-            merged.prompt = generateScenePrompt(selectedProject?.title, merged.clips, selectedProject?.artStyle ?? undefined, projectCharacters);
+            merged.prompt = generateScenePrompt(selectedProject?.title, merged.clips, selectedProject?.artStyle ?? undefined);
           }
           return merged;
         }),
@@ -348,13 +311,13 @@ export default function AnimationStudioPage() {
           if (scene.id !== sceneId) return scene;
           const clip: SceneClip = { id: createClipId(panelId), panel };
           const clips = [...scene.clips, clip];
-          const prompt = scene.promptWasEdited ? scene.prompt : generateScenePrompt(selectedProject?.title, clips, selectedProject?.artStyle ?? undefined, projectCharacters);
+          const prompt = scene.promptWasEdited ? scene.prompt : generateScenePrompt(selectedProject?.title, clips, selectedProject?.artStyle ?? undefined);
           return { ...scene, clips, prompt };
         }),
       );
       setSelectedSceneId(sceneId);
     },
-    [panelMap, selectedProject?.title, selectedProject?.artStyle, projectCharacters, toast],
+    [panelMap, selectedProject?.title, selectedProject?.artStyle, toast],
   );
 
   const handleQuickAddPanel = useCallback(
@@ -378,12 +341,12 @@ export default function AnimationStudioPage() {
         prevScenes.map(scene => {
           if (scene.id !== sceneId) return scene;
           const clips = scene.clips.filter(clip => clip.id !== clipId);
-          const prompt = scene.promptWasEdited ? scene.prompt : generateScenePrompt(selectedProject?.title, clips, selectedProject?.artStyle ?? undefined, projectCharacters);
+          const prompt = scene.promptWasEdited ? scene.prompt : generateScenePrompt(selectedProject?.title, clips, selectedProject?.artStyle ?? undefined);
           return { ...scene, clips, prompt };
         }),
       );
     },
-    [selectedProject?.title, selectedProject?.artStyle, projectCharacters],
+    [selectedProject?.title, selectedProject?.artStyle],
   );
 
   const handleRemoveLastClip = useCallback(
@@ -393,12 +356,12 @@ export default function AnimationStudioPage() {
           if (scene.id !== sceneId) return scene;
           if (scene.clips.length === 0) return scene;
           const clips = scene.clips.slice(0, -1);
-          const prompt = scene.promptWasEdited ? scene.prompt : generateScenePrompt(selectedProject?.title, clips, selectedProject?.artStyle ?? undefined, projectCharacters);
+          const prompt = scene.promptWasEdited ? scene.prompt : generateScenePrompt(selectedProject?.title, clips, selectedProject?.artStyle ?? undefined);
           return { ...scene, clips, prompt };
         }),
       );
     },
-    [selectedProject?.title, selectedProject?.artStyle, projectCharacters],
+    [selectedProject?.title, selectedProject?.artStyle],
   );
 
   const handleClearScene = useCallback((sceneId: string) => {
@@ -448,7 +411,7 @@ export default function AnimationStudioPage() {
         return;
       }
 
-      const autoPrompt = generateScenePrompt(selectedProject?.title, scene.clips, selectedProject?.artStyle ?? undefined, projectCharacters);
+      const autoPrompt = generateScenePrompt(selectedProject?.title, scene.clips, selectedProject?.artStyle ?? undefined);
       const finalPrompt = scene.prompt.trim().length > 0 ? scene.prompt : autoPrompt;
 
       if (!finalPrompt) {
