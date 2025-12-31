@@ -2,6 +2,8 @@
 
 Kumayiri is an AI-powered comic creation platform enabling users to design and generate comic books page by page, panel by panel. It features a "Story Bible" system where users define their comic's world (characters, settings, tone, art style) once, ensuring visual and narrative consistency across AI-generated pages. Users can generate individual panels with custom prompts or use one-click page generation to automatically create all panels based on a script. The platform aims to provide a streamlined, consistent comic creation experience.
 
+**For comprehensive documentation, see [README.md](./README.md)** - includes full API reference, database schema, feature details, and development guide.
+
 # User Preferences
 
 Preferred communication style: Simple, everyday language.
